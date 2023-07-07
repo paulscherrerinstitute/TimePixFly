@@ -1,49 +1,66 @@
 #ifndef PERIOD_PREDICTOR_H
 #define PERIOD_PREDICTOR_H
 
+// Code for maintaining a period prediction
+// Both the interval and the period number can be predicted
+
+
 #include <algorithm>
+#include <cmath>
 
 class period_predictor final {
     static constexpr unsigned N = 4;
     std::array<struct{ int64_t ts, double p }, N> past;  // time stamp, period
-    double current;
+    int64_t start;
+    double interval;
     unsigned first = 0;
 
-    int64_t predict_period() const noexcept
+    inline double predict_period() const noexcept
     {
-        std::array<double, N-1> interval;
+        std::array<double, N-1> diff;
         for (unsigned i=0; i<N; i++) {
             const unsigned l = (first + i) % (N-1);
             const unsigned h = (l + 1) % (N-1);
-            interval[i] = (past[h].ts - past[l].ts) / (past[h].p - past[l].p);
+            diff[i] = (past[h].ts - past[l].ts) / (past[h].p - past[l].p);
         }
-        std::sort(&interval[0], &interval[N-1]);
-        return interval[(N-1) / 2];
+        std::sort(&diff[0], &diff[N-1]);
+        return diff[(N-1) / 2];
     }
 
   public:
-    period_predictor(int64_t start, int64_t period) noexcept
+    inline period_predictor(int64_t start_, int64_t period) noexcept
     {
+        start = start_;
         for (unsigned i=0; i<N; i++)
-            time_stamp[i] = { start + i * period, i };
-        current = predict_period();
+            time_stamp[i] = { start + i * period, (double)i };
+        interval = predict_period();
     }
 
-    double interval_prediction() const noexcept
+    inline double interval_prediction() const noexcept
     {
-        return current;
+        return interval;
     }
 
-    double period_prediction(int64_t start, int64_t ts) const noexcept
+    inline double period_prediction(int64_t ts) const noexcept
     {
-        return double(ts - start) / double(current);
+        return (ts - start) / interval;
     }
 
-    void prediction_update(int64_t ts, double period) noexcept
+    inline void prediction_update(int64_t ts) noexcept
     {
+        double period = std::round(period_prediction(ts));
         time_stamp[first] = { ts, period };
         first = (first + 1) % N;
-        current = predict_period();
+        interval = predict_period();
+    }
+
+    inline void start_update(int64_t start_) noexcept
+    {
+        correction = std::round((start_ - start) / interval);
+        for (auto& s : past)
+            s.p += correction;
+        start = start_;
+        interval = predict_period();
     }
 };
 
