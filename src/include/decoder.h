@@ -1,5 +1,5 @@
-#ifndef DECODE_H
-#define DECODE_H
+#ifndef DECODER_H
+#define DECODER_H
 
 // Provide code for decoding Timepix3 raw stream data
 
@@ -106,4 +106,4 @@ struct AsiRawStreamDecoder final {
     }
 };  // AsiRawStreamDecoder
 
-#endif // DECODE_H
+#endif // DECODER_H
