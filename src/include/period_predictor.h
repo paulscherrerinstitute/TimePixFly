@@ -13,9 +13,10 @@ class period_predictor final {
     std::array<struct{ int64_t ts, double p }, N> past;  // time stamp, period
     int64_t start;
     double interval;
+    long correction = 0;
     unsigned first = 0;
 
-    inline double predict_period() const noexcept
+    inline double predict_interval() const noexcept
     {
         std::array<double, N-1> diff;
         for (unsigned i=0; i<N; i++) {
@@ -31,10 +32,11 @@ class period_predictor final {
     inline period_predictor(int64_t start_, int64_t period) noexcept
     {
         start = start_;
-        for (unsigned i=0; i<N; i++)
-            time_stamp[i] = { start + i * period, (double)i };
-        interval = predict_period();
+        interval = period;
+        reset();
     }
+
+    ~period_predictor() = default;
 
     inline double interval_prediction() const noexcept
     {
@@ -43,7 +45,7 @@ class period_predictor final {
 
     inline double period_prediction(int64_t ts) const noexcept
     {
-        return (ts - start) / interval;
+        return (ts - start) / interval + correction;
     }
 
     inline void prediction_update(int64_t ts) noexcept
@@ -54,13 +56,19 @@ class period_predictor final {
         interval = predict_period();
     }
 
+    // set new start time and recalculate correction
     inline void start_update(int64_t start_) noexcept
     {
-        correction = std::round((start_ - start) / interval);
-        for (auto& s : past)
-            s.p += correction;
+        correction += std::lround((start_ - start) / interval);
         start = start_;
         interval = predict_period();
+    }
+
+    inline void reset()
+    {
+        for (unsigned i=0; i<N; i++)
+            time_stamp[i] = { start - i * interval, -(double)i };
+        correction = 0;
     }
 };
 
