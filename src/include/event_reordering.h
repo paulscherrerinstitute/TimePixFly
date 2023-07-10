@@ -18,7 +18,7 @@ struct reordering_element final {
 
 // TOA priority comparator
 struct toa_older_comparator final {
-    inline bool operator()(const reordering_element& lhs, const reordering_element& rhs) noexcept
+    inline bool operator()(const reordering_element& lhs, const reordering_element& rhs) const noexcept
     {
         return lhs.toa > rhs.toa;
     }
