@@ -7,14 +7,15 @@
 #include <condition_variable>
 
 struct io_buffer final {
+    inline static std::atomic<unsigned> next_id;
     std::vector<char> content;
     size_t content_offset = 0;
     size_t content_size = 0;
     size_t chunk_size = 0;
-    uint64_t packet_id = 0;
+    unsigned id;
 
     io_buffer(size_t sz)
-        : content(sz)
+        : content(sz), id{next_id.fetch_add(1)}
     {}
 
     io_buffer(const io_buffer&) = delete;

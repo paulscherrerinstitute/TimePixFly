@@ -220,10 +220,10 @@ namespace {
                 if (!Decode::matchesByte(header[1], 0x50))
                     throw DataFormatException("packet id expected");
                 packetId = Decode::getBits(header[1], 47, 0);
-                logger << "packet header: chipIndex " << chipIndex << ", chunSize " << chunkSize << ", packetId " << packetId << log_info;
+                logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_info;
             #else
                 packetId = 0;
-                logger << "packet header: chipIndex " << chipIndex << ", chunSize " << chunkSize << log_info;
+                logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << log_info;
             #endif
 
             return numRead;
@@ -287,7 +287,7 @@ namespace {
                             bytesRead = dataStream.receiveBytes(&data[bytesBuffered], readSize);
                             totalBytes += bytesRead;
 
-                            logger << "read " << bytesRead << " bytes into buffer " << data << ", " << totalBytes << " total" << log_debug;
+                            logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes << " total" << log_debug;
 
                             eventBuffer->content_size += bytesRead;
 
@@ -367,7 +367,8 @@ namespace {
                         
                         size_t dataSize = eventBuffer->content_size;
                         chunkSize = eventBuffer->chunk_size;
-                        logger << threadId << ": full buffer, chunk " << chunkSize
+                        logger << threadId << ": full buffer " << eventBuffer->id
+                                           << " chunk " << chunkSize
                                            << " offset " << eventBuffer->content_offset
                                            << " size " << eventBuffer->content_size
                                            << " packet " << packetNumber << log_debug;
@@ -388,9 +389,9 @@ namespace {
                             // bool isChip = (d & 0xffffffffUL) == tpxHeader;
 
                             if ((d & 0xffffffffUL) == tpxHeader) {
-                                throw RuntimeException("encountered chunk header within chunk");
+                                throw RuntimeException(std::string("encountered chunk header within chunk at offset ") + std::to_string(processingByte));
                             } else if (Decode::matchesByte(d, 0x50)) {
-                                throw RuntimeException("encountered packet ID within chunk");
+                                throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
                             } else if (Decode::matchesNibble(d, 0xb)) {
                                 //         if isHit:
                                 //             # Note: calculating TOF is harder, since the order of the pixel data
