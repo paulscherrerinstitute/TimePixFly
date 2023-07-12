@@ -269,7 +269,7 @@ namespace {
 
                         const auto t1 = wall_clock::now();
 
-                        auto* eventBuffer = bufferPool.get_empty_buffer();
+                        auto eventBuffer = bufferPool.get_empty_buffer();
                         if (eventBuffer == nullptr)
                             throw LogicException("received nullptr as empty buffer");
 
@@ -348,7 +348,6 @@ namespace {
 
             try {
            
-                uint64_t packetNumber = 0;
                 auto& bufferPool = *perChipBufferPool[chipIndex];
 
                 do {
@@ -370,7 +369,8 @@ namespace {
                         chunkSize = eventBuffer->chunk_size;
                         logger << threadId << ": full buffer, chunk " << chunkSize
                                            << " offset " << eventBuffer->content_offset
-                                           << " size " << eventBuffer->content_size << log_debug;
+                                           << " size " << eventBuffer->content_size
+                                           << " packet " << packetNumber << log_debug;
 
                         size_t processingByte = 0;
                         const char* content = eventBuffer->content.data();

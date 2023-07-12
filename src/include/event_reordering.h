@@ -1,4 +1,4 @@
-#ifdef EVENT_REORDERING_H
+#ifndef EVENT_REORDERING_H
 #define EVENT_REORDERING_H
 
 // Provide event reordering based on event TOA
