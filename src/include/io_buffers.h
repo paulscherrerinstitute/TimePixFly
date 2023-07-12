@@ -1,4 +1,4 @@
-#ifdef IO_BUFFERS_H
+#ifndef IO_BUFFERS_H
 #define IO_BUFFERS_H
 
 #include <map>
