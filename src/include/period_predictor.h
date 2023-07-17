@@ -32,9 +32,7 @@ class period_predictor final {
   public:
     inline period_predictor(int64_t start_, int64_t period) noexcept
     {
-        start = start_;
-        interval = period;
-        reset();
+        reset(start_, period);
     }
 
     ~period_predictor() = default;
@@ -65,11 +63,18 @@ class period_predictor final {
         interval = predict_interval();
     }
 
-    inline void reset()
+    inline void reset(int64_t start_, int64_t period) noexcept
     {
+        start = start_;
+        interval = period;
         for (unsigned i=0; i<N; i++)
             past[i] = { std::lround(start - i * interval), -(double)i };
         correction = 0;
+    }
+
+    inline unsigned minPoints() const noexcept
+    {
+        return (N + 1) / 2;
     }
 };
 
