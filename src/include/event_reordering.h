@@ -7,11 +7,11 @@
 
 // What is reordered
 struct reordering_element final {
-    uint64_t toa;   // priority
+    int64_t toa;   // priority
     uint64_t event; // full event
 
     [[gnu::const]]
-    inline reordering_element(uint64_t toa_, uint64_t event_) noexcept
+    inline reordering_element(int64_t toa_, uint64_t event_) noexcept
         : toa{toa_}, event{event_}
     {}
 };

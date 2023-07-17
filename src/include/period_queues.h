@@ -5,15 +5,27 @@
 #include <map>
 #include "event_reordering.h"
 
+using period_type = int64_t;
+
 struct period_queue_element final {
     std::unique_ptr<event_reorder_queue> queue;
-    int64_t start;
+    int64_t start = 0;
     bool start_seen = false;    // either start is valid, or the queue, but not both
+
+    inline period_queue_element()
+        : queue{new event_reorder_queue{}}
+    {}
+
+    inline ~period_queue_element() = default;
+    period_queue_element(const period_queue_element&) = delete;
+    inline period_queue_element(period_queue_element&&) = default;
+    period_queue_element& operator=(const period_queue_element&) = delete;
+    inline period_queue_element& operator=(period_queue_element&&) = default;
 };
 
 struct period_index final {
-    long period;
-    long disputed_period;
+    period_type period;
+    period_type disputed_period;
     bool disputed;
 };
 
@@ -23,7 +35,7 @@ struct period_queues final {
     inline period_index period_index_for(double period)
     {
         double f = period - std::floor(period);
-        long p = std::lround(period);
+        period_type p = std::lround(period);
         if (f > 1. - threshold)
             return { p, p+1, true };
         if (f < threshold)
@@ -31,25 +43,26 @@ struct period_queues final {
         return { p, p, false };
     }
 
-    inline void refined_index(period_index& to_refine, uint64_t time_stamp)
+    inline void refined_index(period_index& to_refine, int64_t time_stamp)
     {
         if (! to_refine.disputed)
             return;
 
-        auto& pqe_ptr = element.find(to_refine.disputed_period);
-        if (pqe_ptr == std:end(element))
+        const auto pqe_ptr = element.find(to_refine.disputed_period);
+        if (pqe_ptr == std::end(element))
             return;
 
-        if (! pqe_ptr->start_seen)
+        const auto& pqe = pqe_ptr->second;
+        if (! pqe.start_seen)
             return;
         
         to_refine.disputed = false;
 
-        if (pqe_ptr->period == pqe_ptr->disputed_period) {  // disputed at start
-            if (pqe_ptr->start > time_stamp)
+        if (to_refine.period == to_refine.disputed_period) {    // disputed at start
+            if (pqe.start > time_stamp)
                 to_refine.period -= 1;
-        } else {                                            // disputed at end
-            if (pqe_ptr->start <= time_stamp)
+        } else {                                                // disputed at end
+            if (pqe.start <= time_stamp)
                 to_refine.period += 1;
         }
 
@@ -58,13 +71,20 @@ struct period_queues final {
 
     inline period_queue_element& operator[](const period_index& idx)
     {
-        auto& pqe = element[idx.disputed ? idx.disputed_period : idx.period];
-        if (pqe.queue == nullptr)
-            pqe.queue.reset(new period_queue_element{})
-        return pqe;
+        return element[idx.disputed ? idx.disputed_period : idx.period];
     }
 
-    std::map<long, period_queue_element> element;   // key = period number
+    inline event_reorder_queue& registerStart(const period_index& idx, int64_t start)
+    {
+        assert(idx.disputed);
+        auto& pqe = (*this)[idx];
+        assert(! pqe.start_seen);
+        pqe.start = start;
+        pqe.start_seen = true;
+        return *pqe.queue;
+    }
+
+    std::map<period_type, period_queue_element> element;   // key = period number
     double threshold = 0.1;                         // (1 - threshold) is the undisputed period attribution interval
 };
 

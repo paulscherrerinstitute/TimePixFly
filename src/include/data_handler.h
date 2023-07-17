@@ -10,6 +10,8 @@
 #include "Poco/Net/StreamSocket.h"
 #include "logging.h"
 #include "io_buffers.h"
+#include "period_predictor.h"
+#include "period_queues.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -22,8 +24,6 @@ namespace {
 
 template<typename Decode>
 class DataHandler final {
-    //      tpxHeader = int.from_bytes(b'TPX3', 'little')
-    // const uint32_t tpxHeader = Poco::ByteOrder::fromLittleEndian(*reinterpret_cast<const uint64_t*>(tpxBytes.data()));
     constexpr static uint64_t tpxHeader = 861425748UL; // 'TPX3' as uint64_t
     #if SERVER_VERSION >= 320
         uint64_t DATA_OFFSET = 8;   // start of event data
@@ -42,14 +42,17 @@ class DataHandler final {
     std::atomic<unsigned> analyzerReady = 0;
     std::atomic<bool> stopOperation = false;
 
+    period_predictor predictor;
+    period_queues queues;
+
     bool stop() const
     {
-        return stopOperation.load(std::memory_order_relaxed);
+        return stopOperation.load(std::memory_order_consume);
     }
 
     void stopNow()
     {
-        stopOperation.store(true, std::memory_order_relaxed);
+        stopOperation.store(true, std::memory_order_release);
     }
 
     int readData(void* buf, int size)
@@ -88,9 +91,6 @@ class DataHandler final {
             #endif
                 << std::dec << log_debug;
 
-        //         if isChip:
-        //             chipIndex = get_bits(d, 39, 32)
-        //             # print('ChipIndex: ', chipIndex)
         if ((header[0] & 0xffffffffUL) != tpxHeader)
             throw DataFormatException("chunk header expected");
         chipIndex = Decode::getBits(header[0], 39, 32);
@@ -110,19 +110,6 @@ class DataHandler final {
 
     void readData()
     {
-        // with connection:
-        //     while reading:
-
-        //         # Read a multiple of 8 into buffer_
-        //         read = 0
-        //         while read == 0 or read % 8 != 0:
-        //             newly_read = connection.recv_into(view[read:], bytes_to_read - read)
-
-        //             if newly_read == 0:
-        //                 reading = False
-        //                 break
-
-        //             read += newly_read
         double spinTime = .0;
         double workTime = .0;
 
@@ -208,16 +195,45 @@ class DataHandler final {
 
     }
 
+    inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
+    {
+        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
+        logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
+               << " (" << std::hex << event << std::dec << ')' << log_debug;
+        queues[index].queue->push({toaclk, event});
+    }
+
+    inline void processEvent(unsigned chipIndex, const period_index& index, int64_t toaclk, uint64_t event)
+    {
+        logger << "processEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
+        const uint64_t totclk = Decode::getTotClock(event);
+        const float toa = Decode::clockToFloat(toaclk);
+        const float tot = Decode::clockToFloat(totclk, 40e6);
+        const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
+        logger << chipIndex << ": event: " << index.period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
+               << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
+    }
+
+    inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk)
+    {
+        const float tdc = Decode::clockToFloat(tdcclk);
+        logger << chipIndex << ": TDC: " << tdc << log_info;
+        auto& rq = queues.registerStart(index, tdcclk);
+        // modify index so that
+        // - index.period is the period before the tdc
+        // - index.disputed_period is the period after the tdc
+        if (index.period == index.disputed_period)
+            index.period -= 1;
+        for (; !rq.empty(); rq.pop()) {
+            auto& el = rq.top();
+            processEvent(chipIndex, index, el.toa, el.event);
+        }
+    }
+
     void analyseData(unsigned threadId)
     {
-        // def process_raw_data(buffer_, N):                
-
-        //     chipIndex = 0
-        //     count = 0
-
         const unsigned chipIndex = threadId;
 
-        // init buffer pool / io_buffer_pool::buffer_size set elsewhere
         perChipBufferPool[chipIndex].reset(new io_buffer_pool{});
         analyzerReady.fetch_add(1, std::memory_order_release);
 
@@ -255,44 +271,27 @@ class DataHandler final {
                     size_t processingByte = 0;
                     const char* content = eventBuffer->content.data();
 
-                    //     for i in range(N):
                     while (processingByte < dataSize) {
-                        //         d = int(buffer_[i])
                         uint64_t d = *reinterpret_cast<const uint64_t*>(&content[processingByte]);
-
-                        //         isHit = matches_nibble(d, 0xb)
-                        //         isTDC = matches_nibble(d, 0x6)
-                        //         isChip = (d & ((1 << 32) - 1) == tpxHeader)
-                        // bool isHit = matchesNibble(d, 0xb);
-                        // bool isTdc = matchesNibble(d, 0x6);
-                        // bool isChip = (d & 0xffffffffUL) == tpxHeader;
-
                         if ((d & 0xffffffffUL) == tpxHeader) {
                             throw RuntimeException(std::string("encountered chunk header within chunk at offset ") + std::to_string(processingByte));
                         } else if (Decode::matchesByte(d, 0x50)) {
                             throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
                         } else if (Decode::matchesNibble(d, 0xb)) {
-                            //         if isHit:
-                            //             # Note: calculating TOF is harder, since the order of the pixel data
-                            //             # is not guaranteed. Therefore in worst case all pixel data must be sorted.
-                            //             toa = clock_to_float(get_TOA_clock(d))
-                            //             tot = clock_to_float(get_TOT_clock(d), clock=40e6)
-                            //             x, y = calculate_XY(d)
-                            //             count += 1
-                            //             print('Hit: ', chipIndex, x, y, tot, toa)
                             const int64_t toaclk = Decode::getToaClock(d);
-                            const uint64_t totclk = Decode::getTotClock(d);
-                            float toa = Decode::clockToFloat(toaclk);
-                            float tot = Decode::clockToFloat(totclk, 40e6);
-                            std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(d);
+                            const double period = predictor.period_prediction(toaclk);
+                            auto index = queues.period_index_for(period);
+                            queues.refined_index(index, toaclk);
                             hits++;
-                            logger << threadId << ": Hit: " << chipIndex << ' ' << xy.first << ' ' << xy.second << ' ' << tot << ' ' << toa << "  (" << totclk << ' ' << toaclk << ' ' << std::hex << d << std::dec << ')' << log_info;
+                            if (! index.disputed)
+                                processEvent(chipIndex, index, toaclk, d);
+                            else
+                                enqueueEvent(chipIndex, index, toaclk, d);
                         } else if (Decode::matchesNibble(d, 0x6)) {
-                            //         elif isTDC:
-                            //             tdc = clock_to_float(get_TDC_clock(d))
-                            //             # print('TDC: ', tdc)
-                            float tdc = Decode::clockToFloat(Decode::getTdcClock(d));
-                            logger << threadId << ": TDC: " << tdc << log_info;
+                            const uint64_t tdcclk = Decode::getTdcClock(d);
+                            const double period = predictor.period_prediction(tdcclk);
+                            auto index = queues.period_index_for(period);
+                            processTdc(chipIndex, index, tdcclk);
                         } else {
                             logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;
                         }
@@ -332,13 +331,12 @@ class DataHandler final {
             analyseSpinTime += spinTime;
         }
 
-        //         print('Processed %i hits' % processed)
         logger << threadId << ": Processed " << hits << " hits" << log_info;
     }
 
 public:
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips)
-        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize}
+    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period)
+        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize}, predictor{0, period}
     {
         io_buffer_pool::buffer_size = bufSize;
         logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ')' << log_trace;

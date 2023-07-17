@@ -9,8 +9,9 @@
 #include <cmath>
 
 class period_predictor final {
+    struct data_point final { int64_t ts; double p; };
     static constexpr unsigned N = 4;
-    std::array<struct{ int64_t ts, double p }, N> past;  // time stamp, period
+    std::array<data_point, N> past;  // time stamp, period
     int64_t start;
     double interval;
     long correction = 0;
@@ -51,9 +52,9 @@ class period_predictor final {
     inline void prediction_update(int64_t ts) noexcept
     {
         double period = std::round(period_prediction(ts));
-        time_stamp[first] = { ts, period };
+        past[first] = { ts, period };
         first = (first + 1) % N;
-        interval = predict_period();
+        interval = predict_interval();
     }
 
     // set new start time and recalculate correction
@@ -61,13 +62,13 @@ class period_predictor final {
     {
         correction += std::lround((start_ - start) / interval);
         start = start_;
-        interval = predict_period();
+        interval = predict_interval();
     }
 
     inline void reset()
     {
         for (unsigned i=0; i<N; i++)
-            time_stamp[i] = { start - i * interval, -(double)i };
+            past[i] = { std::lround(start - i * interval), -(double)i };
         correction = 0;
     }
 };

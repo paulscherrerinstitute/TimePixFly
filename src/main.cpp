@@ -94,6 +94,7 @@ namespace {
         std::string bpcFilePath;
         std::string dacsFilePath;
 
+        int64_t initialPeriod;
         unsigned long numBuffers = DEFAULT_NUM_BUFFERS;
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE;
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
@@ -159,6 +160,13 @@ namespace {
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
+            options.addOption(Option("initial-period", "p")
+                .description("initial TDC period")
+                .required(true)
+                .repeatable(false)
+                .argument("NUM")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
+
             // options.addOption(Option("num-analyzers", "t")
             //     .description("number of analyzer threads")
             //     .required(false)
@@ -202,6 +210,10 @@ namespace {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive number of data buffers"};
                 numBuffers = num;
+            } else if (name == "initial-period") {
+                if (num < 1)
+                    throw InvalidArgumentException{"non-positive initial TDC period"};
+                initialPeriod = num;
             // } else if (name == "num-analyzers") {
             //     if (num < 1)
             //         throw InvalidArgumentException{"non-positive number of analyser threads"};
@@ -580,7 +592,7 @@ namespace {
 
             logger << "connection from " << senderAddress.toString() << log_info;
 
-            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips);
+            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod);
             dataHandler.run_async();
             dataHandler.await();
 
