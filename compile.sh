@@ -1,5 +1,7 @@
 #!/bin/bash
 
+TARGET=${1:-tpx3app}
+
 : ${CXX:=g++}
 LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation"
 
@@ -13,6 +15,17 @@ fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS"
 
-cmd="${CXX} -I src/include src/main.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
-echo "$cmd"
-eval "$cmd"
+TEST_FLAGS+=" -Og -ggdb -march=native"
+
+case "$TARGET" in
+    "tpx3app")
+        cmd="${CXX} -I src/include src/main.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
+        echo "$cmd"
+        eval "$cmd";;
+    "test")
+        cmd="${CXX} -I src/include src/test.cpp -std=c++17 ${TEST_FLAGS} -o test"
+        echo "$cmd"
+        eval "$cmd";;
+    *)
+        echo "unknown target: $TARGET";;
+esac
