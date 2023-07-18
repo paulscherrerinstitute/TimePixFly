@@ -30,6 +30,7 @@ struct period_index final {
 };
 
 struct period_queues final {
+    using queue_type = std::map<period_type, period_queue_element>;
 
     [[gnu::const]]
     inline period_index period_index_for(double period)
@@ -84,7 +85,17 @@ struct period_queues final {
         return *pqe.queue;
     }
 
-    std::map<period_type, period_queue_element> element;   // key = period number
+    inline queue_type::iterator oldest()
+    {
+        return std::begin(element);
+    }
+
+    inline void erase(queue_type::iterator pos)
+    {
+        element.erase(pos);
+    }
+
+    queue_type element;   // key = period number
     double threshold = 0.1;                         // (1 - threshold) is the undisputed period attribution interval
 };
 

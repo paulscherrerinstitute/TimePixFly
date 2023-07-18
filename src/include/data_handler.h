@@ -196,12 +196,11 @@ class DataHandler final {
 
     }
 
-    inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
+    // ----------------------- BINNING AND PURGING LOGIC ------------------------
+    inline void purgePeriod(unsigned chipIndex, period_type period)
     {
-        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
-        logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
-               << " (" << std::hex << event << std::dec << ')' << log_debug;
-        queues[index].queue->push({toaclk, event});
+        logger << "purgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
+        logger << chipIndex << ": purge period " << period << log_info;
     }
 
     inline void processEvent(unsigned chipIndex, const period_index& index, int64_t toaclk, uint64_t event)
@@ -214,6 +213,7 @@ class DataHandler final {
         logger << chipIndex << ": event: " << index.period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
                << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
     }
+    // --------------------------------------------------------------------------
 
     inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk)
     {
@@ -229,6 +229,25 @@ class DataHandler final {
             auto& el = rq.top();
             processEvent(chipIndex, index, el.toa, el.event);
         }
+        // remove old period data
+        do {
+            auto pp = queues.oldest();
+            if (pp->first >= index.period - 1)  // period too recent?
+                break;
+            if (! pp->second.start_seen)        // TDC for period received?
+                break;
+            purgePeriod(chipIndex, pp->first);
+            logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
+            queues.erase(pp);
+        } while (true);
+    }
+
+    inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
+    {
+        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
+        logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
+               << " (" << std::hex << event << std::dec << ')' << log_debug;
+        queues[index].queue->push({toaclk, event});
     }
 
     void analyseData(unsigned threadId)
