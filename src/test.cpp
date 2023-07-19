@@ -3,6 +3,7 @@
 #include <functional>
 #include <iostream>
 #include "period_predictor.h"
+#include "event_reordering.h"
 
 namespace {
 
@@ -116,6 +117,25 @@ namespace {
         }
     }
 
+    namespace event_reorder_queue {
+        void sorted_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            ::event_reorder_queue q;
+            q.push({4, 4});
+            q.push({1, 1});
+            q.push({2, 2});
+            check_eq(unit, t, q.size(), (::event_reorder_queue::size_type)3);
+            check_eq(unit, t, q.top().toa, (int64_t)1);
+            q.pop();
+            check_eq(unit, t, q.top().toa, (int64_t)2);
+            q.pop();
+            check_eq(unit, t, q.top().toa, (int64_t)4);
+            q.pop();
+            check_eq(unit, t, q.empty(), true);
+        }
+    }
+
     void init_tests()
     {
         tests.insert({
@@ -127,6 +147,11 @@ namespace {
             "period_predictor::predictor_update",
             "prediction_update, start_update",
             period_predictor::predictor_update_test
+        });
+        tests.insert({
+            "event_reorder_queue::sorted",
+            "iterator sequence",
+            event_reorder_queue::sorted_test
         });
     }
 

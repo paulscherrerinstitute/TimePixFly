@@ -10,10 +10,15 @@ struct reordering_element final {
     int64_t toa;   // priority
     uint64_t event; // full event
 
-    [[gnu::const]]
     inline reordering_element(int64_t toa_, uint64_t event_) noexcept
         : toa{toa_}, event{event_}
     {}
+
+    inline ~reordering_element() = default;
+    inline reordering_element(const reordering_element&) = default;
+    inline reordering_element(reordering_element&&) = default;
+    inline reordering_element& operator=(const reordering_element&) = default;
+    inline reordering_element& operator=(reordering_element&&) = default;
 };
 
 // TOA priority comparator
