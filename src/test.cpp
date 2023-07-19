@@ -2,8 +2,11 @@
 #include <vector>
 #include <functional>
 #include <iostream>
+#include <cstring>
+#include <regex>
 #include "period_predictor.h"
 #include "event_reordering.h"
+#include "period_queues.h"
 
 namespace {
 
@@ -66,6 +69,16 @@ namespace {
     {
         successful_tests.push_back({&unit, t});
         t++;
+    }
+
+    inline decltype(verbose)& operator<<(decltype(verbose)& out, const period_index& idx)
+    {
+        return out.operator<<(idx);
+    }
+
+    bool operator!=(const period_index& a, const period_index& b) noexcept
+    {
+        return std::memcmp(&a, &b, sizeof(period_index)) != 0;
     }
 
     template<typename T>
@@ -136,6 +149,64 @@ namespace {
         }
     }
 
+    namespace period_queues {
+        void period_index_for_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            ::period_queues pq;
+            double d = pq.threshold / 2.0;
+            check_eq(unit, t, pq.period_index_for(1.0), period_index{1, 1, true});
+            check_eq(unit, t, pq.period_index_for(1.0 + d), period_index{1, 1, true});
+            check_eq(unit, t, pq.period_index_for(1.5), period_index{1, 1, false});
+            check_eq(unit, t, pq.period_index_for(2.0 - d), period_index{1, 2, true});
+        }
+
+        void refined_index_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            ::period_queues pq;
+            double d = pq.threshold / 2.0;
+            period_index idx;
+            idx = pq.period_index_for(0.5); // undisputed index
+            check_eq(unit, t, idx, period_index{0, 0, false});
+            pq.refined_index(idx, 0);
+            check_eq(unit, t, idx, period_index{0, 0, false});
+            idx = pq.period_index_for(d);   // disputed index
+            check_eq(unit, t, idx, period_index{0, 0, true});
+            pq.refined_index(idx, 0);
+            check_eq(unit, t, idx, period_index{0, 0, true});
+            pq[idx] = period_queue_element{};
+            check_eq(unit, t, pq[idx].start_seen, false);
+            pq.refined_index(idx, 0);
+            check_eq(unit, t, idx, period_index{0, 0, true});
+            pq.registerStart(idx, 1);
+            check_eq(unit, t, pq[idx].start, (int64_t)1);
+            check_eq(unit, t, pq[idx].start_seen, true);
+            pq.refined_index(idx, 2);
+            check_eq(unit, t, idx, period_index{0, 0, false});
+            idx.disputed = true;
+            pq.refined_index(idx, 0);
+            check_eq(unit, t, idx, period_index{-1, 0, false});
+        }
+
+        void purge_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            ::period_queues pq;
+            double d = pq.threshold / 2.0;
+            period_index idx = pq.period_index_for(d);
+            pq[idx] = period_queue_element{};
+            auto rq = pq.registerStart(idx, 1);
+            auto oldest = pq.oldest();
+            check_eq(unit, t, oldest->first, (period_type)0);
+            check_eq(unit, t, oldest->second.start, (int64_t)1);
+            check_eq(unit, t, rq.empty(), true);
+            check_eq(unit, t, pq.element.size(), (::period_queues::queue_type::size_type)1);
+            pq.erase(oldest);
+            check_eq(unit, t, pq.element.size(), (::period_queues::queue_type::size_type)0);
+        }
+    }
+
     void init_tests()
     {
         tests.insert({
@@ -153,43 +224,79 @@ namespace {
             "iterator sequence",
             event_reorder_queue::sorted_test
         });
+        tests.insert({
+            "period_queues::period_index_for",
+            "period_index_for",
+            period_queues::period_index_for_test
+        });
+        tests.insert({
+            "period_queues::refined_index",
+            "refined_index",
+            period_queues::refined_index_test
+        });
+        tests.insert({
+            "period_queues::purge",
+            "registerStart, oldest, erase",
+            period_queues::purge_test
+        });
     }
 
     [[noreturn]]
     void help(const std::string& progname)
     {
         std::cout << progname << " (-h | --help)\n";
-        std::cout << progname << " [(-v | --verbose)] substr*\n";
+        std::cout << progname << " [(-v | --verbose)] [(-l | --list)] pattern*\n";
         exit(1);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    std::vector<std::string> pattern;
+    std::vector<std::regex> pattern;
+    bool list_tests = false;
+
     for (int i=1; i<argc; i++) {
         const std::string& arg = argv[i];
         if ((arg == "--help") || (arg == "-h"))
             help(argc ? argv[0] : "<exe>");
         else if ((arg == "--verbose") || (arg == "-v"))
             verbose.output = true;
-        else
-            pattern.push_back(argv[i]);
+        else if ((arg == "--list") || (arg == "-l"))
+            list_tests = true;
+        else try {
+            pattern.emplace_back(argv[i]);
+        } catch (std::exception& ex) {
+            std::cerr << "Pattern error: " << ex.what() << '\n';
+            return 1;
+        }
     }
+
     init_tests();
-    for (const auto& unit : tests) {
-        bool selected = false;
-        if (! pattern.empty()) {
+
+    std::vector<const test_unit*> selected_tests;
+    if (! pattern.empty()) {
+        for (const auto& unit : tests) {
             for (const auto& pat : pattern) {
-                if (unit.name.find(pat) != std::string::npos) {
-                    selected = true;
+                if (regex_search(std::begin(unit.name), std::end(unit.name), pat)) {
+                    selected_tests.push_back(&unit);
                     break;
                 }
             }
-        } else
-            selected = true;
-        if (selected)
-            unit.test(unit);
+        }
+    } else {
+        for (const auto& unit : tests)
+            selected_tests.emplace_back(&unit);
+    }
+
+    if (list_tests) {
+        for (const auto* unit : selected_tests){
+            std::cout << unit->name; verbose << " : " << unit->desc; std::cout << '\n';
+        }
+        return 0;
+    }
+
+    for (const auto& unit : selected_tests) {
+        unit->test(*unit);
     }
 
     for (const auto& res : successful_tests)

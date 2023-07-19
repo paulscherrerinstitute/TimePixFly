@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <map>
+#include <cassert>
 #include "event_reordering.h"
 
 using period_type = int64_t;
@@ -29,14 +30,21 @@ struct period_index final {
     bool disputed;
 };
 
+template<typename Stream>
+Stream& operator<<(Stream& stream, const period_index& idx)
+{
+    stream << 'p' << idx.period << (idx.disputed ? 'd' : 'u') << idx.disputed_period;
+    return stream;
+}
+
 struct period_queues final {
     using queue_type = std::map<period_type, period_queue_element>;
 
     [[gnu::const]]
-    inline period_index period_index_for(double period)
+    inline period_index period_index_for(double period) const noexcept
     {
-        double f = period - std::floor(period);
-        period_type p = std::lround(period);
+        period_type p = std::floor(period);
+        double f = period - p;
         if (f > 1. - threshold)
             return { p, p+1, true };
         if (f < threshold)
@@ -44,7 +52,7 @@ struct period_queues final {
         return { p, p, false };
     }
 
-    inline void refined_index(period_index& to_refine, int64_t time_stamp)
+    inline void refined_index(period_index& to_refine, int64_t time_stamp) noexcept
     {
         if (! to_refine.disputed)
             return;
@@ -70,6 +78,7 @@ struct period_queues final {
         return;
     }
 
+    [[gnu::pure]]
     inline period_queue_element& operator[](const period_index& idx)
     {
         return element[idx.disputed ? idx.disputed_period : idx.period];
@@ -85,6 +94,7 @@ struct period_queues final {
         return *pqe.queue;
     }
 
+    [[gnu::pure]]
     inline queue_type::iterator oldest()
     {
         return std::begin(element);
