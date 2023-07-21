@@ -26,6 +26,10 @@ case "$TARGET" in
         cmd="${CXX} -I src/include src/test.cpp -std=c++17 ${TEST_FLAGS} -o test"
         echo "$cmd"
         eval "$cmd";;
+    "server")
+        cmd="${CXX} -I src/include src/test_server.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o server"
+        echo "$cmd"
+        eval "$cmd";;
     *)
         echo "unknown target: $TARGET";;
 esac

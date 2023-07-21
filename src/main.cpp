@@ -79,10 +79,6 @@ namespace {
         bool stop = false;
         int rval = Application::EXIT_OK;
 
-        // serverip = 'localhost'
-        // serverport = 8080
-        // rawip = '127.0.0.1'
-        // rawport = 8451
         SocketAddress serverAddress = SocketAddress{"localhost:8080"};  // ASI server address
         SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};  // myself (raw data tcp destination)
 
@@ -166,13 +162,6 @@ namespace {
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
-
-            // options.addOption(Option("num-analyzers", "t")
-            //     .description("number of analyzer threads")
-            //     .required(false)
-            //     .repeatable(false)
-            //     .argument("NUM")
-            //     .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
         }
 
         inline void handleLogLevel(const std::string& name, const std::string& value)
@@ -214,10 +203,6 @@ namespace {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive initial TDC period"};
                 initialPeriod = num;
-            // } else if (name == "num-analyzers") {
-            //     if (num < 1)
-            //         throw InvalidArgumentException{"non-positive number of analyser threads"};
-            //     numAnalysers = num;
             } else {
                 throw LogicException{std::string{"unknown number argument name: "} + name};
             }
@@ -333,45 +318,23 @@ namespace {
             return putJsonString(requestString, oss.str(), response);
         }
 
-        // def tpx3_dashboard(serverurl):
-        //     """Get a dashboard of the running TPX3 detector
-
-        //     Keyword arguments:
-        //     serverurl -- the URL of the running SERVAL (string)
-        //     """
         inline Poco::JSON::Object::Ptr dashboard()
         {
             logger << "dashboard()" << log_trace;
             return getJsonObject("/dashboard");
         }
 
-        // def tpx3_cam_init(serverurl, bpc_file, dacs_file):
-        //     """Load TPX3 detector parameters required for operation, prints statuses
-
-        //     Keyword arguments:
-        //     serverurl -- the URL of the running SERVAL (string)
-        //     bpc_file -- an absolute path to the binary pixel configuration file (string)
-        //     dacs_file -- an absolute path to the text chips configuration file (string)
-        //     """
         inline void detectorInit()
         {
             logger << "detectorInit()" << log_trace;
             HTTPResponse response;
             {
-                //     # load a binary pixel configuration exported by SoPhy, the file should exist on the server
-                //     resp = requests.get(url=serverurl + '/config/load?format=pixelconfig&file=' + bpc_file)
-                //     data = resp.text
-                //     print('Response of loading binary pixel configuration file: ' + data)
                 auto& in = serverGet(std::string("/config/load?format=pixelconfig&file=") + bpcFilePath, response);
                 checkResponse(response, in);
                 logger << "Response of loading binary pixel configuration file: " << in.rdbuf() << log_notice;
                 checkSession(in);
             }
             {
-                //     #  .... and the corresponding DACS file
-                //     resp = requests.get(url=serverurl + '/config/load?format=dacs&file=' + dacs_file)
-                //     data = resp.text
-                //     print('Response of loading dacs file: ' + data)
                 auto& in = serverGet(std::string("/config/load?format=dacs&file=") + dacsFilePath, response);
                 checkResponse(response, in);
                 logger << "Response of loading dacs file: " << in.rdbuf() << log_notice;
@@ -379,10 +342,6 @@ namespace {
             }
         }
 
-        // # Example of getting the detector configuration from the server in JSON format
-        // resp = requests.get(url=serverurl + '/detector/config')
-        // data = resp.text
-        // print('Response of getting the Detector Configuration from SERVAL: ' + data)
         inline Poco::JSON::Object::Ptr detectorConfig()
         {
             logger << "detectorConfig()" << log_trace;
@@ -395,39 +354,14 @@ namespace {
             return getJsonObject("/detector/info");
         }
 
-        // def tpx3_acq_init(serverurl, detector_config, ntrig=1, shutter_open_ms=490, shutter_closed_ms=10):
-        //     """Set the number of triggers and the shutter timing for TPX3 detector
-
-        //     Keyword arguments:
-        //     serverurl -- the URL of the running SERVAL (string)
-        //     detector_config -- a dictionary with Detector Configuration data (Python dictionary)
-        //     ntrig -- number of triggers to be executed (integer, default value is 1)
-        //     shutter_open_ms -- open time of the shutter in milliseconds (integer, default value is 490)
-        //     shutter_closed_ms -- closed time of the shutter in milliseconds (integer, default value is 10)
-        //     """
         void acquisitionInit(Poco::JSON::Object::Ptr configPtr, unsigned numTriggers, unsigned shutter_open_ms=490u, unsigned shutter_closed_ms=10u)
         {
             logger << "acquisitionInit(" << numTriggers << ", " << shutter_open_ms << ", " << shutter_closed_ms << ")" << log_trace;
-            //     # Sets the number of triggers.
-            //     detector_config["nTriggers"] = ntrig
             configPtr->set("nTriggers", numTriggers);
-
-            //     # Set the trigger mode to be software-defined.
-            //     detector_config["TriggerMode"] = "AUTOTRIGSTART_TIMERSTOP"
             configPtr->set("TriggerMode", "AUTOTRIGSTART_TIMERSTOP");
-
-            //     # Sets the trigger period (time between triggers) in seconds.
-            //     detector_config["TriggerPeriod"] = (shutter_open_ms + shutter_closed_ms) / 1000
             configPtr->set("TriggerPeriod", (shutter_open_ms + shutter_closed_ms) / 1000.f);
-
-            //     # Sets the exposure time (time the shutter remains open) in seconds.
-            //     detector_config["ExposureTime"] = shutter_open_ms / 1000
             configPtr->set("ExposureTime", shutter_open_ms / 1000.f);
 
-            //     # Upload the Detector Configuration defined above
-            //     resp = requests.put(url=serverurl + '/detector/config', data=json.dumps(detector_config))
-            //     data = resp.text
-            //     print('Response of updating Detector Configuration: ' + data)
             HTTPResponse response;
             auto& in = putJsonObject("/detector/config", configPtr, response);
             checkResponse(response, in);
@@ -435,16 +369,6 @@ namespace {
             checkSession(in);
         }
 
-        // # Example of destination configuration (Python dictionary) for the data output
-        // destination = {
-        //     "Raw": [{
-        //         "Base": "tcp://connect@" + rawip + ":" + str(rawport),
-        //     }]
-        // }
-        // # Setting destination for the data output
-        // resp = requests.put(url=serverurl + '/server/destination', data=json.dumps(destination))
-        // data = resp.text
-        // print('Response of uploading the Destination Configuration to SERVAL : ' + data)
         void serverRawDestination(const SocketAddress& address)
         {
             logger << "serverRawDestination(" << address.toString() << ")" << log_trace;
@@ -456,15 +380,6 @@ namespace {
             checkSession(in);
         }
 
-        // def tpx3_simple_acq(serverurl):
-        //     """Perform TPX3 detector acquisition
-
-        //     Keyword arguments:
-        //     serverurl -- the URL of the running SERVAL (string)
-        //     """
-        //     resp = requests.get(url=serverurl + '/measurement/start')
-        //     data = resp.text
-        //     print('Response of acquisition start: ' + data)
         void acquisitionStart()
         {
             logger << "acquisitionStart()" << log_trace;
@@ -492,12 +407,6 @@ namespace {
             logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
             clientSession.reset(new HTTPClientSession{serverAddress});
 
-            // serverurl = 'http://' + serverip + ':' + str(serverport)
-            // dashboard = tpx3_dashboard(serverurl)
-            // # Print selected parameter from the TPX3 detector dashboard
-            // print('Server Software Version:', dashboard['Server']['SoftwareVersion'])
-            // # Print whole TPX3 detector dashboard
-            // print('Dashboard:', dashboard)
             auto dashboardPtr = dashboard();
             std::string softwareVersion = (dashboardPtr|"Server")->getValue<std::string>("SoftwareVersion");
             {
@@ -507,17 +416,6 @@ namespace {
                 log << log_notice;
             }
 
-            // # Change file paths to match the paths on the server:
-            // # For example, a Linux path:
-            // # bpcFile = '/home/asi/tpx3-demo.bpc
-            // # dacsFile = '/home/asi/tpx3-demo.bpc.dacs'
-            // # And on Windows:
-            // # bpcFile = 'C:\\Users\\ASI\\tpx3-demo.bpc'
-            // # dacsFile = 'C:\\Users\\ASI\\tpx3-demo.bpc.dacs'
-            // # The following requires the files to be in the working directory:
-            // bpcFile = os.path.join(os.getcwd(), 'tpx3-demo.bpc')
-            // dacsFile = os.path.join(os.getcwd(), 'tpx3-demo.dacs')
-            // # Detector initialization with bpc and dacs
             detectorInit();
 
             {
@@ -529,16 +427,6 @@ namespace {
                     log << log_notice;
                 }
 
-                // // # Converting detector configuration data from JSON to Python dictionary and modifying values
-                // // detectorConfig = json.loads(data)
-                // // detectorConfig["BiasVoltage"] = 100
-                // // detectorConfig["BiasEnabled"] = True
-                // configPtr->set("BiasVoltage", 100);
-                // configPtr->set("BiasEnabled", true);
-
-                // # Setting triggers and timing for the acquisition
-                // numTriggers = 1
-                // tpx3_acq_init(serverurl, detectorConfig, numTriggers, 2, 950)
                 unsigned numTriggers = 1;
                 acquisitionInit(configPtr, numTriggers, 2, 950);
             }
@@ -555,34 +443,11 @@ namespace {
                 infoPtr->get("NumberOfChips").convert(numChips);
             }
 
-            // {
-            //     // # Getting the updated detector configuration  from SERVAL
-            //     // resp = requests.get(url=serverurl + '/detector/config')
-            //     // data = resp.text
-            //     // print('Response of getting the updated Detector Configuration from SERVAL : ' + data)
-            //     auto configPtr = detectorConfig();
-            //     {
-            //         LogProxy log(logger);
-            //         log << "Response of getting the updated Detector Configuration from SERVAL: ";
-            //         configPtr->stringify(log);
-            //         log << log_notice;
-            //     }
-            // }
-
-            // def create_socket(host, port):
-            //     socket_ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            //     socket_.bind((host, port))
-            //     socket_.listen()
-            //     return socket_
-            // socket_ = create_socket(rawip, rawport)
             logger << "listening at " << clientAddress.toString() << log_notice;
             serverSocket.reset(new ServerSocket{clientAddress});
 
             serverRawDestination(clientAddress);
 
-            // resp = requests.get(url=serverurl + '/measurement/start')
-            // data = resp.text
-            // print('Response of starting measurement:', data)
             acquisitionStart();
 
             SocketAddress senderAddress;
