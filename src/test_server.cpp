@@ -1,6 +1,7 @@
 // Provide tpx3app test server
 
 #include <iostream>
+#include <fstream>
 #include <functional>
 #include <unordered_map>
 #include <atomic>
@@ -11,10 +12,16 @@
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServer.h>
 #include <Poco/Net/HTTPRequestHandler.h>
+#include <Poco/Net/SocketStream.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/JSON/Object.h>
 #include <Poco/Util/Application.h>
+#include <Poco/Util/HelpFormatter.h>
+#include <Poco/Util/OptionProcessor.h>
+#include <Poco/Util/OptionException.h>
 #include <Poco/URI.h>
+#include <Poco/FileStream.h>
+#include <Poco/StreamCopier.h>
 
 using Poco::Net::HTTPServerResponse;
 using Poco::Net::HTTPServerRequest;
@@ -25,35 +32,65 @@ using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPServerParams;
 using Poco::Net::ServerSocket;
 using Poco::Net::StreamSocket;
+using Poco::Net::SocketOutputStream;
 using Poco::Net::SocketAddress;
 using Poco::Util::Application;
+using Poco::Util::Option;
+using Poco::Util::OptionCallback;
+using Poco::Util::OptionSet;
+using Poco::Util::OptionProcessor;
+using Poco::Util::HelpFormatter;
 using Poco::JSON::Parser;
 using Poco::JSON::Object;
 using Poco::JSON::Array;
 using Poco::URI;
+using Poco::FileInputStream;
+using Poco::StreamCopier;
 using Poco::RuntimeException;
 using Poco::DataFormatException;
+using Poco::InvalidArgumentException;
+using Poco::Util::UnknownOptionException;
 
 namespace {
     std::map<std::string, std::function<void(HTTPServerRequest&, HTTPServerResponse&)>> path_handler;
+    ServerSocket bind_to{SocketAddress{"localhost:8080"}};
     SocketAddress destination;
-    std::atomic<bool> stop_server = false;
+    OptionSet args;
+    bool stop_server = false;
     std::mutex stop_mutex;
     std::condition_variable stop_condition;
+    bool sender_ready = false;
+    std::mutex ready_mutex;
+    std::condition_variable ready_condition;
     std::thread data_sender;
+    std::string file_name;
     unsigned number_of_chips = 4;
 
     void send_data()
     {
         try {
             std::cout << "send data thread started ...\n";
-            StreamSocket con(destination);
-            con.close();
+            {
+                StreamSocket con(destination);
+                SocketOutputStream output_stream(con);
+                FileInputStream data_file{file_name};
+                {
+                    std::lock_guard lock(ready_mutex);
+                    sender_ready = true;
+                    ready_condition.notify_one();
+                }
+                StreamCopier::copyStream(data_file, output_stream);
+            }
             std::cout << "send data thread stopped.\n";
         } catch (std::exception& ex) {
             std::cerr << "data sender: " << ex.what() << '\n';
         } catch (...) {
             std::cerr << "data sender: undefined error\n";
+        }
+        {
+            std::lock_guard lock(stop_mutex);
+            stop_server = true;
+            stop_condition.notify_one();
         }
     }
 
@@ -157,6 +194,11 @@ namespace {
     void get_measurement_start([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         data_sender = std::thread(send_data);
+        {
+            std::unique_lock lock(ready_mutex);
+            while (! sender_ready)
+                ready_condition.wait(lock);
+        }
         response.setContentType("text/plain");
         response.send() << "measurement started\n";
     }
@@ -182,9 +224,11 @@ namespace {
 
     void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
-        std::lock_guard lock(stop_mutex);
-        stop_server.store(true, std::memory_order_release);
-        stop_condition.notify_one();
+        {
+            std::lock_guard lock(stop_mutex);
+            stop_server = true;
+            stop_condition.notify_one();
+        }
         response.setContentType("text/plain");
         response.send() << "server stop\n";
     }
@@ -225,44 +269,88 @@ namespace {
         path_handler.emplace("/server/destination", put_server_destination);
     }
 
+    struct option_handler_type final {
+        inline void handle_help([[maybe_unused]] const std::string& name, [[maybe_unused]] const std::string& value)
+        {
+            HelpFormatter helpFormatter(args);
+            helpFormatter.setCommand("server");
+            helpFormatter.setUsage("OPTIONS");
+            helpFormatter.setHeader("Simulate raw stream from raw events input file.");
+            helpFormatter.format(std::cout);
+            std::exit(Application::EXIT_OK);
+        }
+
+        inline void handle_string(const std::string& name, const std::string& value)
+        {
+            if (name == "input")
+                file_name = value;
+            else if (name == "bind")
+                bind_to = ServerSocket{SocketAddress{value}};
+        }
+    } option_handler;
+
     void handle_args(int argc, char *argv[])
     {
-        enum { ready, file_name } state = ready;
+        args.addOption(Option{"input", "i"}
+            .description("raw events input file")
+            .repeatable(false)
+            .argument("FNAME")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_string}));
+        args.addOption(Option{"bind", "b"}
+            .description("bind to address")
+            .repeatable(false)
+            .argument("HOST:PORT")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_string}));
+        args.addOption(Option{"help", "h"}
+            .description("show this help")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_help}));
+
+        OptionProcessor handler(args);
+
+        std::string name, value;
         for (int i=1; i<argc; i++) {
-            std::string arg{argv[i]};
-            if ((statearg == "-f")
-                state = 1;
+            if (! handler.process(argv[i], name, value))
+                throw UnknownOptionException(argv[i]);
+            args.getOption(name).callback()->invoke(name, value);
         }
+        handler.checkRequired();
     }
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
-    handle_args(argc, argv);
-    init_handlers();
+    try {
+        handle_args(argc, argv);
+        init_handlers();
 
-    {
-        struct Params final : public HTTPServerParams {
-            ~Params() override
-            {}
-        };
-        std::unique_ptr<Params> server_params(new Params{});
-        ServerSocket socket(SocketAddress{"localhost:8080"});
-        server_params->setMaxThreads(1);
-        HTTPServer server{new TestServerRequestHandlerFactory{}, socket, server_params.release()};
-        std::cout << "starting server on " << socket.address().toString() << " ...\n";
-        server.start();
         {
-            std::unique_lock lock(stop_mutex);
-            while (! stop_server.load(std::memory_order_acquire))
-                stop_condition.wait(lock);
+            struct Params final : public HTTPServerParams {
+                ~Params() override
+                {}
+            };
+            std::unique_ptr<Params> server_params(new Params{});
+            server_params->setMaxThreads(1);
+            HTTPServer server{new TestServerRequestHandlerFactory{}, bind_to, server_params.release()};
+            std::cout << "starting server on " << bind_to.address().toString() << " ...\n";
+            server.start();
+            {
+                std::unique_lock lock(stop_mutex);
+                while (! stop_server)
+                    stop_condition.wait(lock);
+            }
+            if (data_sender.joinable()) {
+                std::cout << "joining sender thread ...\n";
+                data_sender.join();
+            }
+            server.stop();
+            std::cout << "server stopped.\n";
         }
-        if (data_sender.joinable()) {
-            std::cout << "joining sender thread ...\n";
-            data_sender.join();
-        }
-        server.stop();
-        std::cout << "server stopped.\n";
+    } catch (Poco::Exception& ex) {
+        std::cerr << "Error: " << ex.displayText() << '\n';
+        return Application::EXIT_USAGE;
+    } catch (std::exception& ex) {
+        std::cerr << "Error: " << ex.what() << '\n';
+        return Application::EXIT_USAGE;
     }
 
     return Application::EXIT_OK;
