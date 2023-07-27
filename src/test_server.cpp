@@ -287,6 +287,13 @@ namespace {
             else if (name == "bind")
                 bind_to = ServerSocket{SocketAddress{value}};
         }
+
+        inline void handle_number(const std::string& name, const std::string& value)
+        {
+            long num = stol(value);
+            if (name == "nchips")
+                number_of_chips = static_cast<unsigned>(num);
+        }
     } option_handler;
 
     void handle_args(int argc, char *argv[])
@@ -301,6 +308,11 @@ namespace {
             .repeatable(false)
             .argument("HOST:PORT")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_string}));
+        args.addOption(Option{"nchips", "c"}
+            .description("number of chips")
+            .repeatable(false)
+            .argument("N")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
         args.addOption(Option{"help", "h"}
             .description("show this help")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_help}));

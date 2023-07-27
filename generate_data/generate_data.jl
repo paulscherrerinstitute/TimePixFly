@@ -1,3 +1,5 @@
+using Base.Iterators
+
 function hex(x::UInt64)::String
     return string(x, base=16, pad=16)
 end
@@ -83,7 +85,7 @@ function tdc(clk::Integer)::UInt64
 end
 
 function pkcount(count::Integer)::UInt64
-    return (UInt64(50) << 56) + count
+    return (UInt64(0x50) << 56) + count
 end
 
 function header(nevents::Integer, chip::Integer, count::Integer)::Vector{UInt64}
@@ -135,7 +137,7 @@ end
 function print_packets(io, packets)
     for pk in packets
         print((Int32(pk.chip), Int32(pk.id)), " ")
-        for ev in pk.events
+        for ev in flatten((header(length(pk.events), pk.chip, pk.id), pk.events))
             print(hex(ev), " ")
         end
     end
@@ -148,7 +150,7 @@ tstart = 0
 tend = 4000
 npackets = round(UInt32, (tend - tstart) / period)
 
-packets = [ generate_packet(c, p, period, 10, 1) for p in 1:npackets for c in 1:nchips ]
+packets = [ generate_packet(c, p, period, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
 
 for arg in ARGS
     if arg == "-h" || arg == "--help"
