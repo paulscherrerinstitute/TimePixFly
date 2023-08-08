@@ -78,7 +78,7 @@ namespace {
 
     bool operator!=(const period_index& a, const period_index& b) noexcept
     {
-        return std::memcmp(&a, &b, sizeof(period_index)) != 0;
+        return a != b;
     }
 
     template<typename T>

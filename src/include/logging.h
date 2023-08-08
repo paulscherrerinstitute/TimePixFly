@@ -50,6 +50,20 @@ struct LogProxy final : public std::ostringstream {
     LogProxy& operator=(LogProxy&&) = delete;
 
     inline virtual ~LogProxy() {}
+
+    template<typename T>
+    inline LogProxy& operator<< (const T& value)
+    {
+        static_cast<LogProxy::base_type&>(*this) << value;
+        return *this;
+    }
+
+    inline LogProxy& operator<< (const Message::Priority& priority)
+    {
+        logger.log(Message("Tpx3App", str(), priority));
+        str("");
+        return *this;
+    }
 };
 
 template<typename T>
@@ -57,20 +71,6 @@ inline LogProxy operator<< (Logger& logger, const T& value)
 {
     LogProxy proxy(logger);
     proxy << value;
-    return proxy;
-}
-
-template<typename T>
-inline LogProxy& operator<< (LogProxy& proxy, const T& value)
-{
-    static_cast<LogProxy::base_type&>(proxy) << value;
-    return proxy;
-}
-
-inline LogProxy& operator<< (LogProxy& proxy, const Message::Priority& priority)
-{
-    proxy.logger.log(Message("Tpx3App", proxy.str(), priority));
-    proxy.str("");
     return proxy;
 }
 

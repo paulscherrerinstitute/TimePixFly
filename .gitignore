@@ -2,3 +2,4 @@ tpx3app
 test
 server
 *.tgz
+generate_data/data

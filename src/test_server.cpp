@@ -52,6 +52,8 @@ using Poco::InvalidArgumentException;
 using Poco::Util::UnknownOptionException;
 
 namespace {
+    using namespace std::chrono_literals;
+
     std::map<std::string, std::function<void(HTTPServerRequest&, HTTPServerResponse&)>> path_handler;
     ServerSocket bind_to{SocketAddress{"localhost:8080"}};
     SocketAddress destination;
@@ -80,6 +82,7 @@ namespace {
                     ready_condition.notify_one();
                 }
                 StreamCopier::copyStream(data_file, output_stream);
+                //std::this_thread::sleep_for(5s);
             }
             std::cout << "send data thread stopped.\n";
         } catch (std::exception& ex) {

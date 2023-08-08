@@ -9,7 +9,7 @@
 #include <cmath>
 
 class period_predictor final {
-    static constexpr unsigned N = 4;
+    static constexpr int N = 4;
     std::array<int64_t, N> past;  // time stamp, period
     int64_t start;
     double interval;
@@ -29,6 +29,11 @@ class period_predictor final {
     }
 
   public:
+    inline period_predictor() noexcept
+    {
+        reset(0, 1);
+    }
+
     inline period_predictor(int64_t start_, int64_t period) noexcept
     {
         reset(start_, period);
@@ -91,5 +96,11 @@ Stream& operator<<(Stream& out, const period_predictor& p)
     return out;
 }
 
+#ifdef LOGGING_H
+    LogProxy& operator<<(LogProxy& proxy, const period_predictor& p)
+    {
+        return proxy.operator<<(p);
+    }
+#endif
 
 #endif // PERIOD_PREDICTOR_H

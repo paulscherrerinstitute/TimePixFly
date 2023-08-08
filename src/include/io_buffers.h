@@ -65,6 +65,7 @@ struct io_buffer_pool final {
             return std::unique_ptr<io_buffer>(new io_buffer{buffer_size});
         auto res = std::move(*top);
         free_list.pop_front();
+        res->content_size = 0;
         return res;
     }
 

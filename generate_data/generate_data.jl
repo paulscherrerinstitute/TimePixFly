@@ -10,14 +10,14 @@ function get_bits(data::UInt64, h::Integer, l::Integer)::UInt64
     return (data >> l) & mask;
 end
 
-function tdc_clock(tdc::UInt64)::UInt64
+function tdc_clock(tdc::UInt64)::Int64
     coarse = get_bits(tdc, 43, 9)
     fract = get_bits(tdc, 8, 5)
     @assert (1 <= fract) && (fract <= 12)
     return (coarse << 1) | div((fract - 1), 6)
 end
 
-function toa_clock(data::UInt64)::UInt64
+function toa_clock(data::UInt64)::Int64
     ftoa = get_bits(data, 19, 16);
     toa = get_bits(data, 43, 30);
     coarse = get_bits(data, 15, 0);
@@ -144,31 +144,37 @@ function print_packets(io, packets)
     println()
 end
 
-nchips = 4
-period = 1000
-tstart = 0
-tend = 4000
-npackets = round(UInt32, (tend - tstart) / period)
+function main()
+    nchips = 4
+    period = 1000
+    tstart = 0
+    tend = 4000
+    npackets = round(UInt32, (tend - tstart) / period)
 
-packets = [ generate_packet(c, p, period, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
+    packets = [ generate_packet(c, p, period, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
 
-for arg in ARGS
-    if arg == "-h" || arg == "--help"
-        println("Usage: julia ", PROGRAM_FILE, " [file_name]")
-        exit(0)
-    elseif arg[1] == '-'
-        println("Unknown argument: ", arg)
-        exit(1)
+    for arg in ARGS
+        if arg == "-h" || arg == "--help"
+            println("Usage: julia ", PROGRAM_FILE, " [file_name]")
+            exit(0)
+        elseif arg[1] == '-'
+            println("Unknown argument: ", arg)
+            exit(1)
+        end
     end
+
+    println("ARGS: ", ARGS)
+    if length(ARGS) == 1
+        println("writing to raw file ", ARGS[1], "...")
+        open(ARGS[1], "w") do io
+            write_packets(io, packets)
+        end
+    else
+        print_packets(stdout, packets)
+    end
+    println("done.")
 end
 
-println("ARGS: ", ARGS)
-if length(ARGS) == 1
-    println("writing to raw file ", ARGS[1], "...")
-    open(ARGS[1], "w") do io
-        write_packets(io, packets)
-    end
-else
-    print_packets(stdout, packets)
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
 end
-println("done.")

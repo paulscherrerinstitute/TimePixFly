@@ -43,8 +43,8 @@ class DataHandler final {
     std::atomic<bool> stopOperation = false;
 
     int64_t initialPeriod;
-    period_predictor predictor;
-    period_queues queues;
+    std::vector<period_predictor> predictor;
+    std::vector<period_queues> queues;
 
     bool stop() const
     {
@@ -139,6 +139,8 @@ class DataHandler final {
                     auto eventBuffer = bufferPool.get_empty_buffer();
                     if (eventBuffer == nullptr)
                         throw LogicException("received nullptr as empty buffer");
+                    if (eventBuffer->content_size != 0)
+                        throw LogicException("empty buffer has content");
 
                     const auto t2 = wall_clock::now();
 
@@ -154,7 +156,8 @@ class DataHandler final {
                         bytesRead = dataStream.receiveBytes(&data[bytesBuffered], readSize);
                         totalBytes += bytesRead;
 
-                        logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes << " total" << log_debug;
+                        logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes
+                               << " total" << log_debug;
 
                         eventBuffer->content_size += bytesRead;
 
@@ -168,6 +171,13 @@ class DataHandler final {
 
                     const auto t3 = wall_clock::now();
 
+                    // {
+                    //     auto logproxy = logger << "  data[0..32] = ";
+                    //     logproxy << std::hex;
+                    //     for (int i=0; i<4; i++)
+                    //         logproxy << *reinterpret_cast<uint64_t*>(&data[i*8]) << "  ";
+                    //     logproxy << std::dec << log_debug;
+                    // }
                     bufferPool.put_nonempty_buffer({ packetId, std::move(eventBuffer) });
 
                     spinTime += std::chrono::duration<double>{t2 - t1}.count();
@@ -205,7 +215,7 @@ class DataHandler final {
 
     inline void processEvent(unsigned chipIndex, const period_index& index, int64_t toaclk, uint64_t event)
     {
-        logger << "processEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
+        logger << "processEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         const uint64_t totclk = Decode::getTotClock(event);
         const float toa = Decode::clockToFloat(toaclk);
         const float tot = Decode::clockToFloat(totclk, 40e6);
@@ -215,11 +225,12 @@ class DataHandler final {
     }
     // --------------------------------------------------------------------------
 
-    inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk)
+    inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk, uint64_t event)
     {
+        logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         const float tdc = Decode::clockToFloat(tdcclk);
         logger << chipIndex << ": TDC: " << tdc << log_info;
-        auto& rq = queues.registerStart(index, tdcclk);
+        auto& rq = queues[chipIndex].registerStart(index, tdcclk);
         // modify index so that
         // - index.period is the period before the tdc
         // - index.disputed_period is the period after the tdc
@@ -231,14 +242,14 @@ class DataHandler final {
         }
         // remove old period data
         do {
-            auto pp = queues.oldest();
+            auto pp = queues[chipIndex].oldest();
             if (pp->first >= index.period - 1)  // period too recent?
                 break;
             if (! pp->second.start_seen)        // TDC for period received?
                 break;
             purgePeriod(chipIndex, pp->first);
             logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
-            queues.erase(pp);
+            queues[chipIndex].erase(pp);
         } while (true);
     }
 
@@ -247,7 +258,7 @@ class DataHandler final {
         logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
         logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
                << " (" << std::hex << event << std::dec << ')' << log_debug;
-        queues[index].queue->push({toaclk, event});
+        queues[chipIndex][index].queue->push({toaclk, event});
     }
 
     void analyseData(unsigned threadId)
@@ -302,9 +313,10 @@ class DataHandler final {
                         } else if (Decode::matchesNibble(d, 0xb)) {
                             if (predictorReady) {
                                 const int64_t toaclk = Decode::getToaClock(d);
-                                const double period = predictor.period_prediction(toaclk);
-                                auto index = queues.period_index_for(period);
-                                queues.refined_index(index, toaclk);
+                                const double period = predictor[chipIndex].period_prediction(toaclk);
+                                auto index = queues[chipIndex].period_index_for(period);
+                                logger << threadId << ": toaclk=" << toaclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_debug;
+                                queues[chipIndex].refined_index(index, toaclk);
                                 hits++;
                                 if (! index.disputed)
                                     processEvent(chipIndex, index, toaclk, d);
@@ -315,20 +327,21 @@ class DataHandler final {
                             }
                         } else if (Decode::matchesNibble(d, 0x6)) {
                             const uint64_t tdcclk = Decode::getTdcClock(d);
+                            logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
                             if (predictorReady) {
                                 predictorReady = true;
-                                const double period = predictor.period_prediction(tdcclk);
-                                auto index = queues.period_index_for(period);
-                                processTdc(chipIndex, index, tdcclk);
+                                const double period = predictor[chipIndex].period_prediction(tdcclk);
+                                auto index = queues[chipIndex].period_index_for(period);
+                                processTdc(chipIndex, index, tdcclk, d);
                             }
-                            predictor.prediction_update(tdcclk);
+                            predictor[chipIndex].prediction_update(tdcclk);
                             tdcHits++;
                             if (tdcHits == 2) {
                                 predictorReady = true;
-                                logger << threadId << ": predictor ready" << log_info;
+                                logger << threadId << ": predictor ready, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
                             } else if (tdcHits == 1) {
-                                predictor.reset(tdcclk, initialPeriod);
-                                logger << threadId << ": predictor start " << tdcclk << " period " << initialPeriod << log_info;
+                                predictor[chipIndex].reset(tdcclk, initialPeriod);
+                                logger << threadId << ": predictor start, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
                             }
                         } else {
                             logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;
@@ -374,11 +387,11 @@ class DataHandler final {
 
 public:
     DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period)
-        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize}, initialPeriod(period), predictor{0, period}
+        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize},
+          analyserThreads(numChips), initialPeriod(period), predictor(numChips), queues(numChips)
     {
         io_buffer_pool::buffer_size = bufSize;
         logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ')' << log_trace;
-        analyserThreads.resize(numChips);
     }
 
     void run_async()

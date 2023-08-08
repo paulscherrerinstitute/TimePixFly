@@ -31,11 +31,18 @@ struct period_index final {
 };
 
 template<typename Stream>
-Stream& operator<<(Stream& stream, const period_index& idx)
+Stream& operator<<(Stream& out, const period_index& idx)
 {
-    stream << 'p' << idx.period << (idx.disputed ? 'd' : 'u') << idx.disputed_period;
-    return stream;
+    out << 'p' << idx.period << (idx.disputed ? 'd' : 'u') << idx.disputed_period;
+    return out;
 }
+
+#ifdef LOGGING_H
+    LogProxy& operator<<(LogProxy& proxy, const period_index& idx)
+    {
+        return proxy.operator<<(idx);
+    }
+#endif
 
 struct period_queues final {
     using queue_type = std::map<period_type, period_queue_element>;
