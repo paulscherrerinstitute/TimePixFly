@@ -30,6 +30,6 @@ if [ -n "$PREPEND_DATE" ]; then
     BACKUP_FILE="${DNAME}/${PREPEND_DATE}-${FNAME}"
 fi
 
-CMD="tar czf $BACKUP_FILE src/main.cpp src/include/*.h compile.sh archive.sh"
+CMD="tar czf $BACKUP_FILE src/*.cpp src/include/*.h compile.sh archive.sh generate_data/generate_data.jl generate_data/data"
 echo "$CMD"
 eval "$CMD"
