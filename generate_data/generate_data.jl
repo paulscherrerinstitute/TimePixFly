@@ -1,4 +1,5 @@
 using Base.Iterators
+using ArgParse
 
 function hex(x::UInt64)::String
     return string(x, base=16, pad=16)
@@ -144,29 +145,43 @@ function print_packets(io, packets)
     println()
 end
 
-function main()
-    nchips = 4
+function arg_parse()
+    settings = ArgParseSettings(
+        description = """Generate a raw TPX3 file with contents as delivered by serval 3.20,
+                         or print out the generated stream in hex."""
+    )
+
+    @add_arg_table settings begin
+        "--nchips", "-c"
+            metavar = "N"
+            help = "number of chips"
+            arg_type = Int
+            default = 4
+        "file_path"
+            help = "where to store the raw data"
+            arg_type = String
+            default = ""
+    end
+
+    args = parse_args(settings)
+
+    fname::String = args["file_path"]
+    nchips::Int = args["nchips"]
     period = 1000
     tstart = 0
     tend = 4000
+    return (nchips, period, tstart, tend, fname)
+end
+
+function main()
+    (nchips, period, tstart, tend, fname) = arg_parse()
     npackets = round(UInt32, (tend - tstart) / period)
 
     packets = [ generate_packet(c, p, period, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
 
-    for arg in ARGS
-        if arg == "-h" || arg == "--help"
-            println("Usage: julia ", PROGRAM_FILE, " [file_name]")
-            exit(0)
-        elseif arg[1] == '-'
-            println("Unknown argument: ", arg)
-            exit(1)
-        end
-    end
-
-    println("ARGS: ", ARGS)
-    if length(ARGS) == 1
-        println("writing to raw file ", ARGS[1], "...")
-        open(ARGS[1], "w") do io
+    if length(fname) > 0
+        println("writing to raw file ", fname, "...")
+        open(fname, "w") do io
             write_packets(io, packets)
         end
     else
