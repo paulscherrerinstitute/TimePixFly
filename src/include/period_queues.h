@@ -112,8 +112,8 @@ struct period_queues final {
         element.erase(pos);
     }
 
-    queue_type element;   // key = period number
-    double threshold = 0.1;                         // (1 - threshold) is the undisputed period attribution interval
+    queue_type element;         // key = period number
+    double threshold = 0.1;     // [threshold .. (1 - threshold)] is the undisputed period attribution interval
 };
 
 #endif // PERIOD_QUEUES_H
