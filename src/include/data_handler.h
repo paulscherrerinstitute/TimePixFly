@@ -386,12 +386,14 @@ class DataHandler final {
     }
 
 public:
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period)
+    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period, double undisputedThreshold)
         : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize},
           analyserThreads(numChips), initialPeriod(period), predictor(numChips), queues(numChips)
     {
         io_buffer_pool::buffer_size = bufSize;
-        logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ')' << log_trace;
+        logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ", " << period << ", " << undisputedThreshold << ')' << log_trace;
+        for (auto& q : queues)
+            q.threshold = undisputedThreshold;
     }
 
     void run_async()

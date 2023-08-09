@@ -91,6 +91,7 @@ namespace {
         std::string dacsFilePath;
 
         int64_t initialPeriod;
+        double undisputedThreshold = 0.1;
         unsigned long numBuffers = DEFAULT_NUM_BUFFERS;
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE;
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
@@ -162,6 +163,13 @@ namespace {
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
+
+            options.addOption(Option("undisputed-threshold", "u")
+                .description("undisputed part of period [T..1-T]")
+                .required(false)
+                .repeatable(false)
+                .argument("T")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
         }
 
         inline void handleLogLevel(const std::string& name, const std::string& value)
@@ -205,6 +213,24 @@ namespace {
                 initialPeriod = num;
             } else {
                 throw LogicException{std::string{"unknown number argument name: "} + name};
+            }
+        }
+
+        inline void handleFloat(const std::string& name, const std::string& value)
+        {
+            logger << "handleFloat(" << name << ", " << value << ")" << log_trace;
+            double val = .0;
+            try {
+                val = std::stod(value);
+            } catch (std::exception& ex) {
+                throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
+            }
+            if (name == "undisputed-threshold") {
+                if ((val < .0) || (val > .5))
+                    throw InvalidArgumentException{"undisputed-period outside of [0 .. 0.5]"};
+                undisputedThreshold = val;
+            } else {
+                throw LogicException{std::string{"unknown float argument name: "} + name};
             }
         }
 
@@ -457,7 +483,7 @@ namespace {
 
             logger << "connection from " << senderAddress.toString() << log_info;
 
-            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod);
+            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold);
             dataHandler.run_async();
             dataHandler.await();
 
