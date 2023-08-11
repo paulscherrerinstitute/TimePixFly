@@ -102,14 +102,32 @@ struct period_queues final {
     }
 
     [[gnu::pure]]
-    inline queue_type::iterator oldest()
+    inline queue_type::iterator oldest() noexcept
     {
         return std::begin(element);
+    }
+
+    [[gnu::pure]]
+    inline queue_type::iterator end() noexcept
+    {
+        return std::end(element);
     }
 
     inline void erase(queue_type::iterator pos)
     {
         element.erase(pos);
+    }
+
+    [[gnu::pure]]
+    inline queue_type::size_type size() const noexcept
+    {
+        return element.size();
+    }
+
+    [[gnu::pure]]
+    inline bool empty() const noexcept
+    {
+        return element.empty();
     }
 
     queue_type element;         // key = period number

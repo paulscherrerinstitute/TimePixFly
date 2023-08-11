@@ -96,6 +96,7 @@ namespace {
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE;
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
         unsigned long numChips = 0;
+        unsigned long maxPeriodQueues = 4;
 
     protected:
         inline void defineOptions(OptionSet& options) override
@@ -170,6 +171,13 @@ namespace {
                 .repeatable(false)
                 .argument("T")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
+
+            options.addOption(Option("max-period-queues", "q")
+                .description("maximum number of period reorder queues")
+                .required(false)
+                .repeatable(false)
+                .argument("NUM")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
         }
 
         inline void handleLogLevel(const std::string& name, const std::string& value)
@@ -211,6 +219,10 @@ namespace {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive initial TDC period"};
                 initialPeriod = num;
+            } else if (name == "max-period-queues") {
+                if (num < 1)
+                    throw InvalidArgumentException{"non-positive maximum period queues"};
+                maxPeriodQueues = num;
             } else {
                 throw LogicException{std::string{"unknown number argument name: "} + name};
             }
@@ -483,7 +495,7 @@ namespace {
 
             logger << "connection from " << senderAddress.toString() << log_info;
 
-            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold);
+            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
             dataHandler.run_async();
             dataHandler.await();
 
