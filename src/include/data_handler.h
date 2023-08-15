@@ -12,6 +12,7 @@
 #include "io_buffers.h"
 #include "period_predictor.h"
 #include "period_queues.h"
+#include "processing.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -210,19 +211,12 @@ class DataHandler final {
     // ----------------------- BINNING AND PURGING LOGIC ------------------------
     inline void purgePeriod(unsigned chipIndex, period_type period)
     {
-        logger << "purgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
-        logger << chipIndex << ": purge period " << period << log_info;
+        processing::purgePeriod(chipIndex, period);
     }
 
-    inline void processEvent(unsigned chipIndex, const period_index& index, int64_t toaclk, uint64_t event)
+    inline void processEvent(unsigned chipIndex, period_type period, int64_t toaclk, uint64_t event)
     {
-        logger << "processEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
-        const uint64_t totclk = Decode::getTotClock(event);
-        const float toa = Decode::clockToFloat(toaclk);
-        const float tot = Decode::clockToFloat(totclk, 40e6);
-        const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
-        logger << chipIndex << ": event: " << index.period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
-               << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
+        processing::processEvent(chipIndex, period, toaclk, event);
     }
     // --------------------------------------------------------------------------
 
@@ -239,7 +233,7 @@ class DataHandler final {
             index.period -= 1;
         for (; !rq.empty(); rq.pop()) {
             auto& el = rq.top();
-            processEvent(chipIndex, index, el.toa, el.event);
+            processEvent(chipIndex, (tdcclk > el.toa ? index.disputed_period : index.period), el.toa, el.event);
         }
         // remove old period data
         while (queues[chipIndex].size() > maxPeriodQueues) {
@@ -316,7 +310,7 @@ class DataHandler final {
                                 queues[chipIndex].refined_index(index, toaclk);
                                 hits++;
                                 if (! index.disputed)
-                                    processEvent(chipIndex, index, toaclk, d);
+                                    processEvent(chipIndex, index.period, toaclk, d);
                                 else
                                     enqueueEvent(chipIndex, index, toaclk, d);
                             } else {

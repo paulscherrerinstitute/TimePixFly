@@ -19,7 +19,7 @@ TEST_FLAGS+=" -Og -ggdb -march=native"
 
 case "$TARGET" in
     "tpx3app")
-        cmd="${CXX} -I src/include src/main.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
+        cmd="${CXX} -I src/include src/main.cpp src/processing.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
         echo "$cmd"
         eval "$cmd";;
     "test")

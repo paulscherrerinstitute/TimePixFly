@@ -30,6 +30,7 @@
 #include "logging.h"
 #include "decoder.h"
 #include "data_handler.h"
+#include "processing.h"
 
 namespace {
     using namespace std::string_view_literals;
@@ -480,6 +481,8 @@ namespace {
 
                 infoPtr->get("NumberOfChips").convert(numChips);
             }
+
+            processing::init();
 
             logger << "listening at " << clientAddress.toString() << log_notice;
             serverSocket.reset(new ServerSocket{clientAddress});
