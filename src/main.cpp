@@ -104,7 +104,7 @@ namespace {
             Application::defineOptions(options);
 
             options.addOption(Option("loglevel", "l")
-                .description("log level: fatal,critical,error,warning,notice,information,debug,trace")
+                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace")
                 .required(false)
                 .repeatable(false)
                 .argument("LEVEL")
@@ -152,7 +152,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("buf-size", "N")
-                .description("individual data buffer byte size, will be rounded up to a multiple of 8")
+                .description("individual data buffer byte size,\nwill be rounded up to a multiple of 8")
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
