@@ -30,6 +30,7 @@
 #include "logging.h"
 #include "decoder.h"
 #include "data_handler.h"
+#include "layout.h"
 #include "processing.h"
 
 namespace {
@@ -54,7 +55,7 @@ namespace {
     using Poco::Dynamic::Var;
     using wall_clock = std::chrono::high_resolution_clock;
 
-    inline Poco::JSON::Object::Ptr operator|(Poco::JSON::Object::Ptr object, const std::string& name)
+    inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Object::Ptr& object, const std::string& name)
     {
         Poco::JSON::Object::Ptr objPtr = object->getObject(name);
         if (objPtr.isNull())
@@ -62,13 +63,21 @@ namespace {
         return objPtr;
     }
 
-    // inline Poco::JSON::Array::Ptr operator||(Poco::JSON::Object::Ptr object, const std::string& name)
-    // {
-    //     Poco::JSON::Array::Ptr arrayPtr = object->getArray(name);
-    //     if (arrayPtr.isNull())
-    //         throw RuntimeException(std::string("JSON Object contains no array ") + name, __LINE__);
-    //     return arrayPtr;
-    // }
+    inline Poco::JSON::Array::Ptr operator/(const Poco::JSON::Object::Ptr& object, const std::string& name)
+    {
+        Poco::JSON::Array::Ptr arrayPtr = object->getArray(name);
+        if (arrayPtr.isNull())
+            throw RuntimeException(std::string("JSON Object contains no array ") + name, __LINE__);
+        return arrayPtr;
+    }
+
+    inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Array::Ptr& array, unsigned index)
+    {
+        Poco::JSON::Object::Ptr objPtr = array->getObject(index);
+        if (objPtr.isNull())
+            throw RuntimeException(std::string("JSON Array contains no index ") + std::to_string(index), __LINE__);
+        return objPtr;
+    }
 
     class Tpx3App final : public Application {
 
@@ -393,6 +402,12 @@ namespace {
             return getJsonObject("/detector/info");
         }
 
+        inline Poco::JSON::Object::Ptr detectorLayout()
+        {
+            logger << "detectorLayout()" << log_trace;
+            return getJsonObject("/detector/layout");
+        }
+
         void acquisitionInit(Poco::JSON::Object::Ptr configPtr, unsigned numTriggers, unsigned shutter_open_ms=490u, unsigned shutter_closed_ms=10u)
         {
             logger << "acquisitionInit(" << numTriggers << ", " << shutter_open_ms << ", " << shutter_closed_ms << ")" << log_trace;
@@ -482,7 +497,38 @@ namespace {
                 infoPtr->get("NumberOfChips").convert(numChips);
             }
 
-            processing::init();
+            detector_layout layout;
+            {
+                auto layoutPtr = detectorLayout();
+                {
+                    LogProxy log(logger);
+                    log << "Response of getting the Detector Layout from SERVAL: ";
+                    layoutPtr->stringify(log);
+                    log << log_notice;
+                }
+
+                auto origPtr = layoutPtr | "Original";
+                origPtr->get("Width").convert(layout.width);
+                origPtr->get("Height").convert(layout.height);
+
+                auto chipPtr = origPtr / "Chips";
+                for (decltype(numChips) i=0; i<numChips; i++) {
+                    chip_position chip;
+                    (chipPtr | i)->get("X").convert(chip.x);
+                    (chipPtr | i)->get("Y").convert(chip.y);
+                    layout.chip.push_back(chip);
+                }
+
+                {
+                    LogProxy log(logger);
+                    log << "layout: " << layout.width << ',' << layout.height << ':';
+                    for (decltype(numChips) i=0; i<numChips; i++)
+                        log << ' ' << layout.chip[i].x << ',' << layout.chip[i].y;
+                    log << log_debug;
+                }
+            }
+
+            processing::init(layout);
 
             logger << "listening at " << clientAddress.toString() << log_notice;
             serverSocket.reset(new ServerSocket{clientAddress});

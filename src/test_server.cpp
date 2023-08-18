@@ -1,6 +1,7 @@
 // Provide tpx3app test server
 
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <functional>
 #include <unordered_map>
@@ -225,6 +226,19 @@ namespace {
         response.send() << R"({"NumberOfChips":)" << number_of_chips << "}\n";
     }
 
+    void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    {
+        std::ostringstream oss;
+        oss << R"({"Original":{"Width":)" << number_of_chips * 256
+            << R"(,"Height":256,"Chips":[)";
+        for(unsigned i=0; (i+1)<number_of_chips; i++)
+            oss << R"({"X":0,"Y":)" << (i*256) << "},";
+        oss << R"({"X":0,"Y":)" << ((number_of_chips-1)*256) << "}]}}\n";
+        
+        response.setContentType("application/json");
+        response.send() << oss.str();
+    }
+
     void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         {
@@ -267,6 +281,7 @@ namespace {
         path_handler.emplace("/measurement/start", get_measurement_start);
         path_handler.emplace("/detector/config", getput_detector_config);
         path_handler.emplace("/detector/info", get_detector_info);
+        path_handler.emplace("/detector/layout", get_detector_layout);
         path_handler.emplace("/stop", get_stop);
 
         path_handler.emplace("/server/destination", put_server_destination);

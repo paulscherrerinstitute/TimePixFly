@@ -10,10 +10,12 @@
 #include "logging.h"
 #include "decoder.h"
 
+using period_type = int64_t;
+
+#include "processing.h"
+
 // anonymous namespace to prevent symbol visibility
-namespace {
-        using period_type = int64_t;
-        
+namespace {       
         using Decode = AsiRawStreamDecoder;
 
         using std::string;
@@ -37,8 +39,6 @@ namespace {
         using u16 = uint16_t;
         using u64 = uint64_t;
 
-        constexpr int DetSize = 256;    //!< Number of detector pixels per row/column
-
         Logger& logger = Logger::get("Tpx3App");
 
         /*!
@@ -60,7 +60,9 @@ namespace {
         * \brief Constant detector data
         */
         struct Detector final {
-                static constexpr int NumPixels = DetSize * DetSize;
+                const detector_layout& layout;
+                int DetWidth;
+                int NumPixels;
 
                 // if TOAMode is false then TOT is used for binnig (counts as a
                 // function of energy and TOT as output)
@@ -85,7 +87,8 @@ namespace {
 
                 u64 ToFlat([[maybe_unused]] unsigned chipIndex, u64 x, u64 y) const noexcept
                 {
-                        return x * DetSize + y;
+                        const auto& chip = layout.chip[chipIndex];
+                        return (x + chip.x) * DetWidth + (y + chip.y);
                 }
 
                 // In steps of 1.5625 ns
@@ -160,12 +163,12 @@ namespace {
 
                 void SetROI(int ROIStart, int ROIEnd, bool VertOrient, int BinSize)
                 {
-                        NumEnergyPoints = DetSize / BinSize;
+                        NumEnergyPoints = DetWidth / BinSize;
                         AllPixels.resize(NumPixels);
                         for (int i=0; i<NumPixels; ++i) {
                                 Pixel& pixel = AllPixels[i];
-                                const int Line = i / DetSize;
-                                const int Column = i - Line * DetSize;
+                                const int Line = i / DetWidth;
+                                const int Column = i - Line * DetWidth;
                                 if (VertOrient) {
                                         if ((Line >= ROIStart) && (Line < ROIEnd))
                                                 pixel.parts.emplace_back(Pixel::Data{Column / BinSize, 1.f});
@@ -184,8 +187,8 @@ namespace {
                         //In the furure I have to implement that one pixel is partially assigned to a few rings
                         for (int i = 0; i < NumPixels; i++) {
                                 Pixel& pixel = AllPixels[i];
-                                int Line = i / DetSize;
-                                int Column = i - Line * DetSize;
+                                int Line = i / DetWidth;
+                                int Column = i - Line * DetWidth;
                                 //check math
                                 float R=sqrt(pow((Line-CenterLine),2)+pow((Column-CenterColumn),2));
                                 float PreviousSize=0.0;
@@ -206,6 +209,10 @@ namespace {
                                 pixel.parts.emplace_back(Pixel::Data{EnergyPointIndex, 1.f});
                         }
                 }
+
+                Detector(const detector_layout& layout_)
+                : layout{layout_}, DetWidth(layout.width), NumPixels(layout.width * layout.height)
+                {}
         };  // end type Detector
 
         /*!
@@ -355,7 +362,7 @@ namespace {
 
 namespace processing {
 
-        void init()
+        void init(const detector_layout& layout)
         {
                 // using std::getline;
                 // using std::ws;
@@ -411,7 +418,7 @@ namespace processing {
                 // if (ProcessingFile.fail())
                 //         assert((false && "failed to parse ProcessingFile"));
 
-                Detector K;
+                Detector K{layout};
                 // K.SetTimeROI(TRStart, TRStep, TRN);
                 // K.SetROI(DetROIStart, DetROIEnd, BinVerticalOrientation, BinSize);
 
