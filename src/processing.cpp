@@ -1,4 +1,3 @@
-#include <cassert>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -255,7 +254,7 @@ namespace {
                         cout << "conversion time " << duration1 << " ms ";
                         OutFile.close();
                         if (OutFile.fail())
-                                assert((false && "Detector::SaveToFile failed"));
+                                throw std::ios_base::failure("Detector::SaveToFile failed");
                 }
 
                 inline void Register(const u8 data_index, PixelIndex index, int TimePoint, u16 TOT) noexcept
@@ -404,7 +403,7 @@ namespace processing {
 
                 ProcessingFile.close();
                 if (ProcessingFile.fail())
-                        assert((false && "failed to parse ProcessingFile"));
+                        throw std::ios_base::failure("failed to parse ProcessingFile");
 
                 Detector K{layout};
                 K.SetTimeROI(TRStart, TRStep, TRN);
