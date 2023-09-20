@@ -7,7 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-// #include <string_view>
+#include <fstream>
 #include <chrono>
 
 #include "Poco/Dynamic/Var.h"
@@ -30,6 +30,7 @@
 #include "logging.h"
 #include "decoder.h"
 #include "data_handler.h"
+#include "copy_handler.h"
 #include "layout.h"
 #include "processing.h"
 
@@ -99,6 +100,7 @@ namespace {
 
         std::string bpcFilePath;
         std::string dacsFilePath;
+        std::string streamFilePath;
 
         int64_t initialPeriod;
         double undisputedThreshold = 0.1;
@@ -142,14 +144,14 @@ namespace {
 
             options.addOption(Option("bpc-file", "b")
                 .description("bpc file path")
-                .required(true)
+                .required(false)
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
 
             options.addOption(Option("dacs-file", "d")
                 .description("dacs file path")
-                .required(true)
+                .required(false)
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
@@ -188,6 +190,13 @@ namespace {
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
+
+            options.addOption(Option("stream-to-file", "f")
+                .description("stream to file")
+                .required(false)
+                .repeatable(false)
+                .argument("PATH")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
         }
 
         inline void handleLogLevel(const std::string& name, const std::string& value)
@@ -283,6 +292,8 @@ namespace {
                 bpcFilePath = value;
             else if (name == "dacs-file")
                 dacsFilePath = value;
+            else if (name == "stream-to-file")
+                streamFilePath = value;
             else
                 throw LogicException{std::string{"unknown file path argument name: "} + name};
         }
@@ -376,13 +387,13 @@ namespace {
         {
             logger << "detectorInit()" << log_trace;
             HTTPResponse response;
-            {
+            if (! bpcFilePath.empty()) {
                 auto& in = serverGet(std::string("/config/load?format=pixelconfig&file=") + bpcFilePath, response);
                 checkResponse(response, in);
                 logger << "Response of loading binary pixel configuration file: " << in.rdbuf() << log_notice;
                 checkSession(in);
             }
-            {
+            if (! dacsFilePath.empty()) {
                 auto& in = serverGet(std::string("/config/load?format=dacs&file=") + dacsFilePath, response);
                 checkResponse(response, in);
                 logger << "Response of loading dacs file: " << in.rdbuf() << log_notice;
@@ -408,20 +419,20 @@ namespace {
             return getJsonObject("/detector/layout");
         }
 
-        void acquisitionInit(Poco::JSON::Object::Ptr configPtr, unsigned numTriggers, unsigned shutter_open_ms=490u, unsigned shutter_closed_ms=10u)
-        {
-            logger << "acquisitionInit(" << numTriggers << ", " << shutter_open_ms << ", " << shutter_closed_ms << ")" << log_trace;
-            configPtr->set("nTriggers", numTriggers);
-            configPtr->set("TriggerMode", "AUTOTRIGSTART_TIMERSTOP");
-            configPtr->set("TriggerPeriod", (shutter_open_ms + shutter_closed_ms) / 1000.f);
-            configPtr->set("ExposureTime", shutter_open_ms / 1000.f);
+        // void acquisitionInit(Poco::JSON::Object::Ptr configPtr, unsigned numTriggers, unsigned shutter_open_ms=490u, unsigned shutter_closed_ms=10u)
+        // {
+        //     logger << "acquisitionInit(" << numTriggers << ", " << shutter_open_ms << ", " << shutter_closed_ms << ")" << log_trace;
+        //     configPtr->set("nTriggers", numTriggers);
+        //     configPtr->set("TriggerMode", "AUTOTRIGSTART_TIMERSTOP");
+        //     configPtr->set("TriggerPeriod", (shutter_open_ms + shutter_closed_ms) / 1000.f);
+        //     configPtr->set("ExposureTime", shutter_open_ms / 1000.f);
 
-            HTTPResponse response;
-            auto& in = putJsonObject("/detector/config", configPtr, response);
-            checkResponse(response, in);
-            logger << "Response of loading binary pixel configuration file: " << in.rdbuf() << log_notice;
-            checkSession(in);
-        }
+        //     HTTPResponse response;
+        //     auto& in = putJsonObject("/detector/config", configPtr, response);
+        //     checkResponse(response, in);
+        //     logger << "Response of loading binary pixel configuration file: " << in.rdbuf() << log_notice;
+        //     checkSession(in);
+        // }
 
         void serverRawDestination(const SocketAddress& address)
         {
@@ -481,8 +492,8 @@ namespace {
                     log << log_notice;
                 }
 
-                unsigned numTriggers = 1;
-                acquisitionInit(configPtr, numTriggers, 2, 950);
+                // unsigned numTriggers = 1;
+                // acquisitionInit(configPtr, numTriggers, 2, 950);
             }
 
             {
@@ -540,23 +551,36 @@ namespace {
             SocketAddress senderAddress;
             StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
 
-            const auto t1 = wall_clock::now();
+            if (! streamFilePath.empty()) {
+                const auto t1 = wall_clock::now();
 
-            logger << "connection from " << senderAddress.toString() << log_info;
+                CopyHandler copyHandler(dataStream, streamFilePath, logger);
+                copyHandler.run_async();
+                copyHandler.await();
 
-            DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
-            dataHandler.run_async();
-            dataHandler.await();
+                const auto t2 = wall_clock::now();
+                const double time = std::chrono::duration<double>{t2 - t1}.count();
+                
+                logger << "time: " << time << "s\n";
+            } else {
+                const auto t1 = wall_clock::now();
 
-            const auto t2 = wall_clock::now();
-            const double time = std::chrono::duration<double>{t2 - t1}.count();
+                logger << "connection from " << senderAddress.toString() << log_info;
 
-            dataStream.close();
+                DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
+                dataHandler.run_async();
+                dataHandler.await();
 
-            const uint64_t hits = dataHandler.hitCount;
-            logger << "time: " << time << "s, hits: " << hits << ", rate: " << (hits / time) << " hits/s\n"
-                   << "analysis spin: " << dataHandler.analyseSpinTime << "s, work: " << dataHandler.analyseTime
-                   << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
+                const auto t2 = wall_clock::now();
+                const double time = std::chrono::duration<double>{t2 - t1}.count();
+
+                dataStream.close();
+
+                const uint64_t hits = dataHandler.hitCount;
+                logger << "time: " << time << "s, hits: " << hits << ", rate: " << (hits / time) << " hits/s\n"
+                    << "analysis spin: " << dataHandler.analyseSpinTime << "s, work: " << dataHandler.analyseTime
+                    << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
+            }
 
             return Application::EXIT_OK;
         }

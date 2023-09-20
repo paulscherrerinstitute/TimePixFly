@@ -3,12 +3,16 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <array>
 #include <numeric>
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
+#include <mutex>
 
 #include "logging.h"
 #include "decoder.h"
+#include "pixel_index.h"
 
 using period_type = int64_t;
 
@@ -36,24 +40,45 @@ namespace {
 
         using std::exit;
 
+        using u8 = uint8_t;
         using u16 = uint16_t;
         using u64 = uint64_t;
 
         Logger& logger = Logger::get("Tpx3App");
 
-        /*!
-        * \brief Per pixel energy aggregation data
-        */
-        struct Pixel final {
-                /*!
-                * \brief Per energy point data
-                * For each energy point in the spectrum to which the pixel contributes
-                */
-                struct Data final {
-                int EnergyPoint;        //!< Pixel contributes to this energy point
-                float Weight;           //!< With this weight
-                };
-                std::vector<Data> parts;    //!< One part per energy point
+        const period_type save_interval = 131000;       // ~1s for TDC frequency 131kHz
+
+        struct EpPart final {
+                unsigned energy_point;                  //!< pixel contributes to this energy point
+                float weight;                           //!< with this weight
+        };
+
+        struct FlatPixelToEp final {
+                std::vector<EpPart> part;               //!< one part per energy point
+        };
+
+        struct ChipToEp final {
+                std::vector<FlatPixelToEp> flat_pixel;
+        };
+
+        struct PixelIndexToEp final {
+                std::vector<ChipToEp> chip;
+                unsigned npoints = 0;
+
+                FlatPixelToEp& operator[](const PixelIndex& index)
+                {
+                        return chip[index.chip].flat_pixel[index.flat_pixel];
+                }
+
+                const FlatPixelToEp& operator[](const PixelIndex& index) const
+                {
+                        return chip[index.chip].flat_pixel[index.flat_pixel];
+                }
+
+                FlatPixelToEp& at(const PixelIndex& index)
+                {
+                        return chip.at(index.chip).flat_pixel.at(index.flat_pixel);
+                }
         };
 
         /*!
@@ -76,20 +101,7 @@ namespace {
                 u64 TRoiN = TOAMode ? 5000 : 100;
                 u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;
 
-                int NumEnergyPoints;
-                std::vector<Pixel> AllPixels;
-
-                vector<float> FlatField;        //<! Flat field indexed by [calib_pix * NumCalibFactors + calib_factor]
-                vector<float> FlatKinetics;     //<! Flat kinetics indexed by [time_point * NumCalibFactors + calib_factor]
-                int NumCalibPix;
-                int NumCalibTPoints;
-                int NumCalibFactors = 0;
-
-                u64 ToFlat([[maybe_unused]] unsigned chipIndex, u64 x, u64 y) const noexcept
-                {
-                        const auto& chip = layout.chip[chipIndex];
-                        return (x + chip.x) * DetWidth + (y + chip.y);
-                }
+                PixelIndexToEp energy_points;
 
                 // In steps of 1.5625 ns
                 void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN) noexcept
@@ -101,113 +113,9 @@ namespace {
                         TRoiEnd = TRoiStart + TRoiStep * TRoiN;
                 }
 
-                void LoadCalibration(const string &NameFlatField = "FlatField.txt",
-                                const string &NameFlatKinetics = "FlatKinetics.txt")
+                [[gnu::const]] unsigned NumChips() const noexcept
                 {
-                        std::ifstream FlatFieldFile(NameFlatField);
-                        if (!FlatFieldFile)
-                                assert((false && "LoadCalibration (open FlatFieldFile) failed"));
-                        std::ifstream FlatKineticsFile(NameFlatKinetics);
-                        if (!FlatKineticsFile)
-                                assert((false && "LoadCalibration (open FlatKineticsFile) failed"));
-
-                        char c;
-                        int NumCalibFactors1, NumCalibFactors2;
-                        if (!(FlatFieldFile >> c >> NumCalibPix >> NumCalibFactors1))
-                                assert((false && "read from FlatFieldFile failed"));
-                        if (!(FlatKineticsFile >> c >> NumCalibTPoints >> NumCalibFactors2))
-                                assert((false && "read from FlatKineticsFile failed"));
-
-                        if (NumCalibFactors1 != NumCalibFactors2) {
-                                cout << "Problem with calibration files. Different "
-                                        "number of factors in kinetics and flat field\n";
-                                exit((EXIT_FAILURE));
-                        }
-                        assert((NumCalibFactors1 >= NumCalibFactors) && "NumCalibFactors cannot be bigger than effective number of calibration factors");
-
-                        float dummy;
-                        int i, j, k;
-
-                        FlatKinetics.resize(NumCalibTPoints * NumCalibFactors);
-                        for (i=0, k=0; i<NumCalibTPoints; ++i) {
-                                for (j=0; j<NumCalibFactors; ++j, ++k)
-                                        FlatKineticsFile >> FlatKinetics[k];
-                                for (; j<NumCalibFactors1; ++j)     // rest is not used
-                                        FlatKineticsFile >> dummy;
-                        }
-
-                        FlatField.resize(NumCalibPix * NumCalibFactors);
-                        for (i=0, k=0; i<NumCalibPix; ++i) {
-                                for (j=0; j<NumCalibFactors; ++j, ++k)
-                                        FlatFieldFile >> FlatField[k];
-                                for (; j<NumCalibFactors1; ++j)     // rest is not used
-                                        FlatFieldFile >> dummy;
-                        }
-                }
-
-                /*!
-                * \brief Calibrate pixel response
-                * \param PixelIndex Flat index of the pixel
-                * \param TimePoint Time point of pixel response
-                * \return Calibrated pixel response
-                */
-                inline float Calibrate(int PixelIndex, int TimePoint) const noexcept
-                {
-                        if ((NumCalibFactors <= 0) || (TimePoint > NumCalibTPoints))
-                                return 1.f;
-                        const float* const ff = &FlatField[PixelIndex * NumCalibFactors];
-                        const float* const fk = &FlatKinetics[TimePoint * NumCalibFactors];
-                        const float Coeff = std::inner_product(ff, ff+NumCalibFactors, fk, .0f);
-                        return Coeff == .0f ? 1.f : Coeff;
-                }
-
-                void SetROI(int ROIStart, int ROIEnd, bool VertOrient, int BinSize)
-                {
-                        NumEnergyPoints = DetWidth / BinSize;
-                        AllPixels.resize(NumPixels);
-                        for (int i=0; i<NumPixels; ++i) {
-                                Pixel& pixel = AllPixels[i];
-                                const int Line = i / DetWidth;
-                                const int Column = i - Line * DetWidth;
-                                if (VertOrient) {
-                                        if ((Line >= ROIStart) && (Line < ROIEnd))
-                                                pixel.parts.emplace_back(Pixel::Data{Column / BinSize, 1.f});
-                                } else {
-                                        if ((Column >= ROIStart) && (Column < ROIEnd))
-                                                pixel.parts.emplace_back(Pixel::Data{Line / BinSize, 1.f});
-                                }
-                        }
-                }
-
-                void SetCircularROI(float CenterLine, float CenterColumn, float *RingSizes, int NumRings) {
-                        NumEnergyPoints=NumRings;
-                        AllPixels.resize(NumPixels);
-
-                        //Here if the center of pixel is in the ring then the whole pixel is assigned to this ring
-                        //In the furure I have to implement that one pixel is partially assigned to a few rings
-                        for (int i = 0; i < NumPixels; i++) {
-                                Pixel& pixel = AllPixels[i];
-                                int Line = i / DetWidth;
-                                int Column = i - Line * DetWidth;
-                                //check math
-                                float R=sqrt(pow((Line-CenterLine),2)+pow((Column-CenterColumn),2));
-                                float PreviousSize=0.0;
-                                int EnergyPointIndex=-1;
-                                for (int j=0; (j<NumRings)&&(EnergyPointIndex==-1); j++) {
-                                        if ((R>=PreviousSize)&&(R<RingSizes[j])) EnergyPointIndex=j;
-                                        PreviousSize=RingSizes[j];
-                                }
-                                //If some pixels are outside of the largest ring they will be assigned to the largest ring
-                                //so the last point of the spectrum can be weird...
-                                //Largest ring can be also as large as the detector (distance to the corner)
-                                //in this case it will be zero pixels outside of the ring
-                                if (EnergyPointIndex==-1)
-                                EnergyPointIndex=NumEnergyPoints-1;
-
-                                //Weight=1.0 is completely wrong. Should take into account the trigonometry (geometry of the spectrometer),
-                                //the number of pixels in the ring etc
-                                pixel.parts.emplace_back(Pixel::Data{EnergyPointIndex, 1.f});
-                        }
+                        return layout.chip.size();
                 }
 
                 Detector(const detector_layout& layout_)
@@ -215,46 +123,130 @@ namespace {
                 {}
         };  // end type Detector
 
+        template <typename T>
+        T parse(std::string_view& s, std::string_view::size_type pos)
+        {
+                std::istringstream iss(s.substr(pos).data());
+                T t;
+                iss >> t;
+                if (!iss)
+                        throw std::ios_base::failure("failed to parse XESPoints file data");
+                return t;
+        }
+
+        void readAreaROI(PixelIndexToEp& energy_points, const detector_layout& layout, const std::string& XESPointsFile)
+        {
+                const auto numPixels = chip_size * chip_size;
+                const auto numChips = layout.chip.size();
+
+                energy_points.chip.resize(numChips);
+                for (auto& chip: energy_points.chip) {
+                        chip.flat_pixel.resize(numPixels);
+                }
+
+                constexpr size_t bufSize = 1024;
+                char buf[bufSize] = {0};
+                std::string_view::size_type posN[bufSize] = {0};
+                std::ifstream ifs(XESPointsFile);
+
+                while (ifs.good()) {
+                        // i, j, XESEnergyIndex[i,j,k]..., XESWeight [i,j,k]...
+                        if (!ifs.getline(buf, bufSize))
+                                throw std::ios_base::failure("failed to parse XESPoints file");
+                        std::string_view s(buf);
+                        std::string_view::size_type pos = 0;
+                        unsigned count = 0;
+                        posN[count] = pos;
+                        while ((pos = s.find(',', pos)) != std::string_view::npos) {
+                                count++;
+                                pos++;
+                                posN[count] = pos;
+                        }
+                        if (count == 0)
+                                throw std::invalid_argument("invalid XESPoints file line (count = 0)");
+                        if ((count % 2) != 0)
+                                throw std::invalid_argument("invalid XESPoints file line (count % 2 != 0)");
+                        unsigned k = parse<unsigned>(s, posN[0]);       // chip
+                        if (k >= numChips)
+                                throw std::invalid_argument("invalid chip number in XESPoints file");
+                        unsigned l = parse<unsigned>(s, posN[1]);       // flatPixel
+                        if (l >= numPixels)
+                                throw std::invalid_argument("invalid pixel number in XESPoints file");
+                        FlatPixelToEp& pixel = energy_points.at(PixelIndex::from(k, l));
+                        const unsigned numEnergyPoints = (count - 2u) / 2u;
+                        for (unsigned m=0; m<numEnergyPoints; m++) {
+                                EpPart part;
+                                part.energy_point = parse<unsigned>(s, posN[2+m]);
+                                energy_points.npoints = std::max(energy_points.npoints, part.energy_point);
+                                pixel.part.push_back(std::move(part));
+                        }
+                        for (unsigned m=0; m<numEnergyPoints; m++)
+                                pixel.part[m].weight = parse<float>(s, posN[2+numEnergyPoints+m]);
+                }
+
+                energy_points.npoints += 1;
+        }
+
+        std::mutex histo_lock;                      // Lock histogram access
+        std::array<std::atomic_uint, 2> save_ok;    // counter for chips that reached the save point
+
         /*!
         * \brief Analysis data and operations
         */
         struct Analysis final {
-                const Detector& detector;           //!< Reference to constant Detector data
+                struct Data final {
+                        vector<float> TDSpectra;        //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
-                vector<float> TDSpectra;            //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
+                        int BeforeRoi = 0;              //!< Number of events before roi
+                        int AfterRoi = 0;               //!< Number of events after roi
+                        int Total = 0;                  //!< Total events handled
+                };
 
-                int BeforeRoi;                      //!< Number of events before roi
-                int AfterRoi;                       //!< Number of events after roi
-                int Total;                          //!< Total events handled
-                u16 TOTMin;                         //!< Minimal energy encountered in handled events
-                u16 TOTMax;                         //!< Maximum energy encountered in handled events
+                const std::string outFileName;          // output file name
+                period_type save_point = 0;             // next period for which a file is written
 
-                duration<double> processor_wait_time; //!< Waiting time for ready data buffers
+                const Detector& detector;               //!< Reference to constant Detector data
+                std::array<Data, 2> data;               // histogram data
+                u8 active = 0;                          // active data
+                u16 TOTMin = 0;                         //!< Minimal energy encountered in handled events
+                u16 TOTMax = 0;                         //!< Maximum energy encountered in handled events
 
                 /*!
                 * \brief Constructor
                 * \param det Constant detector data
                 */
-                inline Analysis(const Detector& det)
-                : detector(det),
-                  TDSpectra(det.TRoiN * det.NumEnergyPoints)
-                {}
+                inline Analysis(const Detector& det, const std::string& OutFName)
+                : outFileName(OutFName), detector(det)
+                {
+                        for (auto& histo: data)
+                                histo.TDSpectra.resize(det.TRoiN * det.energy_points.npoints);
+                }
+
+                inline void Reset(const u8 data_index)
+                {
+                        auto& d = data[data_index];
+                        auto& tds = d.TDSpectra;
+                        std::fill(tds.begin(), tds.end(), 0);
+                        d.BeforeRoi = 0;
+                        d.AfterRoi = 0;
+                        d.Total = 0;
+                }
 
                 /*!
-                * \brief Save spectra to .xes file
+                * \brief Save spectra to .xes
                 * The extension .xes will be appended to the output file path.
                 * \param OutFileName Path to output file without .xes extension
                 */
-                inline void SaveToFile(const string& OutFileName) const
+                inline void SaveToFile(const u8 data_index, const string& OutFileName) const
                 {
                         const clock::time_point t01 = clock::now();
                         const string OutFileName1 = OutFileName + ".xes";
                         std::ofstream OutFile(OutFileName1);
 
-                        const int NumEnergyPoints = detector.NumEnergyPoints;
+                        const int NumEnergyPoints = detector.energy_points.npoints;
                         for (int i=0; i<NumEnergyPoints; ++i) {
                                 for (u64 j=0; j<detector.TRoiN; ++j) {
-                                        OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
+                                        OutFile << data[data_index].TDSpectra[j * NumEnergyPoints + i] << " ";
                                 }
                                 OutFile << "\n";
                         }
@@ -266,39 +258,19 @@ namespace {
                                 assert((false && "Detector::SaveToFile failed"));
                 }
 
-                /*!
-                * \brief Initialize analysis data
-                */
-                inline void Refresh() noexcept
-                {
-                        BeforeRoi = 0;
-                        AfterRoi = 0;
-                        Total = 0;
-                        std::fill(TDSpectra.begin(), TDSpectra.end(), .0f);
-                }
-
-                /*!
-                * \brief Register calibrated event in energy spectrum
-                * \param PixelIndex Flat pixel index
-                * \param TOT Pixel energy
-                */
-                inline void Register(int PixelIndex, int TimePoint, u16 TOT) noexcept
+                inline void Register(const u8 data_index, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
                         if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
-                                const Pixel& CurrentPixel = detector.AllPixels[PixelIndex];
-                                if (! CurrentPixel.parts.empty()) {
-                                        const float clb = detector.Calibrate(PixelIndex, TimePoint);
-                                        for (const auto& part : CurrentPixel.parts)
-                                                TDSpectra[TimePoint * detector.NumEnergyPoints + part.EnergyPoint] += part.Weight / clb;
+                                const auto& flat_pixel = detector.energy_points[index];
+                                if (! flat_pixel.part.empty()) {
+                                        // const float clb = detector.Calibrate(PixelIndex, TimePoint);
+                                        for (const auto& part : flat_pixel.part)
+                                                data[data_index].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                                 }
                         }
                 }
 
-                /*!
-                * \brief Analyse a single event
-                * \param event Event
-                */
-                inline void Analyse(uint64_t index, int64_t toa, int64_t tot) noexcept
+                inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t toa, int64_t tot) noexcept
                 {
                         //----------------------------------------------------------------------
                         // parsing one data line
@@ -306,7 +278,7 @@ namespace {
                         // double fulltoa = toa*25.0 - ftoa*25.0/16.0;
                         // double ftoaC=ftoa*1.0;
 
-                        Total++;
+                        data[dataIndex].Total++;
 
                         // temporary here
                         if (tot < TOTMin)
@@ -315,22 +287,21 @@ namespace {
                                 TOTMax = tot;
                         // end of temporary
 
-                        // WrONG SIGN FOR THE TEST Should be:  16*toa-ftoa
                         const u64 FullToA = detector.TOAMode ? toa : tot;
 
                         if (FullToA < detector.TRoiStart)
-                                BeforeRoi++;
+                                data[dataIndex].BeforeRoi++;
                         else if (FullToA >= detector.TRoiEnd) {
-                                AfterRoi++;
+                                data[dataIndex].AfterRoi++;
                         } else {
                                 const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
                                 // not ideal here. Does not work if tot step is
                                 // not 1
                                 if (detector.TOAMode == true) {
-                                        Register(index, TP, tot);
+                                        Register(dataIndex, index, TP, tot);
                                 } else {
                                         const int TOTP = tot;
-                                        Register(index, TOTP, tot);
+                                        Register(dataIndex, index, TOTP, tot);
                                 }
                         }
                 } // end Analyse()
@@ -339,6 +310,20 @@ namespace {
                 {
                         logger << "purgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
                         logger << chipIndex << ": purge period " << period << log_info;
+                        auto sp = save_point;
+                        auto ac = active;
+                        if (period >= sp) {
+                                if ((save_ok[ac] += 1) == detector.NumChips()) {
+                                        save_ok[ac].store(0);
+                                        {
+                                                std::lock_guard lock{histo_lock};
+                                                save_point = sp + save_interval;
+                                                active = ac ^ 1;
+                                        }
+
+                                        SaveToFile(ac, outFileName + std::to_string(sp) + ".tds");
+                                }
+                        }
                 }
 
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, uint64_t event)
@@ -350,8 +335,11 @@ namespace {
                         const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
                         logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
                         << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
-                        // auto index = detector.ToFlat(chipIndex, xy.first, xy.second);
-                        // Analyse(index, toaclk, totclk);
+                        auto index = PixelIndex::from(chipIndex, xy);
+                        {
+                                std::lock_guard lock{histo_lock};
+                                Analyse((period > save_point ? active ^ 1 : active), index, toaclk, totclk);
+                        }
                 }
 
         }; // end type Analysis
@@ -364,22 +352,22 @@ namespace processing {
 
         void init(const detector_layout& layout)
         {
-                // using std::getline;
-                // using std::ws;
+                using std::getline;
+                using std::ws;
 
-                // std::ifstream ProcessingFile("Processing.inp");
+                std::ifstream ProcessingFile("Processing.inp");
 
-                // string Comment;
-                // string FileInputPath, FileOutputPath, ShortFileName;
+                string Comment;
+                string FileInputPath, FileOutputPath, ShortFileName;
 
-                // getline(ProcessingFile, Comment);
-                // getline(ProcessingFile, FileInputPath);
-                // getline(ProcessingFile, Comment);
-                // getline(ProcessingFile, FileOutputPath);
-                // getline(ProcessingFile, Comment);
-                // getline(ProcessingFile, ShortFileName);
+                getline(ProcessingFile, Comment);
+                getline(ProcessingFile, FileInputPath);
+                getline(ProcessingFile, Comment);
+                getline(ProcessingFile, FileOutputPath);
+                getline(ProcessingFile, Comment);
+                getline(ProcessingFile, ShortFileName);
 
-                // int NumCalibFactors, FileIndexBegin, FileIndexEnd, FileIndexStep;
+                // int NumCalibFactors; //, FileIndexBegin, FileIndexEnd, FileIndexStep;
 
                 // getline(ProcessingFile, Comment);
                 // cout << Comment << "\n";
@@ -394,7 +382,7 @@ namespace processing {
 
                 // int DetROIStart, DetROIEnd, BinSize;
                 // bool BinVerticalOrientation;
-                // int TRStart, TRStep, TRN;
+                int TRStart, TRStep, TRN;
                 // bool DeleteAfter;
 
                 // getline(ProcessingFile, Comment);
@@ -405,31 +393,24 @@ namespace processing {
                 // ProcessingFile >> BinVerticalOrientation >> ws;
                 // getline(ProcessingFile, Comment);
                 // ProcessingFile >> BinSize >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> TRStart >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> TRStep >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> TRN >> ws;
+                getline(ProcessingFile, Comment);
+                ProcessingFile >> TRStart >> ws;
+                getline(ProcessingFile, Comment);
+                ProcessingFile >> TRStep >> ws;
+                getline(ProcessingFile, Comment);
+                ProcessingFile >> TRN >> ws;
                 // getline(ProcessingFile, Comment);
                 // ProcessingFile >> DeleteAfter >> ws;
 
-                // ProcessingFile.close();
-                // if (ProcessingFile.fail())
-                //         assert((false && "failed to parse ProcessingFile"));
+                ProcessingFile.close();
+                if (ProcessingFile.fail())
+                        assert((false && "failed to parse ProcessingFile"));
 
                 Detector K{layout};
-                // K.SetTimeROI(TRStart, TRStep, TRN);
-                // K.SetROI(DetROIStart, DetROIEnd, BinVerticalOrientation, BinSize);
+                K.SetTimeROI(TRStart, TRStep, TRN);
+                readAreaROI(K.energy_points, layout, "XESPoints.inp");
 
-                // K.NumCalibFactors = NumCalibFactors;
-                // if (NumCalibFactors > 0) {
-                //         const string NameFlatField = FileInputPath + "FlatField.txt";
-                //         const string NameFlatKinetics = FileInputPath + "FlatKinetics.txt";
-                //         K.LoadCalibration(NameFlatField, NameFlatKinetics);
-                // }
-
-                analysis.emplace_back(Analysis(K));
+                analysis.emplace_back(Analysis{K, FileOutputPath + ShortFileName});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period)
