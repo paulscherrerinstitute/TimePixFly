@@ -8,6 +8,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <cmath>
 #include <condition_variable>
 #include <Poco/Net/HTTPServerResponse.h>
 #include <Poco/Net/HTTPServerRequest.h>
@@ -228,12 +229,26 @@ namespace {
 
     void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
+        auto width = static_cast<unsigned>(std::ceil(std::sqrt(number_of_chips)));
+        auto height = number_of_chips / width;
+        if ((width * height) != number_of_chips)
+            throw InvalidArgumentException("number of chips argument cannot be decomposed properly into width and height");
+
         std::ostringstream oss;
-        oss << R"({"Original":{"Width":)" << number_of_chips * 256
-            << R"(,"Height":256,"Chips":[)";
-        for(unsigned i=0; (i+1)<number_of_chips; i++)
-            oss << R"({"X":0,"Y":)" << (i*256) << "},";
-        oss << R"({"X":0,"Y":)" << ((number_of_chips-1)*256) << "}]}}\n";
+        oss << R"({"Original":{"Width":)" << width * 256
+            << R"(,"Height":)" << height * 256 << R"(,"Chips":[)";
+        
+        unsigned i=1;
+        for (unsigned h=0; h<height; h++) {
+            auto posX = h * 256;
+            for(unsigned w=0; w<width; i++, w++) {
+                auto posY = w * 256;
+                oss << R"({"X":)" << posX << R"(,"Y":)" << posY << "}";
+                if (i < number_of_chips)
+                    oss << ',';
+            }
+        }
+        oss << "]}}\n";
         
         response.setContentType("application/json");
         response.send() << oss.str();
