@@ -1,6 +1,8 @@
 #ifndef DECODER_H
 #define DECODER_H
 
+#include <cassert>
+
 // Provide code for decoding Timepix3 raw stream data
 
 struct AsiRawStreamDecoder final {
