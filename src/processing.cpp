@@ -18,6 +18,8 @@ using period_type = int64_t;
 
 #include "processing.h"
 
+#include "Poco/Util/IniFileConfiguration.h"
+
 // anonymous namespace to prevent symbol visibility
 namespace {       
         using Decode = AsiRawStreamDecoder;
@@ -47,6 +49,14 @@ namespace {
         Logger& logger = Logger::get("Tpx3App");
 
         const period_type save_interval = 131000;       // ~1s for TDC frequency 131kHz
+
+        struct ConfigFile final : public Poco::Util::IniFileConfiguration {
+                inline ConfigFile(const std::string& path)
+                        : IniFileConfiguration{path}
+                {}
+
+                inline ~ConfigFile() noexcept = default;
+        };
 
         /*!
         * \brief Constant detector data
@@ -115,6 +125,8 @@ namespace {
                 char buf[bufSize] = {0};
                 std::string_view::size_type posN[bufSize] = {0};
                 std::ifstream ifs(XESPointsFile);
+                if (! ifs)
+                        throw std::ios_base::failure(std::string("failed to open ") + XESPointsFile);
 
                 while (ifs.good()) {
                         // i, j, XESEnergyIndex[i,j,k]..., XESWeight [i,j,k]...
@@ -319,6 +331,9 @@ namespace processing {
 
         void init(const detector_layout& layout)
         {
+                ConfigFile config{"Processing.ini"};
+
+                /*
                 using std::getline;
                 using std::ws;
 
@@ -372,6 +387,18 @@ namespace processing {
                 ProcessingFile.close();
                 if (ProcessingFile.fail())
                         throw std::ios_base::failure("failed to parse ProcessingFile");
+                */
+
+                int TRStart = config.getInt("TRStart");
+                int TRStep = config.getInt("TRStep");
+                int TRN = config.getInt("TRN");
+
+                // std::string FileInputPath = config.getString("FileInputPath");
+                std::string FileOutputPath = config.getString("FileOutputPath");
+                std::string ShortFileName = config.getString("ShortFileName");
+
+                logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
+                       << ", FileOutputPath=" << FileOutputPath << ", ShortFileName=" << ShortFileName << log_info;
 
                 Detector K{layout};
                 K.SetTimeROI(TRStart, TRStep, TRN);
