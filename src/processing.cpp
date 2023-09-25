@@ -113,6 +113,7 @@ namespace {
 
         void readAreaROI(PixelIndexToEp& energy_points, const detector_layout& layout, const std::string& XESPointsFile)
         {
+                logger << "readAreaROI(" << XESPointsFile << ')' << log_trace;
                 const auto numPixels = chip_size * chip_size;
                 const auto numChips = layout.chip.size();
 
@@ -164,6 +165,7 @@ namespace {
                 }
 
                 energy_points.npoints += 1;
+                logger << "num energy points: " << energy_points.npoints << log_debug;
         }
 
         std::mutex histo_lock;                      // Lock histogram access

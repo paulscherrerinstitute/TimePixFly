@@ -477,7 +477,7 @@ namespace {
             {
                 LogProxy log(logger);
                 log << "Server Software Version: " << softwareVersion << "\nDashboard: ";
-                dashboardPtr->stringify(log);
+                dashboardPtr->stringify(log.base());
                 log << log_notice;
             }
 
@@ -488,7 +488,7 @@ namespace {
                 {
                     LogProxy log(logger);
                     log << "Response of getting the Detector Configuration from SERVAL: ";
-                    configPtr->stringify(log);
+                    configPtr->stringify(log.base());
                     log << log_notice;
                 }
 
@@ -501,7 +501,7 @@ namespace {
                 {
                     LogProxy log(logger);
                     log << "Response of getting the Detector Info from SERVAL: ";
-                    infoPtr->stringify(log);
+                    infoPtr->stringify(log.base());
                     log << log_notice;
                 }
 
@@ -514,7 +514,7 @@ namespace {
                 {
                     LogProxy log(logger);
                     log << "Response of getting the Detector Layout from SERVAL: ";
-                    layoutPtr->stringify(log);
+                    layoutPtr->stringify(log.base());
                     log << log_notice;
                 }
 

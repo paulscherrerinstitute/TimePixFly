@@ -33,7 +33,7 @@ namespace {
 // A tracing message. This is the lowest priority.
 [[maybe_unused]] constexpr Message::Priority log_trace = Message::PRIO_TRACE;
 
-struct LogProxy final : public std::ostringstream {
+struct LogProxy final : private std::ostringstream {
     using base_type = std::ostringstream;
     Logger& logger;
 
@@ -62,6 +62,11 @@ struct LogProxy final : public std::ostringstream {
     {
         logger.log(Message("Tpx3App", str(), priority));
         str("");
+        return *this;
+    }
+
+    base_type& base() noexcept
+    {
         return *this;
     }
 };
