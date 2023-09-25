@@ -5,7 +5,7 @@
 
 #-------------------------------------------------------
 BACKUP_FILE="${ARCHIVE_DEFAULT:-"./code.tgz"}"
-PREPEND_DATE="${DATE:-"$(date +"%Y%m%d")"}"
+PREPEND_DATE="${DATE:-"$(date +"%Y%m%d")"}-"
 if (($# > 0)); then
     OPTION="$1"
     shift
@@ -27,7 +27,7 @@ fi
 if [ -n "$PREPEND_DATE" ]; then
     FNAME="$(basename "$BACKUP_FILE")"
     DNAME="$(dirname "$BACKUP_FILE")"
-    BACKUP_FILE="${DNAME}/${PREPEND_DATE}-${FNAME}"
+    BACKUP_FILE="${DNAME}/${PREPEND_DATE}${FNAME}"
 fi
 
 CMD="tar czf $BACKUP_FILE src/*.cpp src/include/*.h compile.sh archive.sh generate_data/generate_data.jl generate_data/generate_map.jl generate_data/data"
