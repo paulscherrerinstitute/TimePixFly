@@ -82,15 +82,15 @@ function main()
     (width, height, ystripes, fname) = arg_parse()
     area = Array{Union{Nothing, Int}}(nothing, height, width)
     gen_ystripes(area, ystripes)
-    # if length(fname) > 0
-    #     println("writing to file ", fname, "...")
-    #     open(fname, "w") do io
-    #         write_map(io, area)
-    #     end
-    # else
+    if length(fname) > 0
+        println("writing to file ", fname, "...")
+        open(fname, "w") do io
+            write_map(io, area)
+        end
+    else
         write_map(stdout, area)
-    # end
-    # println("done.")
+    end
+    println("done.")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
