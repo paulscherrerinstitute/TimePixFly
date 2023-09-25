@@ -4,8 +4,13 @@
 # ARCHIVE_DEFAULT   default archive file (optional, default="./code.tgz")
 
 #-------------------------------------------------------
+
+function datecmd() {
+    date +"%Y%m%d"
+}
+
 BACKUP_FILE="${ARCHIVE_DEFAULT:-"./code.tgz"}"
-PREPEND_DATE="${DATE:-"$(date +"%Y%m%d")"}-"
+PREPEND_DATE="${DATE:-"$(datecmd)"}-"
 if (($# > 0)); then
     OPTION="$1"
     shift
@@ -18,6 +23,15 @@ if (($# > 0)); then
         fi
     elif [ "$OPTION" == "-no-prepend-date" ]; then
         PREPEND_DATE=""
+    elif [ "$OPTION" == "-h" ] || [ "$OPTION" == "--help" ]; then
+        echo "Use: ${0} [-backup <file>] [-no-prepend-date]"
+        echo
+        echo "Create code tgz archive. By default with prepended date."
+        echo
+        echo "Environment:"
+        echo "  ARCHIVE_DEFAULT    default file name (./code.tgz)"
+        echo "  DATE               date to prepend ($(datecmd))"
+        exit 0
     else
         echo "unknown option $OPTION"
         exit -1
