@@ -3,3 +3,4 @@ test
 server
 *.tgz
 generate_data/data
+save_data
