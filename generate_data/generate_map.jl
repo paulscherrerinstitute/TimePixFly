@@ -29,7 +29,7 @@ function write_map(io, area)
             subarea = permutedims(area[xl:xh, yl:yh], (2,1))
             for p in eachindex(subarea)
                 if subarea[p] != nothing
-                    println(io, chip, " ", p-1, " ", subarea[p], " 1.0")
+                    println(io, chip, ",", p-1, ",", subarea[p], ",1.0")
                 end
             end
             chip += 1

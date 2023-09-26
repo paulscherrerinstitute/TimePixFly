@@ -127,12 +127,15 @@ namespace {
                 std::string_view::size_type posN[bufSize] = {0};
                 std::ifstream ifs(XESPointsFile);
                 if (! ifs)
-                        throw std::ios_base::failure(std::string("failed to open ") + XESPointsFile);
+                        throw std::ios_base::failure(std::string{"failed to open "} + XESPointsFile);
 
-                while (ifs.good()) {
+                for (unsigned line=1;;line++) {
                         // i, j, XESEnergyIndex[i,j,k]..., XESWeight [i,j,k]...
-                        if (!ifs.getline(buf, bufSize))
-                                throw std::ios_base::failure("failed to parse XESPoints file");
+                        if (! ifs.getline(buf, bufSize).good()) {
+                                if (! ifs.eof())
+                                        throw std::ios_base::failure(std::string{"failed to parse XESPoints file at line "} + std::to_string(line));
+                                break;
+                        }
                         std::string_view s(buf);
                         std::string_view::size_type pos = 0;
                         unsigned count = 0;
@@ -142,8 +145,9 @@ namespace {
                                 pos++;
                                 posN[count] = pos;
                         }
-                        if (count == 0)
-                                throw std::invalid_argument("invalid XESPoints file line (count = 0)");
+                        count += 1;
+                        if (count < 2)
+                                throw std::invalid_argument("invalid XESPoints file line (count < 2)");
                         if ((count % 2) != 0)
                                 throw std::invalid_argument("invalid XESPoints file line (count % 2 != 0)");
                         unsigned k = parse<unsigned>(s, posN[0]);       // chip
