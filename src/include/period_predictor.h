@@ -9,8 +9,9 @@
 #include <cmath>
 
 class period_predictor final {
+    static constexpr double extrapolation_threshold = 100.;
     static constexpr int N = 4;
-    std::array<int64_t, N> past;  // time stamp, period
+    std::array<int64_t, N> past;    // time stamp
     int64_t start;
     double interval;
     long correction;
@@ -77,6 +78,11 @@ class period_predictor final {
     inline unsigned minPoints() const noexcept
     {
         return (N + 2) / 2;
+    }
+
+    bool ok(int64_t ts) const noexcept
+    {
+        return ((ts - start) / interval) < extrapolation_threshold;
     }
 
     template<typename Stream>

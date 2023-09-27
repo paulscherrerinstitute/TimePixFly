@@ -293,7 +293,7 @@ class DataHandler final {
 
                     size_t processingByte = 0;
                     const char* content = eventBuffer->content.data();
-                    bool predictorReady = (tdcHits >= 2);
+                    bool predictorReady = (tdcHits >= 3);
 
                     while (processingByte < dataSize) {
                         uint64_t d = *reinterpret_cast<const uint64_t*>(&content[processingByte]);
@@ -319,19 +319,28 @@ class DataHandler final {
                         } else if (Decode::matchesNibble(d, 0x6)) {
                             const uint64_t tdcclk = Decode::getTdcClock(d);
                             logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
-                            predictor[chipIndex].prediction_update(tdcclk);
-                            tdcHits++;
-                            if (tdcHits == 2) {
-                                predictorReady = true;
-                                logger << threadId << ": predictor ready, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
-                            } else if (tdcHits == 1) {
+                            if (tdcHits == 0) {
                                 predictor[chipIndex].reset(tdcclk, initialPeriod);
                                 logger << threadId << ": predictor start, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
+                            } else {
+                                predictor[chipIndex].prediction_update(tdcclk);
+                                if (tdcHits == 2) {
+                                    predictorReady = true;
+                                    logger << threadId << ": predictor ready, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
+                                }
                             }
+                            tdcHits++;
                             if (predictorReady) {
-                                predictorReady = true;
                                 const double period = predictor[chipIndex].period_prediction(tdcclk);
                                 auto index = queues[chipIndex].period_index_for(period);
+                                if (! index.disputed) {
+                                    logger << threadId << ": tdc=" << tdcclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_fatal;
+                                    throw RuntimeException("encountered undisputed period for tdc");
+                                }
+                                if (! predictor[chipIndex].ok(tdcclk)) {
+                                    predictor[chipIndex].start_update(tdcclk);
+                                    logger << threadId << ": predictor recalibrate " << predictor[chipIndex] << log_info;
+                                }
                                 processTdc(chipIndex, index, tdcclk, d);
                             }
                         } else {
