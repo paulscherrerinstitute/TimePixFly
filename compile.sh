@@ -3,7 +3,7 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation"
+LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread"
 
 WARN_FLAGS+=" -Wall -Wextra"
 
