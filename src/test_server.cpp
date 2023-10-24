@@ -271,8 +271,8 @@ namespace {
             auto json_data = Parser{}.parse(request.stream());
             std::cout << json_data.toString() << '\n';
             auto json_object = json_data.extract<Object::Ptr>();
-            auto json_array = check_ptr(json_object->getArray("Raw"), "expected 'Raw' array");
-            auto json_value = check_ptr(json_array->getObject(0), "expected object as element 0");
+            auto json_array = check_ptr(json_object->getArray("Raw").get(), "expected 'Raw' array");
+            auto json_value = check_ptr(json_array->getObject(0).get(), "expected object as element 0");
             auto connect_to = URI{json_value->getValue<std::string>("Base")};
             if (connect_to.getScheme() != "tcp")
                 throw RuntimeException("expected tcp as scheme");
