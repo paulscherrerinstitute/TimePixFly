@@ -8,6 +8,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 
 #include "logging.h"
 #include "decoder.h"
