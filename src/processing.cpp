@@ -209,6 +209,7 @@ namespace {
 
                 inline void Reset(const u8 data_index)
                 {
+                        logger << "Reset(" << data_index << ')' << log_trace;
                         auto& d = data[data_index];
                         auto& tds = d.TDSpectra;
                         std::fill(tds.begin(), tds.end(), 0);
@@ -224,9 +225,9 @@ namespace {
                 */
                 inline void SaveToFile(const u8 data_index, const string& OutFileName) const
                 {
-                        const clock::time_point t01 = clock::now();
-                        const string OutFileName1 = OutFileName + ".xes";
-                        std::ofstream OutFile(OutFileName1);
+                        logger << "SaveToFile(" << data_index << ", " << OutFileName << ')' << log_trace;
+                        const auto t1 = clock::now();
+                        std::ofstream OutFile(OutFileName + ".xes");
 
                         const int NumEnergyPoints = detector.energy_points.npoints;
                         for (int i=0; i<NumEnergyPoints; ++i) {
@@ -235,12 +236,12 @@ namespace {
                                 }
                                 OutFile << "\n";
                         }
-                        const clock::time_point t02 = clock::now();
-                        auto duration1 = duration_cast<milliseconds>(t02 - t01).count();
-                        cout << "conversion time " << duration1 << " ms ";
-                        OutFile.close();
+                        const auto t2 = clock::now();
                         if (OutFile.fail())
                                 throw std::ios_base::failure("Detector::SaveToFile failed");
+                        OutFile.close();
+                        auto save_time = duration_cast<milliseconds>(t2 - t1).count();
+                        logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
                 }
 
                 inline void Register(const u8 data_index, PixelIndex index, int TimePoint, u16 TOT) noexcept
@@ -293,7 +294,7 @@ namespace {
 
                 void PurgePeriod(unsigned chipIndex, period_type period)
                 {
-                        logger << "purgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
+                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
                         logger << chipIndex << ": purge period " << period << log_info;
                         auto sp = save_point;
                         auto ac = active;
@@ -313,7 +314,7 @@ namespace {
 
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, uint64_t event)
                 {
-                        logger << "processEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
+                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
                         const uint64_t totclk = Decode::getTotClock(event);
                         const float toa = Decode::clockToFloat(toaclk);
                         const float tot = Decode::clockToFloat(totclk, 40e6);
