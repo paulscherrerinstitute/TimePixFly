@@ -157,6 +157,16 @@ function arg_parse()
             help = "number of chips"
             arg_type = Int
             default = 4
+        "--period", "-p"
+            metavar = "N"
+            help = "period in ns"
+            arg_type = Int
+            default = 1000
+        "--nperiods", "-n"
+            metavar = "N"
+            help = "number of periods"
+            arg_type = Int
+            default = 6
         "file_path"
             help = "where to store the raw data"
             arg_type = String
@@ -167,9 +177,10 @@ function arg_parse()
 
     fname::String = args["file_path"]
     nchips::Int = args["nchips"]
-    period = 1000
+    period::Int = args["period"]
+    nperiods::Int = args["nperiods"]
     tstart = 0
-    tend = 4000
+    tend = nperiods * period
     return (nchips, period, tstart, tend, fname)
 end
 
@@ -187,7 +198,7 @@ function main()
     else
         print_packets(stdout, packets)
     end
-    println("done.")
+    println("(nchips=", nchips, ", period=", period, ", nperiods=", npackets, " - done.")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
