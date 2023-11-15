@@ -233,7 +233,7 @@ namespace {
                 */
                 inline void SaveToFile(const u8 data_index, const string& OutFileName) const
                 {
-                        logger << "SaveToFile(" << data_index << ", " << OutFileName << ')' << log_trace;
+                        logger << "SaveToFile(" << (int)data_index << ", " << OutFileName << ')' << log_trace;
                         const auto t1 = clock::now();
                         std::ofstream OutFile(OutFileName + ".xes");
 
@@ -263,7 +263,7 @@ namespace {
                                                 data[dataIndex].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                                 }
                         } else
-                                logger << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
+                                logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
                 }
 
                 inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
@@ -288,10 +288,10 @@ namespace {
 
                         if (FullToA < detector.TRoiStart) {
                                 data[dataIndex].BeforeRoi++;
-                                logger << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
+                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
                         } else if (FullToA >= detector.TRoiEnd) {
                                 data[dataIndex].AfterRoi++;
-                                logger << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
+                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
                         } else {
                                 const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
                                 // not ideal here. Does not work if tot step is

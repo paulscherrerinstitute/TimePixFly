@@ -234,7 +234,7 @@ class DataHandler final {
             index.period -= 1;
         for (; !rq.empty(); rq.pop()) {
             auto& el = rq.top();
-            processEvent(chipIndex, (tdcclk > el.toa ? index.disputed_period : index.period), el.toa, el.event);
+            processEvent(chipIndex, (tdcclk < el.toa ? index.disputed_period : index.period), el.toa, el.event);
         }
         // remove old period data
         while (queues[chipIndex].size() > maxPeriodQueues) {
