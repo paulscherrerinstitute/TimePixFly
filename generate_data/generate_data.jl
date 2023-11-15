@@ -103,14 +103,14 @@ struct EventPacket
     events::Vector{UInt64}
 end
 
-function generate_packet(chip::Integer, period_id::Integer, period::Integer, ntoa::Integer, ntdc::Integer)::EventPacket
+function generate_packet(chip::Integer, period_id::Integer, period::Integer, tot::Integer, ntoa::Integer, ntdc::Integer)::EventPacket
     t = period_id * period
     dtdc = div(period, ntdc)
     events::Array{UInt64} = [ tdc(t) ]
 
     dtoa = div(period, ntoa)
     for i in 1:ntoa
-        push!(events, toa(0, t + i * dtoa, 0))
+        push!(events, toa(0, t + i * dtoa, tot))
     end
 
     if ntdc > 1
@@ -167,6 +167,11 @@ function arg_parse()
             help = "number of periods"
             arg_type = Int
             default = 6
+        "--tot", "-t"
+            metavar = "N"
+            help = "TOT value for TOA events"
+            arg_type = Int
+            default = 50
         "file_path"
             help = "where to store the raw data"
             arg_type = String
@@ -179,16 +184,17 @@ function arg_parse()
     nchips::Int = args["nchips"]
     period::Int = args["period"]
     nperiods::Int = args["nperiods"]
+    tot::Int = args["tot"]
     tstart = 0
     tend = nperiods * period
-    return (nchips, period, tstart, tend, fname)
+    return (nchips, period, tot, tstart, tend, fname)
 end
 
 function main()
-    (nchips, period, tstart, tend, fname) = arg_parse()
+    (nchips, period, tot, tstart, tend, fname) = arg_parse()
     npackets = round(UInt32, (tend - tstart) / period)
 
-    packets = [ generate_packet(c, p, period, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
+    packets = [ generate_packet(c, p, period, tot, 10, 1) for p in 0:npackets-1 for c in 0:nchips-1 ]
 
     if length(fname) > 0
         println("writing to raw file ", fname, "...")
@@ -198,7 +204,7 @@ function main()
     else
         print_packets(stdout, packets)
     end
-    println("(nchips=", nchips, ", period=", period, ", nperiods=", npackets, " - done.")
+    println("(nchips=", nchips, ", period=", period, ", nperiods=", npackets, ", tot=", tot, " - done.")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
