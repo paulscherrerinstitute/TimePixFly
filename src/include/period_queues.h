@@ -91,6 +91,12 @@ struct period_queues final {
         return element[idx.disputed ? idx.disputed_period : idx.period];
     }
 
+    [[gnu::pure]]
+    inline period_queue_element& operator[](const period_type& period)
+    {
+        return element[period];
+    }
+
     inline event_reorder_queue& registerStart(const period_index& idx, int64_t start)
     {
         assert(idx.disputed);

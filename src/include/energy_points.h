@@ -20,11 +20,15 @@ struct PixelIndexToEp final {
 
         inline FlatPixelToEp& operator[](const PixelIndex& index)
         {
+                assert(index.chip < chip.size());
+                assert(index.flat_pixel < chip[index.chip].flat_pixel.size());
                 return chip[index.chip].flat_pixel[index.flat_pixel];
         }
 
         inline const FlatPixelToEp& operator[](const PixelIndex& index) const
         {
+                assert(index.chip < chip.size());
+                assert(index.flat_pixel < chip[index.chip].flat_pixel.size());
                 return chip[index.chip].flat_pixel[index.flat_pixel];
         }
 

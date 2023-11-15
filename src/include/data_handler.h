@@ -216,7 +216,8 @@ class DataHandler final {
 
     inline void processEvent(unsigned chipIndex, period_type period, int64_t toaclk, uint64_t event)
     {
-        processing::processEvent(chipIndex, period, toaclk, event);
+        auto start = queues[chipIndex][period].start;
+        processing::processEvent(chipIndex, period, toaclk, toaclk - start, event);
     }
     // --------------------------------------------------------------------------
 
@@ -246,7 +247,7 @@ class DataHandler final {
 
     inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
     {
-        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << event << ')' << log_trace;
+        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
                << " (" << std::hex << event << std::dec << ')' << log_debug;
         queues[chipIndex][index].queue->push({toaclk, event});

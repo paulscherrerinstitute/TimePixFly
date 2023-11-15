@@ -84,11 +84,13 @@ namespace {
                 // In steps of 1.5625 ns
                 void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN) noexcept
                 {
+                        logger << "SetTimeROI(" << tRoiStart << ", " << tRoiStep << ", " << tRoiN << ')' << log_trace;
                         TRoiStart = tRoiStart;
                         TRoiStep = tRoiStep;
                         TRoiN = tRoiN;
 
                         TRoiEnd = TRoiStart + TRoiStep * TRoiN;
+                        logger << "Detector TRoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
                 }
 
                 [[gnu::const]] unsigned NumChips() const noexcept
@@ -99,7 +101,12 @@ namespace {
                 Detector(const detector_layout& layout_)
                 : layout{layout_}, DetWidth(layout.width), NumPixels(layout.width * layout.height)
                 {}
+
+                ~Detector()
+                {}
         };  // end type Detector
+
+        std::unique_ptr<Detector> detptr;
 
         template <typename T>
         T parse(std::string_view& s, std::string_view::size_type pos)
@@ -245,20 +252,23 @@ namespace {
                         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
                 }
 
-                inline void Register(const u8 data_index, PixelIndex index, int TimePoint, u16 TOT) noexcept
+                inline void Register(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
+                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
                         if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
                                 const auto& flat_pixel = detector.energy_points[index];
                                 if (! flat_pixel.part.empty()) {
                                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                                         for (const auto& part : flat_pixel.part)
-                                                data[data_index].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
+                                                data[dataIndex].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                                 }
-                        }
+                        } else
+                                logger << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
                 }
 
-                inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t toa, int64_t tot) noexcept
+                inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
                 {
+                        logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
                         //----------------------------------------------------------------------
                         // parsing one data line
                         //----------------------------------------------------------------------
@@ -274,12 +284,14 @@ namespace {
                                 TOTMax = tot;
                         // end of temporary
 
-                        const u64 FullToA = detector.TOAMode ? toa : tot;
+                        const u64 FullToA = detector.TOAMode ? reltoa : tot;
 
-                        if (FullToA < detector.TRoiStart)
+                        if (FullToA < detector.TRoiStart) {
                                 data[dataIndex].BeforeRoi++;
-                        else if (FullToA >= detector.TRoiEnd) {
+                                logger << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
+                        } else if (FullToA >= detector.TRoiEnd) {
                                 data[dataIndex].AfterRoi++;
+                                logger << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
                         } else {
                                 const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
                                 // not ideal here. Does not work if tot step is
@@ -313,9 +325,9 @@ namespace {
                         }
                 }
 
-                void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, uint64_t event)
+                void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 {
-                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
+                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
                         const uint64_t totclk = Decode::getTotClock(event);
                         const float toa = Decode::clockToFloat(toaclk);
                         const float tot = Decode::clockToFloat(totclk, 40e6);
@@ -325,7 +337,7 @@ namespace {
                         auto index = PixelIndex::from(chipIndex, xy);
                         {
                                 std::lock_guard lock{histo_lock};
-                                Analyse((period > save_point ? active ^ 1 : active), index, toaclk, totclk);
+                                Analyse((period > save_point ? active ^ 1 : active), index, relative_toaclk, totclk);
                         }
                 }
 
@@ -408,11 +420,11 @@ namespace processing {
                 logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
                        << ", FileOutputPath=" << FileOutputPath << ", ShortFileName=" << ShortFileName << log_info;
 
-                Detector K{layout};
-                K.SetTimeROI(TRStart, TRStep, TRN);
-                readAreaROI(K.energy_points, layout, "XESPoints.inp");
+                detptr.reset(new Detector{layout});
+                detptr->SetTimeROI(TRStart, TRStep, TRN);
+                readAreaROI(detptr->energy_points, layout, "XESPoints.inp");
 
-                analysis.emplace_back(Analysis{K, FileOutputPath + ShortFileName});
+                analysis.emplace_back(Analysis{*detptr, FileOutputPath + ShortFileName});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period)
@@ -420,9 +432,9 @@ namespace processing {
                 analysis[0].PurgePeriod(chipIndex, period);
         }
 
-        void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, uint64_t event)
+        void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
         {
-                analysis[0].ProcessEvent(chipIndex, period, toaclk, event);
+                analysis[0].ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
         }
 
 } // namespace processing
