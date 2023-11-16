@@ -69,6 +69,11 @@ struct LogProxy final : private std::ostringstream {
     {
         return *this;
     }
+
+    // log level at least debug?
+    bool debug() const {
+        return logger.debug();
+    }
 };
 
 template<typename T>
