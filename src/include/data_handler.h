@@ -221,6 +221,17 @@ class DataHandler final {
     }
     // --------------------------------------------------------------------------
 
+    inline void purgeQueues(unsigned chipIndex, unsigned toSize=0)
+    {
+        logger << "purgeQueues(" << chipIndex << ", " << toSize << ')' << log_trace;
+        while (queues[chipIndex].size() > maxPeriodQueues) {
+            auto pp = queues[chipIndex].oldest();
+            purgePeriod(chipIndex, pp->first);
+            logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
+            queues[chipIndex].erase(pp);
+        }
+    }
+
     inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk, uint64_t event)
     {
         logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
@@ -237,12 +248,7 @@ class DataHandler final {
             processEvent(chipIndex, (tdcclk < el.toa ? index.disputed_period : index.period), el.toa, el.event);
         }
         // remove old period data
-        while (queues[chipIndex].size() > maxPeriodQueues) {
-            auto pp = queues[chipIndex].oldest();
-            purgePeriod(chipIndex, pp->first);
-            logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
-            queues[chipIndex].erase(pp);
-        }
+        purgeQueues(chipIndex, maxPeriodQueues);
     }
 
     inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
@@ -367,6 +373,20 @@ class DataHandler final {
 
             } while(! stop());
 
+        analyser_stopped:
+
+            // purge remaining queues
+            purgeQueues(chipIndex);
+            purgePeriod(chipIndex, std::numeric_limits<period_type>::max());
+
+            {
+                std::lock_guard lock{memberMutex};
+                hitCount += hits;
+                analyseTime += workTime;
+                analyseSpinTime += spinTime;
+            }
+
+            logger << threadId << ": Processed " << hits << " events, " << tdcHits << " TDCs" << log_info;
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << threadId << ": analyser exception: " << ex.displayText() << log_critical;
@@ -374,16 +394,6 @@ class DataHandler final {
             stopNow();
             logger << threadId << ": analyser exception: " << ex.what() << log_critical;
         }
-
-    analyser_stopped:
-        {
-            std::lock_guard lock{memberMutex};
-            hitCount += hits;
-            analyseTime += workTime;
-            analyseSpinTime += spinTime;
-        }
-
-        logger << threadId << ": Processed " << hits << " events, " << tdcHits << " TDCs" << log_info;
     }
 
 public:
