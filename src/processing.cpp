@@ -180,8 +180,7 @@ namespace {
                 logger << "num energy points: " << energy_points.npoints << log_debug;
         }
 
-        std::mutex histo_lock;                      // Lock histogram access
-        std::array<std::atomic_uint, 2> save_ok;    // counter for chips that reached the save point
+        std::mutex histo_lock;                      // Lock analysis object with histogram
 
         /*!
         * \brief Analysis data and operations
@@ -195,14 +194,18 @@ namespace {
                         int Total = 0;                  //!< Total events handled
                 };
 
-                const std::string outFileName;          // output file name
-                period_type save_point = 0;             // next period for which a file is written
-
-                const Detector& detector;               //!< Reference to constant Detector data
                 std::array<Data, 2> data;               // histogram data
                 u8 active = 0;                          // active data
+
                 u16 TOTMin = 0;                         //!< Minimal energy encountered in handled events
                 u16 TOTMax = 0;                         //!< Maximum energy encountered in handled events
+
+                static constexpr period_type no_save = 2; // don't save save data before this period
+                period_type save_point = no_save;       // next period for which a file is written
+                std::array<unsigned, 2> save_ok;        // counter for chips that reached the save point
+
+                const std::string outFileName;          // output file name
+                const Detector& detector;               //!< Reference to constant Detector data
 
                 /*!
                 * \brief Constructor
@@ -217,7 +220,7 @@ namespace {
 
                 inline void Reset(const u8 data_index)
                 {
-                        logger << "Reset(" << data_index << ')' << log_trace;
+                        logger << "Reset(" << (int)data_index << ')' << log_trace;
                         auto& d = data[data_index];
                         auto& tds = d.TDSpectra;
                         std::fill(tds.begin(), tds.end(), 0);
@@ -305,24 +308,35 @@ namespace {
                         }
                 } // end Analyse()
 
+                // if period is bigger than next save point, save data in any case
+                // if current period <= no_save, don't save data
                 void PurgePeriod(unsigned chipIndex, period_type period)
                 {
                         logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
                         logger << chipIndex << ": purge period " << period << log_info;
-                        auto sp = save_point;
-                        auto ac = active;
-                        if (period >= sp) {
-                                if ((save_ok[ac] += 1) == detector.NumChips()) {
-                                        save_ok[ac].store(0);
-                                        {
-                                                std::lock_guard lock{histo_lock};
-                                                save_point = sp + save_interval;
-                                                active = ac ^ 1;
-                                        }
 
-                                        SaveToFile(ac, outFileName + std::to_string(sp) + ".tds");
-                                }
+                        u8 ac;
+                        period_type sp;
+
+                        {
+                                std::lock_guard lock{histo_lock};
+                                ac = active;
+                                sp = save_point;
+
+                                if (period < sp)
+                                        return;         // too early
+
+                                if ((save_ok[ac] += 1) < detector.NumChips())
+                                        return;         // others need to catch up
+
+                                save_ok[ac] = 0;        // reset count
+                                save_point = sp + save_interval;
+                                active = ac ^ 1;
                         }
+
+                        if ((sp > no_save) || (save_point < period))
+                                SaveToFile(ac, outFileName + std::to_string(sp) + ".tds");
+                        Reset(ac);
                 }
 
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
