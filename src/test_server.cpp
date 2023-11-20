@@ -1,4 +1,7 @@
-// Provide tpx3app test server
+/*!
+\file
+Test server code for replaying an ASI raw event stream
+*/
 
 #include <iostream>
 #include <sstream>
@@ -56,20 +59,23 @@ using Poco::Util::UnknownOptionException;
 namespace {
     using namespace std::chrono_literals;
 
-    std::map<std::string, std::function<void(HTTPServerRequest&, HTTPServerResponse&)>> path_handler;
-    ServerSocket bind_to{SocketAddress{"localhost:8080"}};
-    SocketAddress destination;
-    OptionSet args;
-    bool stop_server = false;
-    std::mutex stop_mutex;
-    std::condition_variable stop_condition;
-    bool sender_ready = false;
-    std::mutex ready_mutex;
-    std::condition_variable ready_condition;
-    std::thread data_sender;
-    std::string file_name;
-    unsigned number_of_chips = 4;
+    std::map<std::string, std::function<void(HTTPServerRequest&, HTTPServerResponse&)>> path_handler; //!< Map HTTP from path to handler
+    ServerSocket bind_to{SocketAddress{"localhost:8080"}}; //!< Server binding address
+    SocketAddress destination;                  //!< Destination address
+    OptionSet args;                             //!< Commandline arguments OptionSet
+    bool stop_server = false;                   //!< Signal for stop server
+    std::mutex stop_mutex;                      //!< Protection for stop signal
+    std::condition_variable stop_condition;     //!< Condition variable for stop signal
+    bool sender_ready = false;                  //!< Sender thread ready signal
+    std::mutex ready_mutex;                     //!< Protection for sender ready signal
+    std::condition_variable ready_condition;    //!< Condition variable for ready signal
+    std::thread data_sender;                    //!< Data sender thread
+    std::string file_name;                      //!< Raw data stream file name
+    unsigned number_of_chips = 4;               //!< Default value for number of detector chips
 
+    /*!
+    \brief Code for send data thread
+    */
     void send_data()
     {
         try {
@@ -99,6 +105,13 @@ namespace {
         }
     }
 
+    /*!
+    \brief Null pointer check
+    \param ptr Pointer to check
+    \param msg Error message
+    \return ptr if it is not null
+    \throw DataFormatException if ptr is null
+    */
     template<typename T>
     T check_ptr(T&& ptr, const std::string& msg)
     {
@@ -107,12 +120,20 @@ namespace {
         return ptr;
     }
 
+    /*!
+    \brief Send HTTP BAD_REQUEST response
+    \param response Poco HTTP response object
+    \param msg      Error message
+    */
     void error_response(HTTPServerResponse& response, const std::string& msg)
     {
         response.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
         response.send() << msg << '\n';
     }
 
+    /*!
+    \brief HTTP GET request handler
+    */
     struct GetRequestHandler final : public HTTPRequestHandler {
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
@@ -126,6 +147,9 @@ namespace {
         }
     };
 
+    /*!
+    \brief HTTP PUT request handler
+    */
     struct PutRequestHandler final : public HTTPRequestHandler {
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
@@ -143,6 +167,9 @@ namespace {
         }
     };
     
+    /*!
+    \brief HTTP unknown request type handler
+    */
     struct ErrorRequestHandler final : public HTTPRequestHandler {
         void handleRequest([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response) override
         {
@@ -158,6 +185,9 @@ namespace {
         std::string error;
     };
 
+    /*!
+    \brief Factory generating HTTP request specific handlers
+    */
     struct TestServerRequestHandlerFactory  final : public HTTPRequestHandlerFactory {
         HTTPRequestHandler * createRequestHandler(const HTTPServerRequest & request) override
         {
@@ -171,12 +201,22 @@ namespace {
         }
     };
 
+    /*!
+    \brief GET /dashboard response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_dashboard([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         response.setContentType("application/json");
         response.send() << R"({"Server":{"SoftwareVersion":"t1"}})" << '\n';
     }
 
+    /*!
+    \brief GET /config/load response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_config_load(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         try {
@@ -196,6 +236,11 @@ namespace {
         }
     }
     
+    /*!
+    \brief GET /mesurement/start response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_measurement_start([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         data_sender = std::thread(send_data);
@@ -208,6 +253,11 @@ namespace {
         response.send() << "measurement started\n";
     }
 
+    /*!
+    \brief GET/PUT /detector/config response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void getput_detector_config(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         if (request.getMethod() == "GET") {
@@ -221,12 +271,22 @@ namespace {
         }
     }
 
+    /*!
+    \brief GET /detector/info response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_detector_info([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         response.setContentType("application/json");
         response.send() << R"({"NumberOfChips":)" << number_of_chips << "}\n";
     }
 
+    /*!
+    \brief GET /detector/layout response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         auto width = static_cast<unsigned>(std::ceil(std::sqrt(number_of_chips)));
@@ -254,6 +314,11 @@ namespace {
         response.send() << oss.str();
     }
 
+    /*!
+    \brief GET /stop response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         {
@@ -265,6 +330,11 @@ namespace {
         response.send() << "server stop\n";
     }
 
+    /*!
+    \brief PUT /server/destination response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
     void put_server_destination(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         try {
@@ -289,6 +359,9 @@ namespace {
         }
     }
 
+    /*!
+    \brief Initialize HTTP handlers
+    */
     void init_handlers()
     {
         path_handler.emplace("/dashboard", get_dashboard);
@@ -302,6 +375,9 @@ namespace {
         path_handler.emplace("/server/destination", put_server_destination);
     }
 
+    /*!
+    \brief Commandline options handler
+    */
     struct option_handler_type final {
         inline void handle_help([[maybe_unused]] const std::string& name, [[maybe_unused]] const std::string& value)
         {
@@ -327,8 +403,13 @@ namespace {
             if (name == "nchips")
                 number_of_chips = static_cast<unsigned>(num);
         }
-    } option_handler;
+    } option_handler;   //!< Commandline options handler object
 
+    /*!
+    \brief Handle commandline arguments
+    \param argc Number of commandline arguments
+    \param argv Commandline argument values
+    */
     void handle_args(int argc, char *argv[])
     {
         args.addOption(Option{"input", "i"}
@@ -362,7 +443,13 @@ namespace {
     }
 }
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
+/*!
+\brief Main function
+\param argc Number of commandline arguments
+\param argv Commandline argument values
+\return 0 if no errors, not 0 otherwise
+*/
+int main(int argc, char *argv[])
 {
     try {
         handle_args(argc, argv);

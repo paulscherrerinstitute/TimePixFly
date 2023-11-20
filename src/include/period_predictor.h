@@ -1,13 +1,19 @@
 #ifndef PERIOD_PREDICTOR_H
 #define PERIOD_PREDICTOR_H
 
-// Code for maintaining a period prediction
-// Both the interval and the period number can be predicted
+/*!
+\file
+Code for maintaining a period prediction
 
+Both the period interval and number can be predicted
+*/
 
 #include <algorithm>
 #include <cmath>
 
+/*!
+\brief Period predictor object
+*/
 class period_predictor final {
     static constexpr double extrapolation_threshold = 100.;
     static constexpr int N = 4;
@@ -95,6 +101,12 @@ class period_predictor final {
     }
 };
 
+/*!
+\brief Stream output for period predictor
+\param out Output stream reference
+\param p   Period predictor
+\return out
+*/
 template<typename Stream>
 Stream& operator<<(Stream& out, const period_predictor& p)
 {

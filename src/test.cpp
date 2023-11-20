@@ -1,3 +1,8 @@
+/*!
+\file
+Unit tests
+*/
+
 #include <set>
 #include <vector>
 #include <functional>
@@ -10,10 +15,17 @@
 
 namespace {
 
+    /*!
+    \brief Unit test object
+    */
     struct test_unit final {
         std::string name;
         std::string desc;
         std::function<void(const test_unit&)> test;
+
+        /*!
+        \brief Comparator for sorting unit test objects
+        */
         struct less final {
             bool operator()(const test_unit& a, const test_unit& b) const
             {
@@ -22,15 +34,21 @@ namespace {
         };
     };
 
+    /*!
+    \brief Unit test result
+    */
     struct test_result final {
         const test_unit* unit;
         unsigned num;
     };
 
-    std::set<test_unit, test_unit::less> tests;
-    std::vector<test_result> failed_tests;
-    std::vector<test_result> successful_tests;
+    std::set<test_unit, test_unit::less> tests; //!< Set of all tests
+    std::vector<test_result> failed_tests;      //!< List of failed tests
+    std::vector<test_result> successful_tests;  //!< List of successful tests
 
+    /*!
+    \brief Verbose output abstraction object
+    */
     template<typename Stream>
     struct verbose_type final : public Stream {
         bool output;
@@ -57,30 +75,71 @@ namespace {
         inline verbose_type& operator=(verbose_type&&) = default;
     };
     
-    verbose_type<decltype(std::cout)> verbose{std::cout, false};
+    verbose_type<decltype(std::cout)> verbose{std::cout, false};    //!< verbose_type stream object
 
+    /*!
+    \brief Failed test processing
+
+    This puts the test unit object on the list of failed tests and increments the test position counter.
+    The test position counter can be used to identify which check within the test unit failed.
+
+    \param unit Test unit object reference
+    \param t    Reference to test position counter
+    */
     void test_failed(const test_unit& unit, unsigned& t)
     {
         failed_tests.push_back({&unit, t});
         t++;
     }
 
+    /*!
+    \brief Successful test processing
+
+    This puts the test unit object on the list of successful tests and increments the test position counter.
+    The test position counter can be used to identify which check within the test unit succeeded.
+
+    \param unit Test unit object reference
+    \param t    Reference to test position counter
+    */
     void test_succeeded(const test_unit& unit, unsigned& t)
     {
         successful_tests.push_back({&unit, t});
         t++;
     }
 
+    /*!
+    \brief Output operator for period_index
+    \param out Output stream
+    \param idx Abstract period index
+    \return out
+    */
     inline decltype(verbose)& operator<<(decltype(verbose)& out, const period_index& idx)
     {
         return out.operator<<(idx);
     }
 
+    /*!
+    \brief Unequality check for abstract period indices
+    \param a First period index
+    \param b Second period index
+    \return true iff a is not equal to b by value
+    */
     bool operator!=(const period_index& a, const period_index& b) noexcept
     {
         return a != b;
     }
 
+    /*!
+    \brief Equality check
+
+    This test fails iff a!=b
+    The test position counter will be incremented by one.
+
+    \param unit Test unit reference
+    \param t    Test position counter reference
+    \param a    First value
+    \param b    Second value
+    */
     template<typename T>
     void check_eq(const test_unit& unit, unsigned& t, const T& a, const T& b)
     {
@@ -91,6 +150,11 @@ namespace {
             test_succeeded(unit, t);
     }
 
+    /*!
+    \brief Equality check for double
+
+    Due to numeric issues, double values are considered equal if they are within a small distance (1e-6) of each other.
+    */    
     template<>
     void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)
     {
@@ -102,7 +166,12 @@ namespace {
             test_succeeded(unit, t);
     }
 
+    /*! Period predictor unit tests */
     namespace period_predictor {
+        /*!
+        \brief Period predictor reset() unit test
+        \param unit Test unit
+        */
         void predictor_reset_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -115,6 +184,10 @@ namespace {
             check_eq(unit, t, p.period_prediction(5), 2.0);
         }
         
+        /*!
+        \brief Period predictor update() unit test
+        \param unit Test unit
+        */
         void predictor_update_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -130,7 +203,12 @@ namespace {
         }
     }
 
+    /*! Event reorder queue unit tests */
     namespace event_reorder_queue {
+        /*!
+        \brief Check sorting feature of an event reorder queue
+        \param unit Test unit
+        */
         void sorted_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -149,7 +227,12 @@ namespace {
         }
     }
 
+    /*! Period queues unit tests */
     namespace period_queues {
+        /*!
+        \brief Period queues period_index_for() unit test
+        \param unit Test unit
+        */
         void period_index_for_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -161,6 +244,10 @@ namespace {
             check_eq(unit, t, pq.period_index_for(2.0 - d), period_index{1, 2, true});
         }
 
+        /*!
+        \brief Period queues refined_index() unit test
+        \param unit Test unit
+        */
         void refined_index_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -189,6 +276,10 @@ namespace {
             check_eq(unit, t, idx, period_index{-1, 0, false});
         }
 
+        /*!
+        \brief Period queues oldest() unit test
+        \param unit Test unit
+        */
         void purge_test(const test_unit& unit)
         {
             unsigned t = 0;
@@ -207,6 +298,9 @@ namespace {
         }
     }
 
+    /*!
+    \brief Initialize unit tests
+    */
     void init_tests()
     {
         tests.insert({
@@ -241,6 +335,10 @@ namespace {
         });
     }
 
+    /*!
+    \brief Print help text
+    \param progname The name of the executable
+    */
     [[noreturn]]
     void help(const std::string& progname)
     {
@@ -250,6 +348,18 @@ namespace {
     }
 }
 
+/*!
+\brief Main function
+
+Parse commandline parameters and either
+- print help text
+- list available unit tests
+- execute unit tests
+
+\param argc Number of comandline parameters
+\param argv Commandline parameters
+\return 0 on success, not 0 otherwise
+*/
 int main(int argc, char *argv[])
 {
     std::vector<std::regex> pattern;

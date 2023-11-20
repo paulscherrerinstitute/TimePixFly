@@ -1,11 +1,21 @@
 #ifndef IO_BUFFERS_H
 #define IO_BUFFERS_H
 
+/*!
+\file
+Code for buffering incoming IO
+*/
+
+#include <atomic>
+#include <vector>
 #include <map>
 #include <list>
 #include <mutex>
 #include <condition_variable>
 
+/*!
+\brief Buffer for holding partial raw stream chunk data
+*/
 struct io_buffer final {
     inline static std::atomic<unsigned> next_id;
     std::vector<char> content;
@@ -24,6 +34,9 @@ struct io_buffer final {
     io_buffer& operator=(io_buffer&&) = default;
 };
 
+/*!
+\brief Pool of IO buffers
+*/
 struct io_buffer_pool final {
     inline static size_t buffer_size = 1024;
     using buffer_type = std::multimap<uint64_t, std::unique_ptr<io_buffer>>;
@@ -90,8 +103,10 @@ struct io_buffer_pool final {
     io_buffer_pool& operator=(io_buffer_pool&&) = delete;
 };
 
-//inline io_buffer_pool::buffer_size = 1024;
-
+/*!
+\brief Collection of IO buffer pools
+There's one buffer per detector chip.
+*/
 using io_buffer_pool_collection = std::vector<std::unique_ptr<io_buffer_pool>>;
 
 #endif // IO_BUFFERS_H

@@ -1,6 +1,11 @@
 #ifndef DATA_HANDLER_H
 #define DATA_HANDLER_H
 
+/*!
+\file
+Code for processing raw data stream
+*/
+
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -20,9 +25,12 @@ namespace {
     using Poco::RuntimeException;
     using Poco::ReadFileException;
     using Poco::DataFormatException;
-    using wall_clock = std::chrono::high_resolution_clock;
+    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
 }
 
+/*!
+\brief Handler object for processing a raw data stream
+*/
 template<typename Decode>
 class DataHandler final {
     constexpr static uint64_t tpxHeader = 861425748UL; // 'TPX3' as uint64_t

@@ -1,13 +1,20 @@
 #ifndef PERIOD_QUEUES_H
 #define PERIOD_QUEUES_H
 
+/*!
+\file
+Code for event to period assignment logic
+*/
+
 #include <memory>
 #include <map>
 #include <cassert>
 #include "event_reordering.h"
+#include "shared_types.h"
 
-using period_type = int64_t;
-
+/*!
+\brief Abstract period change interval representation
+*/
 struct period_queue_element final {
     std::unique_ptr<event_reorder_queue> queue;
     int64_t start = 0;
@@ -24,12 +31,21 @@ struct period_queue_element final {
     inline period_queue_element& operator=(period_queue_element&&) = default;
 };
 
+/*!
+\brief Abstract period index
+*/
 struct period_index final {
     period_type period;
     period_type disputed_period;
     bool disputed;
 };
 
+/*!
+\brief Stream output for period_index objects
+\param out Output stream reference
+\param idx Abstract period index
+\return out
+*/
 template<typename Stream>
 Stream& operator<<(Stream& out, const period_index& idx)
 {
@@ -44,6 +60,9 @@ Stream& operator<<(Stream& out, const period_index& idx)
     }
 #endif
 
+/*!
+\brief Collection of recent period change interval representations
+*/
 struct period_queues final {
     using queue_type = std::map<period_type, period_queue_element>;
 

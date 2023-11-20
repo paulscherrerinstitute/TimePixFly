@@ -32,6 +32,10 @@ case "$TARGET" in
         cmd="${CXX} -I src/include src/test.cpp -std=c++17 ${TEST_FLAGS} -o test"
         echo "$cmd"
         eval "$cmd";;
+    "doc")
+        cmd="doxygen doc/doxygen.cfg"
+        echo "$cmd"
+        eval "$cmd";;
     "help"|"--help"|"-h")
         echo "Use: ${0} <target>"
         echo
@@ -39,6 +43,7 @@ case "$TARGET" in
         echo "  tpx3app        (default) analysis application"
         echo "  server         raw data replay server"
         echo "  test           some unit tests for parts of the queueing code"
+        echo "  doc            compile documentation in doc/html"
         echo "Debendencies:"
         echo "  ${LDFLAGS}"
         echo "Environment:"

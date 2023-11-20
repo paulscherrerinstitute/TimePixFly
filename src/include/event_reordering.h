@@ -1,11 +1,15 @@
 #ifndef EVENT_REORDERING_H
 #define EVENT_REORDERING_H
 
-// Provide event reordering based on event TOA
+/*!
+Code for event reordering based on event TOA
+*/
 
 #include "reorder_queue.h"
 
-// What is reordered
+/*!
+\brief Reorder element representation for one TOA event
+*/
 struct reordering_element final {
     int64_t toa;    // priority
     uint64_t event; // full event
@@ -21,7 +25,9 @@ struct reordering_element final {
     inline reordering_element& operator=(reordering_element&&) = default;
 };
 
-// TOA priority comparator
+/*!
+\brief Reordering element priority comparator based on TOA
+*/
 struct toa_older_comparator final {
     inline bool operator()(const reordering_element& lhs, const reordering_element& rhs) const noexcept
     {

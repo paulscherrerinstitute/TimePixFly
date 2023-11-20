@@ -1,8 +1,16 @@
 #ifndef PIXEL_INDEX_H
 #define PIXEL_INDEX_H
 
+/*!
+\file
+Pixel index abtraction
+*/
+
 #include "layout.h"
 
+/*!
+\brief Abstract pixel index
+*/
 struct PixelIndex final {
     unsigned chip;          // chip
     unsigned flat_pixel;    // flat pixel within chip

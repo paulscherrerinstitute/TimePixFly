@@ -1,10 +1,16 @@
 #ifndef DECODER_H
 #define DECODER_H
 
+/*!
+\file
+Provide code for decoding Timepix3 raw stream data
+*/
+
 #include <cassert>
 
-// Provide code for decoding Timepix3 raw stream data
-
+/*!
+\brief Decoder object for ASI Raw Data Stream
+*/
 struct AsiRawStreamDecoder final {
     // def get_bits(data, high, low):
     //     num = (high - low) + 1

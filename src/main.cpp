@@ -1,5 +1,3 @@
-// Implement raw-stream-.example.py in C++
-
 // Author: hans-christian.stadler@psi.ch
 
 // #include <filesystem>
@@ -80,6 +78,9 @@ namespace {
         return objPtr;
     }
 
+    /*!
+    \brief Poco object for TPX3 raw stream analysis application
+    */
     class Tpx3App final : public Application {
 
         constexpr static unsigned DEFAULT_BUFFER_SIZE = 1024;

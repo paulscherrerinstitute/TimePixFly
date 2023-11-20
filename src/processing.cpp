@@ -1,3 +1,8 @@
+/*!
+\file
+Event analysis code
+*/
+
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -14,16 +19,14 @@
 #include "decoder.h"
 #include "pixel_index.h"
 #include "energy_points.h"
-
-using period_type = int64_t;
-
+#include "shared_types.h"
 #include "processing.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 
 // anonymous namespace to prevent symbol visibility
 namespace {       
-        using Decode = AsiRawStreamDecoder;
+        using Decode = AsiRawStreamDecoder;     //!< Raw stream decoder object
 
         using std::string;
 
@@ -37,20 +40,23 @@ namespace {
         using std::chrono::high_resolution_clock;
         using std::chrono::milliseconds;
         using std::chrono::duration;
-        using clock = high_resolution_clock;
+        using clock = high_resolution_clock;    //!< Clock object
 
         using std::remove;
 
         using std::exit;
 
-        using u8 = uint8_t;
-        using u16 = uint16_t;
-        using u64 = uint64_t;
+        using u8 = uint8_t;     //!< Unsigned 8 bit integer
+        using u16 = uint16_t;   //!< Unsigned 16 bit integer
+        using u64 = uint64_t;   //!< Unsigned 64 bit integer
 
-        Logger& logger = Logger::get("Tpx3App");
+        Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
 
-        const period_type save_interval = 131000;       // ~1s for TDC frequency 131kHz
+        const period_type save_interval = 131000;       //!< Histogram saving period: ~1s for TDC frequency 131kHz
 
+        /*!
+        \brief Processing configuration file object
+        */
         struct ConfigFile final : public Poco::Util::IniFileConfiguration {
                 inline ConfigFile(const std::string& path)
                         : IniFileConfiguration{path}
@@ -60,7 +66,7 @@ namespace {
         };
 
         /*!
-        * \brief Constant detector data
+        \brief Constant detector data
         */
         struct Detector final {
                 const detector_layout& layout;
@@ -106,8 +112,14 @@ namespace {
                 {}
         };  // end type Detector
 
-        std::unique_ptr<Detector> detptr;
+        std::unique_ptr<Detector> detptr;       //!< Pointer to detector object, created by init()
 
+        /*!
+        \brief Parse object of type T in a string
+        \param s   String having a representation of T at pos
+        \param pos Position in the string from where to parse
+        \return Parsed object of type T
+        */
         template <typename T>
         T parse(std::string_view& s, std::string_view::size_type pos)
         {
@@ -119,6 +131,17 @@ namespace {
                 return t;
         }
 
+        /*!
+        \brief Read region of interest related to are (pixel to energy point mapping)
+
+        The file contains lines in the form
+
+        chip flatPixel energyPoint0 weight0 [energyPoint1 weight1 ...]
+
+        \param energy_points    Set this mapping to what was defined in XESPointsFile
+        \param layout           The detector layout
+        \param XESPointFile     Name of the file that defines the pixel to energy point mapping
+        */
         void readAreaROI(PixelIndexToEp& energy_points, const detector_layout& layout, const std::string& XESPointsFile)
         {
                 logger << "readAreaROI(" << XESPointsFile << ')' << log_trace;
@@ -180,12 +203,16 @@ namespace {
                 logger << "num energy points: " << energy_points.npoints << log_debug;
         }
 
-        std::mutex histo_lock;                      // Lock analysis object with histogram
+        std::mutex histo_lock;  //!< Lock for protecting analysis object with histogram
 
         /*!
-        * \brief Analysis data and operations
+        \brief Analysis data and operations
         */
         struct Analysis final {
+
+                /*!
+                \brief TDSpectra data aggregated over one data saving period
+                */
                 struct Data final {
                         vector<float> TDSpectra;        //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
@@ -310,6 +337,7 @@ namespace {
 
                 // if period is bigger than next save point, save data in any case
                 // if current period <= no_save, don't save data
+                // ATTENTION: save_interval must be big enough in order to not wrap around the data array too quickly!
                 void PurgePeriod(unsigned chipIndex, period_type period)
                 {
                         logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;

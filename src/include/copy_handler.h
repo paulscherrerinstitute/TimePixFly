@@ -1,6 +1,11 @@
 #ifndef COPY_HANDLER_H
 #define COPY_HANDLER_H
 
+/*!
+\file
+Provide raw stream to file copying code
+*/
+
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -16,9 +21,12 @@ namespace {
     using Poco::RuntimeException;
     using Poco::ReadFileException;
     using Poco::DataFormatException;
-    using wall_clock = std::chrono::high_resolution_clock;
+    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
 }
 
+/*!
+\brief Handler object for copying raw stream data to a file
+*/
 class CopyHandler final {
 
     StreamSocket& dataStream;
