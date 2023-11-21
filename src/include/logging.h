@@ -42,13 +42,21 @@ namespace {
 \brief Proxy object for a Poco Logger object
 */
 struct LogProxy final : private std::ostringstream {
-    using base_type = std::ostringstream;
-    Logger& logger;
+    using base_type = std::ostringstream;   //!< Shorthand for base type
+    Logger& logger;                         //!< Poco::Logger object that is proxied
 
+    /*!
+    \brief Constructor
+    \param l Poco::Logger object that is proxied
+    */
     inline LogProxy(Logger& l)
         : logger(l)
     {}
 
+    /*!
+    \brief Move constructor
+    \param other Will be moved into `this`
+    */
     inline LogProxy(LogProxy&& other)
         : logger(other.logger)
     {}
@@ -57,8 +65,17 @@ struct LogProxy final : private std::ostringstream {
     LogProxy& operator=(const LogProxy&) = delete;
     LogProxy& operator=(LogProxy&&) = delete;
 
-    inline virtual ~LogProxy() {}
+    inline virtual ~LogProxy() {}   //!< Virtual destructor
 
+    /*!
+    \brief Output operator
+
+    The logging output is not written to `logger`right away.
+    The output is saved away in a `std::ostringstream` here.
+
+    \param value Value to print out into the logging stream
+    \return Reference to `this`
+    */
     template<typename T>
     inline LogProxy& operator<< (const T& value)
     {
@@ -66,6 +83,14 @@ struct LogProxy final : private std::ostringstream {
         return *this;
     }
 
+    /*!
+    \brief Log saved output
+    
+    The saved output is written to `logger` with the given priority.
+
+    \param priority Poco logging priority
+    \return Reference to `this`
+    */
     inline LogProxy& operator<< (const Message::Priority& priority)
     {
         logger.log(Message("Tpx3App", str(), priority));
@@ -73,12 +98,20 @@ struct LogProxy final : private std::ostringstream {
         return *this;
     }
 
+    /*!
+    \brief Get reference to base object
+    \return Reference to base object
+    */
     base_type& base() noexcept
     {
         return *this;
     }
 
-    // log level at least debug?
+    /*!
+    \brief Query for debug log level or higher
+    Is the log level of `logger` at least debug?
+    \return True if debug priority log messages will be visible in the log stream
+    */
     bool debug() const {
         return logger.debug();
     }

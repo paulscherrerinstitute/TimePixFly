@@ -15,14 +15,21 @@ Both the period interval and number can be predicted
 \brief Period predictor object
 */
 class period_predictor final {
-    static constexpr double extrapolation_threshold = 100.;
-    static constexpr int N = 4;
-    std::array<int64_t, N> past;    // time stamp
-    int64_t start;
-    double interval;
-    long correction;
-    unsigned first = 0;
+    static constexpr double extrapolation_threshold = 100.; //!< Don't extrapolate past theis threshold
+    static constexpr int N = 4;     //!< Number of past TDC time points stored
+    std::array<int64_t, N> past;    //!< Storage for past TDC time time stamps. `first`points to the most recent time stamp.
+    int64_t start;                  //!< Base reference time point in clock ticks
+    double interval;                //!< Period interval prediction in clock ticks
+    long correction;                //!< Correction factor: distance in number of periods between 0 and `start`
+    unsigned first = 0;             //!< Index of first time stamp in `past`
 
+    /*!
+    \brief Calculate period interval prediction
+
+    The prediction is the median of the intervals between the TDC time points.
+
+    \return Interval prediction in number of clock ticks
+    */
     inline double predict_interval() const noexcept
     {
         std::array<double, N-1> diff;
@@ -41,6 +48,11 @@ class period_predictor final {
         reset(0, 1);
     }
 
+    /*!
+    \brief Constructor
+    \param start_   Starting clock tick
+    \param period   Period in number of clock ticks
+    */
     inline period_predictor(int64_t start_, int64_t period) noexcept
     {
         reset(start_, period);
@@ -48,16 +60,29 @@ class period_predictor final {
 
     ~period_predictor() = default;
 
+    /*!
+    \brief Get predicted interval
+    \return Period in number of clock ticks
+    */
     inline double interval_prediction() const noexcept
     {
         return interval;
     }
 
+    /*!
+    \brief Get predicted period
+    \param ts Time in clock ticks
+    \return Predicted period number
+    */
     inline double period_prediction(int64_t ts) const noexcept
     {
         return (ts - start) / interval + correction;
     }
 
+    /*!
+    \brief Update period prediction with new data
+    \param ts Time of TDC event in clock ticks
+    */
     inline void prediction_update(int64_t ts) noexcept
     {
         past[first] = ts;
@@ -65,13 +90,25 @@ class period_predictor final {
         interval = predict_interval();
     }
 
-    // set new start time and recalculate correction
+    /*!
+    \brief Set new start time and recalculate correction
+
+    To minimize period number prediction errors, the reference time
+    for prediction calculations has to be moved forward in time regularly.
+
+    \param start_ New time base reference in clock ticks
+    */
     inline void start_update(int64_t start_) noexcept
     {
         correction += std::lround((start_ - start) / interval);
         start = start_;
     }
 
+    /*!
+    \brief Reset the period predictor
+    \param start_ New base reference time in clock ticks
+    \param period Initial period interval in clock ticks
+    */
     inline void reset(int64_t start_, int64_t period) noexcept
     {
         start = start_;
@@ -81,16 +118,32 @@ class period_predictor final {
         correction = 0;
     }
 
+    /*!
+    \brief Minimum number of TDC time points required for reliable period prediction
+    \return Minimum number of times `prediction_update()` should be called before the predictor is reliable
+    */
     inline unsigned minPoints() const noexcept
     {
         return (N + 2) / 2;
     }
 
+    /*!
+    \brief Query if `start_update()` should be called
+
+    If the base reference time is too old, the predictor gets unreliable.
+
+    \param ts Time stamp in clock ticks for which to check prediction reliability
+    \return False if `start_update()` should be called as soon as possible
+    */
     bool ok(int64_t ts) const noexcept
     {
         return ((ts - start) / interval) < extrapolation_threshold;
     }
 
+    /*!
+    \brief Period predictor printing
+    \param out Output stream for printing a human readable period predictor representation
+    */
     template<typename Stream>
     inline void print_to(Stream& out) const
     {

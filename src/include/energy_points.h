@@ -27,7 +27,7 @@ struct FlatPixelToEp final {
 \brief Per chip flat pixel to energy point mapping
 */
 struct ChipToEp final {
-        std::vector<FlatPixelToEp> flat_pixel;
+        std::vector<FlatPixelToEp> flat_pixel;  //!< Per chip flat pixel to energy point mapping by chip number
 };
 
 /*!

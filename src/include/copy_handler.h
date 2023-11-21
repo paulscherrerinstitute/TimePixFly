@@ -6,6 +6,7 @@
 Provide raw stream to file copying code
 */
 
+#include <array>
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -29,25 +30,48 @@ namespace {
 */
 class CopyHandler final {
 
-    StreamSocket& dataStream;
-    std::ofstream streamFile;
-    Logger& logger;
-    std::deque<std::unique_ptr<std::vector<char>>> buffers;
-    std::thread readerThread;
-    std::thread writerThread;
-    std::mutex memberMutex;
-    std::atomic<bool> stopOperation = false;
+    StreamSocket& dataStream;   //!< Raw event data stream receiving end
+    std::ofstream streamFile;   //!< Write raw event data into this file
+    Logger& logger;             //!< Poco::Logger object for logging
 
+    /*!
+    \brief List of IO buffers
+
+    New buffers will be created and filled with raw eevent data on the fly,
+    and added to the list at the tail.
+
+    Buffers will be removed and transferred to file from the head.
+    */
+    std::deque<std::unique_ptr<std::vector<char>>> buffers;
+
+    std::thread readerThread;   //!< Raw event data reader thread
+    std::thread writerThread;   //!< Raw event data writer thread
+    std::mutex memberMutex;     //!< Protect member variables here
+    std::atomic<bool> stopOperation = false; //!< Stop requested flag
+
+    /*!
+    \brief Check stop flag
+    \return True for stopping requested
+    */
     bool stop() const
     {
         return stopOperation.load(std::memory_order_consume);
     }
 
+    /*!
+    \brief Request threads to stop
+    */
     void stopNow()
     {
         stopOperation.store(true, std::memory_order_release);
     }
 
+    /*!
+    \brief Read data into byte buffer
+    \param buf  Byte buffer
+    \param size Number of bytes to read
+    \return Number of bytes effectively read
+    */
     int readBytes(void* buf, int size)
     {
         logger << "readData(" << buf << ", " << size << ')' << log_trace;
@@ -63,10 +87,13 @@ class CopyHandler final {
         return numBytes;
     }
 
+    /*!
+    \brief Code for raw event data reader thread
+    */
     void readData()
     {
         double time = .0;
-        std::vector<char> header(8);
+        std::array<char, 8> header;
 
         try {
             uint64_t totalBytes = 0;
@@ -122,6 +149,9 @@ class CopyHandler final {
         logger << "reader stopped" << log_debug;
     }
 
+    /*!
+    \brief Code for raw event data writer thread
+    */
     void writeData()
     {
         double time = .0;
@@ -168,26 +198,38 @@ class CopyHandler final {
     }
 
 public:
+    /*!
+    \brief Constructor
+    \param socket   Raw event data receiving end
+    \param path     File path for writing the received raw event data
+    \param log      Logging object
+    */
     CopyHandler(StreamSocket& socket, const std::string& path, Logger& log)
         : dataStream{socket}, streamFile(path), logger{log}
     {
         logger << "CopyHandler(" << socket.address().toString() << ", " << path << ')' << log_trace;
     }
 
+    /*!
+    \brief Start worker threads for reading and writing of raw event data
+    */
     void run_async()
     {
         readerThread = std::thread([this]{this->readData();});
         writerThread = std::thread([this]{this->writeData();});
     }
 
+    /*!
+    \brief Wait for completion of threads for reading and writing raw event data
+    */
     void await()
     {
         readerThread.join();
         writerThread.join();
     }
 
-    double readTime = .0;
-    double writeTime = .0;
+    double readTime = .0;   //!< Time used by raw event data reading thread
+    double writeTime = .0;  //!< Time used by raw event data writing thread
 };
 
 #endif // COPY_HANDLER_H

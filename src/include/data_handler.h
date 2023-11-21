@@ -33,39 +33,52 @@ namespace {
 */
 template<typename Decode>
 class DataHandler final {
-    constexpr static uint64_t tpxHeader = 861425748UL; // 'TPX3' as uint64_t
+    constexpr static uint64_t tpxHeader = 861425748UL; //!< 'TPX3' as uint64_t
     #if SERVER_VERSION >= 320
-        uint64_t DATA_OFFSET = 8;   // start of event data
+        uint64_t DATA_OFFSET = 8;               //!< Start offset of event data within raw event data packet
     #else
-        uint64_t DATA_OFFSET = 0;   // start of event data
+        uint64_t DATA_OFFSET = 0;               //!< Start offset of event data within raw event data packet
     #endif
 
-    StreamSocket& dataStream;
-    Logger& logger;
-    io_buffer_pool_collection perChipBufferPool;
-    const size_t bufferSize;
-    std::thread readerThread;
-    std::vector<std::thread> analyserThreads;
-    std::mutex coutMutex;
-    std::mutex memberMutex;
-    std::atomic<unsigned> analyzerReady = 0;
-    std::atomic<bool> stopOperation = false;
+    StreamSocket& dataStream;                   //!< Raw event data stream receiving end
+    Logger& logger;                             //!< Poco::Logger object for logging
+    io_buffer_pool_collection perChipBufferPool;//!< Per chip IO buffer pool
+    const size_t bufferSize;                    //!< IO buffer size in bytes
+    std::thread readerThread;                   //!< Raw event data stream reader thread
+    std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
+    // std::mutex coutMutex;                    //!< Output mutex for debugging
+    std::mutex memberMutex;                     //!< Protection for member variables
+    std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
+    std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
-    int64_t initialPeriod;
-    std::vector<period_predictor> predictor;
-    std::vector<period_queues> queues;
-    unsigned maxPeriodQueues = 2;
+    int64_t initialPeriod;                      //!< Initial TDC period interval in clock ticks
+    std::vector<period_predictor> predictor;    //!< Per chip period predictors
+    std::vector<period_queues> queues;          //!< Per chip period interval change event reorder queues
+    unsigned maxPeriodQueues = 2;               //!< Default value for number of memorized period change intervals
 
+    /*!
+    \brief Check stop requested flag
+    \return True if stop was requested
+    */
     bool stop() const
     {
         return stopOperation.load(std::memory_order_consume);
     }
 
+    /*!
+    \brief Request for all threads to stop
+    */
     void stopNow()
     {
         stopOperation.store(true, std::memory_order_release);
     }
 
+    /*!
+    \brief Read from raw event data stream into buffer
+    \param buf Byte buffer
+    \param size Number of bytes to read
+    \return Number of bytes effectively read
+    */
     int readData(void* buf, int size)
     {
         logger << "readData(" << buf << ", " << size << ')' << log_trace;
@@ -81,6 +94,13 @@ class DataHandler final {
         return numBytes;
     }
 
+    /*!
+    \brief Read packet header from raw event data stream
+    \param chipIndex    Chip number reference
+    \param chunkSize    Raw event data packet chunk size reference
+    \param packetId     Raw event data packet number reference
+    \return Number of bytes effectively read
+    */
     int readPacketHeader(uint64_t& chipIndex, uint64_t& chunkSize, uint64_t& packetId)
     {
         logger << "readPacketHeader()" << log_trace;
@@ -119,6 +139,9 @@ class DataHandler final {
         return numRead;
     }
 
+    /*!
+    \brief Code for raw event data reader thread
+    */
     void readData()
     {
         double spinTime = .0;
@@ -217,11 +240,23 @@ class DataHandler final {
     }
 
     // ----------------------- BINNING AND PURGING LOGIC ------------------------
+    /*!
+    \brief Purge period change interval from memory
+    \param chipIndex    Chip number
+    \param period       Period number
+    */
     inline void purgePeriod(unsigned chipIndex, period_type period)
     {
         processing::purgePeriod(chipIndex, period);
     }
 
+    /*!
+    \brief Process TOA event
+    \param chipIndex    Chip number
+    \param period       Period number
+    \param toaclk       TOA event clock ticks counter
+    \param event        Raw TOA event
+    */
     inline void processEvent(unsigned chipIndex, period_type period, int64_t toaclk, uint64_t event)
     {
         auto start = queues[chipIndex][period].start;
@@ -229,6 +264,15 @@ class DataHandler final {
     }
     // --------------------------------------------------------------------------
 
+    /*!
+    \brief Purge period interval changes from memory
+
+    Will purge older period interval change reorder queues so that only
+    `toSize` queues are remaining in memory.
+
+    \param chipIndex    Chip number
+    \param toSize       Number of period interval changes that should still be remembered
+    */
     inline void purgeQueues(unsigned chipIndex, unsigned toSize=0)
     {
         logger << "purgeQueues(" << chipIndex << ", " << toSize << ')' << log_trace;
@@ -240,6 +284,13 @@ class DataHandler final {
         }
     }
 
+    /*!
+    \brief Process TDC event
+    \param chipIndex    Chip number
+    \param index        Abstract period index
+    \param tdcclk       TDC clock
+    \param event        Raw event
+    */
     inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk, uint64_t event)
     {
         logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
@@ -259,6 +310,13 @@ class DataHandler final {
         purgeQueues(chipIndex, maxPeriodQueues);
     }
 
+    /*!
+    \brief Remember TOA event that falls into a disputed period change interval
+    \param chipIndex    Chip number
+    \param index        Abstract period index
+    \param toaclk       TOA clock ticks counter
+    \param event        Raw event
+    */
     inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
     {
         logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
@@ -267,6 +325,10 @@ class DataHandler final {
         queues[chipIndex][index].queue->push({toaclk, event});
     }
 
+    /*!
+    \brief Code for analyzer thread
+    \param threadId Thread number, must correspond to chip number
+    */
     void analyseData(unsigned threadId)
     {
         const unsigned chipIndex = threadId;
@@ -405,6 +467,16 @@ class DataHandler final {
     }
 
 public:
+    /*!
+    \brief Constructor
+    \param socket   Raw event data stream receiving end
+    \param log      Poco::Logger object for logging
+    \param bufSize  IO buffer size
+    \param numChips Number of TPX3 chips for the detector that generated the events
+    \param period   Initial TDC period
+    \param undisputedThreshold Ratio r of disputed period interval, [r..1-r] will be undisputed. Must be less than 0.5
+    \param maxQueues Number of recent period interval changes to remember
+    */
     DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period, double undisputedThreshold, unsigned maxQueues)
         : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize},
           analyserThreads(numChips), initialPeriod(period), predictor(numChips), queues(numChips),
@@ -416,6 +488,9 @@ public:
             q.threshold = undisputedThreshold;
     }
 
+    /*!
+    \brief Start a raw event data analyser thread for each chip, and one raw event data reader thread
+    */
     void run_async()
     {
         for (unsigned i=0; i<analyserThreads.size(); i++)
@@ -425,6 +500,9 @@ public:
         readerThread = std::thread([this]{this->readData();});
     }
 
+    /*!
+    \brief Wait for completion of reader and analyzer threads
+    */
     void await()
     {
         readerThread.join();
@@ -432,11 +510,11 @@ public:
             thread.join();
     }
 
-    uint64_t hitCount = 0;
-    double readSpinTime = .0;
-    double readTime = .0;
-    double analyseSpinTime = .0;
-    double analyseTime = .0;
+    uint64_t hitCount = 0;      //!< Number of TOA events encountered
+    double readSpinTime = .0;   //!< Time used in spin loop to wait for empty IO buffers
+    double readTime = .0;       //!< Time used for reading raw event data
+    double analyseSpinTime = .0;//!< Aggregated time used in spin loop to wait for full IO buffers
+    double analyseTime = .0;    //!< Aggregated time used for analysing raw events
 };
 
 #endif // DATA_HANDLER_H

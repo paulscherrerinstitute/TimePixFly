@@ -16,9 +16,15 @@ Code for event to period assignment logic
 \brief Abstract period change interval representation
 */
 struct period_queue_element final {
+    /*!
+    \brief Event reordeing queue for this period interval change
+
+    The queue should be empty if the start time stamp (TDC event at the beginning of the period)
+    has been seen. In that case `start_seen` should be true.
+    */
     std::unique_ptr<event_reorder_queue> queue;
-    int64_t start = 0;
-    bool start_seen = false;    // either start is valid, or the queue, but not both
+    int64_t start = 0;                          //!< The period start time stamp in number of clock ticks
+    bool start_seen = false;                    //!< Either start is valid, or the queue, but not both
 
     inline period_queue_element()
         : queue{new event_reorder_queue{}}
@@ -26,18 +32,18 @@ struct period_queue_element final {
 
     inline ~period_queue_element() = default;
     period_queue_element(const period_queue_element&) = delete;
-    inline period_queue_element(period_queue_element&&) = default;
+    inline period_queue_element(period_queue_element&&) = default;              //!< Move constructor
     period_queue_element& operator=(const period_queue_element&) = delete;
-    inline period_queue_element& operator=(period_queue_element&&) = default;
+    inline period_queue_element& operator=(period_queue_element&&) = default;   //!< Move assignment \return Reference to `this`
 };
 
 /*!
 \brief Abstract period index
 */
 struct period_index final {
-    period_type period;
-    period_type disputed_period;
-    bool disputed;
+    period_type period;         //!< Period number for undisputed period, lower period number for disputed period
+    period_type disputed_period;//!< Higher period number for disputed period, equal to `period` if period is not disputed
+    bool disputed;              //!< Is the period disputed?
 };
 
 /*!
@@ -64,6 +70,11 @@ Stream& operator<<(Stream& out, const period_index& idx)
 \brief Collection of recent period change interval representations
 */
 struct period_queues final {
+    /*!
+    \brief Shortcut for the container type of the period interval change event reorder queues
+
+    These period interval representing queues are stored with a key corresponding to the (predicted) period number.
+    */
     using queue_type = std::map<period_type, period_queue_element>;
 
     [[gnu::const]]

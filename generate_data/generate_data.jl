@@ -94,15 +94,21 @@ function header(nevents::Integer, chip::Integer, count::Integer)::Vector{UInt64}
 end
 
 struct EventPacket
-    chip::UInt32
-    id::UInt32
-    tstart::UInt64
-    tend::UInt64
-    ntoa::UInt32
-    ntdc::UInt32
-    events::Vector{UInt64}
+    chip::UInt32            # chip number
+    id::UInt32              # packet number
+    tstart::UInt64          # start clock counter
+    tend::UInt64            # end clock counter
+    ntoa::UInt32            # number of TOA events
+    ntdc::UInt32            # number of TDC events, must be 1 currently
+    events::Vector{UInt64}  # list of raw events
 end
 
+"""
+    generate_packet(chip, period_id, period, tot, ntoa, ntdc)
+
+Generate an events packet for `chip`, for period `period_id`, with `ntoa` TOA events evenly spread out accross the interval `period`.
+Each event contains `tot`. Generate one TDC event at the end of the period. `ntdc` must be 1 currently.
+"""
 function generate_packet(chip::Integer, period_id::Integer, period::Integer, tot::Integer, ntoa::Integer, ntdc::Integer)::EventPacket
     t = period_id * period
     dtdc = div(period, ntdc)
@@ -128,6 +134,11 @@ function generate_packet(chip::Integer, period_id::Integer, period::Integer, tot
     )
 end
 
+"""
+    write_packets(io, packets)
+
+Writes `packets` content in binary form to `io`.
+"""
 function write_packets(io, packets)
     for pk in packets
         write(io, header(length(pk.events), pk.chip, pk.id))
@@ -135,6 +146,11 @@ function write_packets(io, packets)
     end
 end
 
+"""
+    print_packets(io, packets)
+
+Prints `packets` content in readable form to `ìo`.
+"""
 function print_packets(io, packets)
     for pk in packets
         print((Int32(pk.chip), Int32(pk.id)), " ")
@@ -145,6 +161,13 @@ function print_packets(io, packets)
     println()
 end
 
+"""
+    arg_parse()
+
+Parse commandline arguments.
+
+Returns the tuple `(nchips, period, tot, tstart, tend, fname)``.
+"""
 function arg_parse()
     settings = ArgParseSettings(
         description = """Generate a raw TPX3 file with contents as delivered by serval 3.20,
@@ -204,7 +227,7 @@ function main()
     else
         print_packets(stdout, packets)
     end
-    println("(nchips=", nchips, ", period=", period, ", nperiods=", npackets, ", tot=", tot, " - done.")
+    println("nchips=", nchips, ", period=", period, ", nperiods=", npackets, ", tot=", tot, " - done.")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

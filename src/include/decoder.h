@@ -12,12 +12,23 @@ Provide code for decoding Timepix3 raw stream data
 \brief Decoder object for ASI Raw Data Stream
 */
 struct AsiRawStreamDecoder final {
-    // def get_bits(data, high, low):
-    //     num = (high - low) + 1
-    //     mask = (1 << num) - 1  # Trick: 2**N - 1 gives N consecutive ones
-    //     maskShifted = mask << low
+    /*!
+    \brief Extract bits from event
+
+    Python equivalent:
+
+    def get_bits(data, high, low):
+         num = (high - low) + 1
+         mask = (1 << num) - 1  # Trick: 2**N - 1 gives N consecutive ones
+         maskShifted = mask << low
         
-    //     return (data & maskShifted) >> low
+         return (data & maskShifted) >> low
+    
+    \param data 64bit value - event data
+    \param high High High bit inclusive
+    \param low Low bit inclusive
+    \return Extracted bits, at most 32bits
+    */
     [[gnu::const]]
     inline static unsigned getBits(uint64_t data, unsigned high, unsigned low) noexcept
     {
@@ -28,7 +39,11 @@ struct AsiRawStreamDecoder final {
         return (data >> low) & mask;
     }
 
-    // def calculate_XY(data):
+    /*!
+        \brief Extract position information from event
+        \param data 64bit value - event data
+        \return X, Y relative to module
+    */
     [[gnu::const]]
     inline static std::pair<uint64_t, uint64_t> calculateXY(uint64_t data) noexcept
     {
@@ -48,31 +63,53 @@ struct AsiRawStreamDecoder final {
         return std::make_pair(dcol + pix / 4UL, spix + (pix & 0x3UL));
     }
 
-    // def clock_to_float(count, clock=640e6):
-    //     # Count is on a 640 MHz clock.
-    //     # Return the time in seconds.
-    //     return float(count) / clock
+    /*!
+    \brief Convert clock ticks counter value to seconds
+    \param count Clock counter value in units of clock ticks
+    \param clock Clock tick frequency
+    \return Clock value in seconds
+    */
     [[gnu::const]]
     inline static float clockToFloat(int64_t count, double clock=640e6) noexcept
     {
         return count / clock;
     }
 
-    // def matches_nibble(data, nibble):
-    //     return (data >> 60) == nibble
+    /*!
+    \brief Compare high nibble with value
+
+    Python equivalent:
+
+    def matches_nibble(data, nibble):
+        return (data >> 60) == nibble
+
+    \param data 64bit value - event data
+    \param nibble Nibble value
+    \return True iff there is a match
+    */
     [[gnu::const]]
     inline static bool matchesNibble(uint64_t data, unsigned nibble) noexcept
     {
         return (data >> 60) == nibble;
     }
 
+    /*!
+    \brief Compare high byte with value
+    \param data 64bit value - event data
+    \param byte Byte value
+    \return True iff there is a match
+    */
     [[gnu::const]]
     inline static bool matchesByte(uint64_t data, unsigned byte) noexcept
     {
         return (data >> 56) == byte;
     }
     
-    // def get_TDC_clock(tdc):
+    /*!
+    \brief Extract TDC clock from TDC event
+    \param tdc Raw TDC event
+    \return Clock ticks counter
+    */
     [[gnu::const]]
     inline static uint64_t getTdcClock(uint64_t tdc) noexcept
     {
@@ -89,7 +126,11 @@ struct AsiRawStreamDecoder final {
         return (tdcCoarse << 1) | ((fract - 1) / 6);
     }
 
-    // def get_TOA_clock(data):
+    /*!
+    \brief Extract TOA clock from TOA event
+    \param data Raw TOA event
+    \return Clock ticks counter
+    */
     [[gnu::const]]
     inline static int64_t getToaClock(uint64_t data) noexcept
     {
@@ -105,8 +146,17 @@ struct AsiRawStreamDecoder final {
         return (((coarse << 14) + toa) << 4) - ftoa;
     }
 
-    // def get_TOT_clock(data):
-    //     return get_bits(data, 29, 20)
+    /*!
+    \brief Extract TOT clock from TOA event
+
+    Python equivalent:
+
+    def get_TOT_clock(data):
+        return get_bits(data, 29, 20)
+
+    \param data Raw TOA event
+    \return Clock ticks counter
+    */
     [[gnu::const]]
     inline static uint64_t getTotClock(uint64_t data) noexcept
     {
