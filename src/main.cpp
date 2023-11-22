@@ -1,4 +1,9 @@
-// Author: hans-christian.stadler@psi.ch
+/*!
+\file
+Code for tpx3app analysis program
+
+Author: hans-christian.stadler@psi.ch
+*/
 
 // #include <filesystem>
 #include <string>
@@ -52,8 +57,14 @@ namespace {
     using Poco::InvalidArgumentException;
     using Poco::RuntimeException;
     using Poco::Dynamic::Var;
-    using wall_clock = std::chrono::high_resolution_clock;
+    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
+    /*!
+    \brief Extract object from JSON object
+    \param object   JSON object containing another object
+    \param name     Name of object to extract
+    \return Poco pointer to object, or nullptr if the object is not found
+    */
     inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Object::Ptr& object, const std::string& name)
     {
         Poco::JSON::Object::Ptr objPtr = object->getObject(name);
@@ -62,6 +73,12 @@ namespace {
         return objPtr;
     }
 
+    /*!
+    \brief Extract list from JSON object
+    \param object   JSON object containing a list
+    \param name     Name of list to extract
+    \return Poco pointer to list, or nullptr if the list is not found
+    */
     inline Poco::JSON::Array::Ptr operator/(const Poco::JSON::Object::Ptr& object, const std::string& name)
     {
         Poco::JSON::Array::Ptr arrayPtr = object->getArray(name);
@@ -70,6 +87,12 @@ namespace {
         return arrayPtr;
     }
 
+    /*!
+    \brief Extract object from JSON list
+    \param array    JSON list containing an object
+    \param index    List index of object to extract
+    \return Poco pointer to object, or nullptr if the object is not found
+    */
     inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Array::Ptr& array, unsigned index)
     {
         Poco::JSON::Object::Ptr objPtr = array->getObject(index);
@@ -83,35 +106,39 @@ namespace {
     */
     class Tpx3App final : public Application {
 
-        constexpr static unsigned DEFAULT_BUFFER_SIZE = 1024;
-        constexpr static unsigned DEFAULT_NUM_BUFFERS = 8;
+        constexpr static unsigned DEFAULT_BUFFER_SIZE = 1024;   //!< Default IO buffer size
+        constexpr static unsigned DEFAULT_NUM_BUFFERS = 8;      //!< Default number of IO buffers
         // constexpr static unsigned DEFAULT_NUM_ANALYSERS = 6;
 
-        Logger& logger;
-        bool stop = false;
-        int rval = Application::EXIT_OK;
+        Logger& logger;                 //!< Poco::Logger object
+        bool stop = false;              //!< Stop flag for options processing
+        int rval = Application::EXIT_OK;//!< Default application return value
 
-        SocketAddress serverAddress = SocketAddress{"localhost:8080"};  // ASI server address
-        SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};  // myself (raw data tcp destination)
+        SocketAddress serverAddress = SocketAddress{"localhost:8080"};  //!< Default ASI server address
+        SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};  //!< Default raw data stream tcp destination (own address)
 
-        std::unique_ptr<HTTPClientSession> clientSession;   // client session with ASI server
-        std::unique_ptr<ServerSocket> serverSocket;         // for connecting to myself
+        std::unique_ptr<HTTPClientSession> clientSession;   //!< Client session with ASI server
+        std::unique_ptr<ServerSocket> serverSocket;         //!< Socket for connecting to myself
 
-        Poco::JSON::Parser jsonParser;
+        Poco::JSON::Parser jsonParser;  //!< Poco JSON parser
 
-        std::string bpcFilePath;
-        std::string dacsFilePath;
-        std::string streamFilePath;
+        std::string bpcFilePath;        //!< Path to ASI bpc detector configuration file (optional)
+        std::string dacsFilePath;       //!< Path to ASI dacs detector configuration file (optional)
+        std::string streamFilePath;     //!< Path (and flag) to file to which the raw event stream should be copied (don't copy if empty)
 
-        int64_t initialPeriod;
-        double undisputedThreshold = 0.1;
-        unsigned long numBuffers = DEFAULT_NUM_BUFFERS;
-        unsigned long bufferSize = DEFAULT_BUFFER_SIZE;
+        int64_t initialPeriod;                          //!< Initial period interval in clock ticks
+        double undisputedThreshold = 0.1;               //!< Default undisputed period interval threshold as ratio, [t..1-t] is undisputed
+        unsigned long numBuffers = DEFAULT_NUM_BUFFERS; //!< Number of IO buffers
+        unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
-        unsigned long numChips = 0;
-        unsigned long maxPeriodQueues = 4;
+        unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
+        unsigned long maxPeriodQueues = 4;              //!< Maximum number of remembered period interval changes
 
     protected:
+        /*!
+        \brief Poco application options definition
+        \param options Poco options set
+        */
         inline void defineOptions(OptionSet& options) override
         {
             Application::defineOptions(options);
@@ -200,12 +227,22 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
         }
 
+        /*!
+        \brief Log level option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleLogLevel(const std::string& name, const std::string& value)
         {
             logger.setLevel(Logger::parseLevel(value));
             logger << "handleLogLevel(" << name << ", " << value << ")" << log_trace;
         }
 
+        /*!
+        \brief Help option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleHelp(const std::string& name, const std::string& value)
         {
             logger << "handleHelp(" << name << ", " << value << ")" << log_trace;
@@ -218,6 +255,11 @@ namespace {
             stop = true;
         }
 
+        /*!
+        \brief Integer valued option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleNumber(const std::string& name, const std::string& value)
         {
             logger << "handleNumber(" << name << ", " << value << ")" << log_trace;
@@ -248,6 +290,11 @@ namespace {
             }
         }
 
+        /*!
+        \brief Real valued option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleFloat(const std::string& name, const std::string& value)
         {
             logger << "handleFloat(" << name << ", " << value << ")" << log_trace;
@@ -266,6 +313,11 @@ namespace {
             }
         }
 
+        /*!
+        \brief IP address option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleAddress(const std::string& name, const std::string& value)
         {
             logger << "handleAddress(" << name << ", " << value << ')' << log_trace;
@@ -286,6 +338,11 @@ namespace {
             }
         }
 
+        /*!
+        \brief File path option handler
+        \param name     Option name
+        \param value    Option value
+        */
         inline void handleFilePath(const std::string& name, const std::string& value)
         {
             logger << "handleFilePath(" << name << ", " << value << ')' << log_trace;
@@ -299,6 +356,11 @@ namespace {
                 throw LogicException{std::string{"unknown file path argument name: "} + name};
         }
 
+        /*!
+        \brief Map request string to Uri
+        \param requestString HTTP request string
+        \return URI string
+        */
         std::string getUri(const std::string& requestString)
         {
             logger << "getUri(" << requestString << ')' << log_trace;
@@ -308,6 +370,12 @@ namespace {
             return URI{requestString}.toString();
         }
 
+        /*!
+        \brief Check HTTP response
+        \param response Poco HTTP response reference
+        \param in       Poco HTTP response input stream reference
+        \throw RuntimeException with error response if the response status is not OK
+        */
         inline void checkResponse(const HTTPResponse& response, std::istream& in)
         {
             if (response.getStatus() != HTTPResponse::HTTP_OK) {
@@ -317,6 +385,12 @@ namespace {
             }
         }
 
+        /*!
+        \brief HTTP GET request to ASI server
+        \param requestString    HTTP request string
+        \param response         Poco HTTP response object reference
+        \return Input stream reference for reading HTTP GET response content
+        */
         inline std::istream& serverGet(const std::string& requestString, HTTPResponse& response)
         {
             logger << "serverGet(" << requestString << ')' << log_trace;
@@ -326,6 +400,13 @@ namespace {
             return clientSession->receiveResponse(response);
         }
 
+        /*!
+        \brief HTTP PUT request to ASI server
+        \param requestString    HTTP request string
+        \param contentType      HTTP content type
+        \param contentLength    HTTP content length
+        \return Output stream object reference for content writing
+        */
         inline std::ostream& serverPut(const std::string& requestString, const std::string& contentType, std::streamsize contentLength)
         {
             logger << "serverPut(" << requestString << ", " << contentType << ", " << contentLength << ')' << log_trace;
@@ -336,6 +417,10 @@ namespace {
             return clientSession->sendRequest(request);
         }
 
+        /*!
+        \brief Reset HTTP session if expected EOF is not seen
+        \param in HTTP response input stream reference
+        */
         inline void checkSession(std::istream& in)
         {
             logger << "checkSession(" << in.eof() << ")" << log_trace;
@@ -350,6 +435,11 @@ namespace {
             }
         }
 
+        /*!
+        \brief HTTP GET request with JSON object response
+        \param requestString HTTP request string
+        \return Poco pointer to JSON object
+        */
         inline Poco::JSON::Object::Ptr getJsonObject(const std::string& requestString)
         {
             logger << "getJsonObject(" << requestString << ")" << log_trace;
@@ -362,6 +452,13 @@ namespace {
             return result;
         }
 
+        /*!
+        \brief HTTP PUT request with JSON string argument
+        \param requestString    HTTP request string
+        \param jsonString       JSON object as a string
+        \param response         Poco HTTP response object reference
+        \return Input stream reference for reading response
+        */
         inline std::istream& putJsonString(const std::string& requestString, const std::string& jsonString, HTTPResponse& response)
         {
             logger << "putJsonString(" << requestString << ", " << jsonString << ")" << log_trace;
@@ -370,6 +467,13 @@ namespace {
             return clientSession->receiveResponse(response);
         }
 
+        /*!
+        \brief HTTP PUT request with JSON object argument
+        \param requestString    HTTP request string
+        \param objPtr           Poco JSON object pointer
+        \param response         Poco HTTP response object reference
+        \return Input stream reference for reading response
+        */
         inline std::istream& putJsonObject(const std::string& requestString, Poco::JSON::Object::Ptr objPtr, HTTPResponse& response)
         {
             logger << "putJsonObject(" << requestString << ")" << log_trace;
@@ -378,12 +482,19 @@ namespace {
             return putJsonString(requestString, oss.str(), response);
         }
 
+        /*!
+        \brief Get ASI dashboard
+        \return Poco pointer to ASI dashboard JSON object
+        */
         inline Poco::JSON::Object::Ptr dashboard()
         {
             logger << "dashboard()" << log_trace;
             return getJsonObject("/dashboard");
         }
 
+        /*!
+        \brief Detector initialization request to ASI server
+        */
         inline void detectorInit()
         {
             logger << "detectorInit()" << log_trace;
@@ -402,18 +513,30 @@ namespace {
             }
         }
 
+        /*!
+        \brief Get detector configuration JSON object from ASI server
+        \return Poco pointer to detector configuration JSON object
+        */
         inline Poco::JSON::Object::Ptr detectorConfig()
         {
             logger << "detectorConfig()" << log_trace;
             return getJsonObject("/detector/config");
         }
 
+        /*!
+        \brief Get detector info JSON object from ASI server
+        \return Poco pointer to detector info JSON object
+        */
         inline Poco::JSON::Object::Ptr detectorInfo()
         {
             logger << "detectorInfo()" << log_trace;
             return getJsonObject("/detector/info");
         }
 
+        /*!
+        \brief Get detector layout JSON object from ASI server
+        \return Poco pointer to detector layout JSON object
+        */
         inline Poco::JSON::Object::Ptr detectorLayout()
         {
             logger << "detectorLayout()" << log_trace;
@@ -435,6 +558,10 @@ namespace {
         //     checkSession(in);
         // }
 
+        /*!
+        \brief Send raw event stream destination IP and port information to ASI server
+        \param address TCP address
+        */
         void serverRawDestination(const SocketAddress& address)
         {
             logger << "serverRawDestination(" << address.toString() << ")" << log_trace;
@@ -446,6 +573,9 @@ namespace {
             checkSession(in);
         }
 
+        /*!
+        \brief Send aquisition start signal to ASI server
+        */
         void acquisitionStart()
         {
             logger << "acquisitionStart()" << log_trace;
@@ -456,6 +586,11 @@ namespace {
             checkSession(in);
         }
 
+        /*!
+        \brief Poco application main function
+        \param args Positional commandline args
+        \return 0 for ok
+        */
         inline int main(const std::vector<std::string>& args) override
         {
             {
@@ -587,6 +722,12 @@ namespace {
         }
 
     public:
+        /*!
+        \brief Constructor
+        \param log  Poco::Logger object
+        \param argc Number of commandline arguments
+        \param argv Commandline argument values
+        */
         explicit Tpx3App(Logger& log, int argc, char* argv[])
             : logger(log)
         {
@@ -598,6 +739,12 @@ namespace {
 
 } // namespace
 
+/*!
+\brief Entry function
+\param argc Number of commandline parameters
+\param argv Values of commandliine parameters
+\return 0 if no error, not 0 otherwise
+*/
 int main (int argc, char* argv[])
 {
     try {

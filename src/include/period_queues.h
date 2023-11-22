@@ -77,6 +77,17 @@ struct period_queues final {
     */
     using queue_type = std::map<period_type, period_queue_element>;
 
+    /*!
+    \brief Get abstract period index for period prediction
+
+    If the predicted period is within a disputed period change interval,
+    the returned abstract period index will be disputed.
+    WARNING: If period is very low in the diputed area of interval 0,
+             the lower period will wrap around to a hughe number!
+
+    \param period Predicted period
+    \return Abstract period index
+    */
     [[gnu::const]]
     inline period_index period_index_for(double period) const noexcept
     {
@@ -85,10 +96,19 @@ struct period_queues final {
         if (f > 1. - threshold)
             return { p, p+1, true };
         if (f < threshold)
-            return { p, p, true };
+            return { p-1, p, true };
         return { p, p, false };
     }
 
+    /*!
+    \brief Refine abstract period index according to timestamp
+
+    Refinement will turn a disputed period index into a non-disputed period index
+    if the TDC for the period change has been seen.
+
+    \param to_refine    Reference to an abstract period index for refinement
+    \param time_stamp   Time stamp (in clock ticks) within index interval for which the index should be refined
+    */
     inline void refined_index(period_index& to_refine, int64_t time_stamp) noexcept
     {
         if (! to_refine.disputed)
@@ -104,29 +124,42 @@ struct period_queues final {
         
         to_refine.disputed = false;
 
-        if (to_refine.period == to_refine.disputed_period) {    // disputed at start
-            if (pqe.start > time_stamp)
-                to_refine.period -= 1;
-        } else {                                                // disputed at end
-            if (pqe.start <= time_stamp)
-                to_refine.period += 1;
-        }
+        if (pqe.start > time_stamp)
+            to_refine.disputed_period = to_refine.period;
+        else
+            to_refine.period = to_refine.disputed_period;
 
         return;
     }
 
+    /*!
+    \brief Map abstract period index to period queue element
+    \param idx Abstract period change index
+    \return Period queue element
+    */
     [[gnu::pure]]
     inline period_queue_element& operator[](const period_index& idx)
     {
-        return element[idx.disputed ? idx.disputed_period : idx.period];
+        return element[idx.disputed_period];
     }
 
+    /*!
+    \brief Map period number to period queue element
+    \param period Period number
+    \return Period queue element
+    */
     [[gnu::pure]]
     inline period_queue_element& operator[](const period_type& period)
     {
         return element[period];
     }
 
+    /*!
+    \brief Register start timestamp for a period change indexed by a disputed period index
+    \param idx      Abstract period index, must be disputed
+    \param start    Time stamp in clock ticks
+    \return Event reorder queue for the period change indexed by `idx`
+    */
     inline event_reorder_queue& registerStart(const period_index& idx, int64_t start)
     {
         assert(idx.disputed);
@@ -137,37 +170,65 @@ struct period_queues final {
         return *pqe.queue;
     }
 
+    /*!
+    \brief Get iterator to earliest period queue element
+    \return Iterator to earliest period queue element
+    */
     [[gnu::pure]]
     inline queue_type::iterator oldest() noexcept
     {
         return std::begin(element);
     }
 
+    /*!
+    \brief End iterator
+    \return End iterator
+    */
     [[gnu::pure]]
     inline queue_type::iterator end() noexcept
     {
         return std::end(element);
     }
 
+    /*!
+    \brief Erase period queue element
+    \param pos Period queue element position as iterator
+    */
     inline void erase(queue_type::iterator pos)
     {
         element.erase(pos);
     }
 
+    /*!
+    \brief Get number of remembered period changes
+    \return Number of period queue elements
+    */
     [[gnu::pure]]
     inline queue_type::size_type size() const noexcept
     {
         return element.size();
     }
 
+    /*!
+    \brief Query for empty collection
+    \return True if there are no remembered period changes
+    */
     [[gnu::pure]]
     inline bool empty() const noexcept
     {
         return element.empty();
     }
 
-    queue_type element;         // key = period number
-    double threshold = 0.1;     // [threshold .. (1 - threshold)] is the undisputed period attribution interval
+    queue_type element;         //!< The remembered period changes
+
+    /*!
+    \brief Disputed period threshold
+
+    The disputed period threshold as a ratio of the entire period interval.
+    [threshold .. (1 - threshold)] is the undisputed period attribution interval,
+    the rest is disputed.
+    */
+    double threshold = 0.1;
 };
 
 #endif // PERIOD_QUEUES_H

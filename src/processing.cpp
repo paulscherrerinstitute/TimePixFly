@@ -58,6 +58,10 @@ namespace {
         \brief Processing configuration file object
         */
         struct ConfigFile final : public Poco::Util::IniFileConfiguration {
+                /*!
+                \brief Constructor
+                \param path INI style configuration file path
+                */
                 inline ConfigFile(const std::string& path)
                         : IniFileConfiguration{path}
                 {}
@@ -69,25 +73,37 @@ namespace {
         \brief Constant detector data
         */
         struct Detector final {
-                const detector_layout& layout;
-                int DetWidth;
-                int NumPixels;
+                const detector_layout& layout;  //!< Detector layout reference
+                int DetWidth;                   //!< Detector width
+                int NumPixels;                  //!< Detector number of pixels
 
-                // if TOAMode is false then TOT is used for binnig (counts as a
-                // function of energy and TOT as output)
+                /*!
+                \brief Histogramming mode
+                
+                If TOAMode is false then TOT is used for binnig (counts as a
+                function of energy and TOT as output)
+                */
                 static constexpr bool TOAMode = true;
 
-                static constexpr u16 TOTRoiStart = 1;
-                static constexpr u16 TOTRoiEnd = 100;
+                static constexpr u16 TOTRoiStart = 1;           //!< ROI start in terms of TOT
+                static constexpr u16 TOTRoiEnd = 100;           //!< ROI end in terms of TOT
 
-                u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;
-                u64 TRoiStep = 1;
-                u64 TRoiN = TOAMode ? 5000 : 100;
-                u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;
+                u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
+                u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks
+                u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
+                u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
 
-                PixelIndexToEp energy_points;
+                PixelIndexToEp energy_points;   //!< Abstract pixel index to energy point mapping
 
-                // In steps of 1.5625 ns
+                /*!
+                \brief Set region of interest within period interval
+
+                Values are in steps of 1.5625 ns
+
+                \param tRoiStart        Start clock tick
+                \param tRoiStep         Step size
+                \param tRoiN            Number of steps to end
+                */
                 void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN) noexcept
                 {
                         logger << "SetTimeROI(" << tRoiStart << ", " << tRoiStep << ", " << tRoiN << ')' << log_trace;
@@ -99,11 +115,19 @@ namespace {
                         logger << "Detector TRoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
                 }
 
+                /*!
+                \brief Get number of detector chips
+                \return Number of detector chips
+                */
                 [[gnu::const]] unsigned NumChips() const noexcept
                 {
                         return layout.chip.size();
                 }
 
+                /*!
+                \brief Constructor
+                \param layout_ Detector layout reference
+                */
                 Detector(const detector_layout& layout_)
                 : layout{layout_}, DetWidth(layout.width), NumPixels(layout.width * layout.height)
                 {}
@@ -140,7 +164,7 @@ namespace {
 
         \param energy_points    Set this mapping to what was defined in XESPointsFile
         \param layout           The detector layout
-        \param XESPointFile     Name of the file that defines the pixel to energy point mapping
+        \param XESPointsFile    Name of the file that defines the pixel to energy point mapping
         */
         void readAreaROI(PixelIndexToEp& energy_points, const detector_layout& layout, const std::string& XESPointsFile)
         {
@@ -221,22 +245,30 @@ namespace {
                         int Total = 0;                  //!< Total events handled
                 };
 
-                std::array<Data, 2> data;               // histogram data
-                u8 active = 0;                          // active data
+                /*!
+                \brief Histogram data
+
+                There are two histograms to do double buffering:
+                - One is built up by analysing events
+                - The other is beeing written to disk
+                */
+                std::array<Data, 2> data;
+                u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
                 u16 TOTMin = 0;                         //!< Minimal energy encountered in handled events
                 u16 TOTMax = 0;                         //!< Maximum energy encountered in handled events
 
-                static constexpr period_type no_save = 2; // don't save save data before this period
-                period_type save_point = no_save;       // next period for which a file is written
-                std::array<unsigned, 2> save_ok;        // counter for chips that reached the save point
+                static constexpr period_type no_save = 2; //!< Don't save save data before this period
+                period_type save_point = no_save;       //!< Next period for which a file is written
+                std::array<unsigned, 2> save_ok;        //!< Counter for chips that reached the save point
 
-                const std::string outFileName;          // output file name
+                const std::string outFileName;          //!< Output file name
                 const Detector& detector;               //!< Reference to constant Detector data
 
                 /*!
-                * \brief Constructor
-                * \param det Constant detector data
+                \brief Constructor
+                \param det      Constant detector data
+                \param OutFName Output file name
                 */
                 inline Analysis(const Detector& det, const std::string& OutFName)
                 : outFileName(OutFName), detector(det)
@@ -245,6 +277,10 @@ namespace {
                                 histo.TDSpectra.resize(det.TRoiN * det.energy_points.npoints);
                 }
 
+                /*!
+                \brief Reset histogram to zero
+                \param data_index Which histogram
+                */
                 inline void Reset(const u8 data_index)
                 {
                         logger << "Reset(" << (int)data_index << ')' << log_trace;
@@ -257,9 +293,12 @@ namespace {
                 }
 
                 /*!
-                * \brief Save spectra to .xes
-                * The extension .xes will be appended to the output file path.
-                * \param OutFileName Path to output file without .xes extension
+                \brief Save histogram to .xes file
+                
+                The extension .xes will be appended to the output file path.
+                
+                \param data_index       Which histogram
+                \param OutFileName      Path to output file without .xes extension
                 */
                 inline void SaveToFile(const u8 data_index, const string& OutFileName) const
                 {
@@ -282,6 +321,13 @@ namespace {
                         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
                 }
 
+                /*!
+                \brief Add one event to histogram
+                \param dataIndex        Which histogram
+                \param index            Abstract pixel index of event
+                \param TimePoint        Clock tick relative to period interval start
+                \param TOT              Event TOT value
+                */
                 inline void Register(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
                         logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
@@ -296,6 +342,13 @@ namespace {
                                 logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
                 }
 
+                /*!
+                \brief Analyse event and add it to histogram if appropriate
+                \param dataIndex        Which histogram
+                \param index            Abstract pixel index of event
+                \param reltoa           Event TOA relative to period interval start
+                \param tot              Event TOT value
+                */
                 inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
                 {
                         logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
@@ -335,9 +388,17 @@ namespace {
                         }
                 } // end Analyse()
 
-                // if period is bigger than next save point, save data in any case
-                // if current period <= no_save, don't save data
-                // ATTENTION: save_interval must be big enough in order to not wrap around the data array too quickly!
+                /*!
+                \brief Purge period interval change from memory
+
+                - If `period` is bigger than next `save_point`, save data in any case.
+                - If current `period` <= `no_save`, don't save data.
+
+                ATTENTION: `save_interval` must be big enough in order to not wrap around the data array too quickly!
+
+                \param chipIndex        Chip number
+                \param period           Interval change at start of this period will be purged
+                */
                 void PurgePeriod(unsigned chipIndex, period_type period)
                 {
                         logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
@@ -367,6 +428,14 @@ namespace {
                         Reset(ac);
                 }
 
+                /*!
+                \brief Process event
+                \param chipIndex        Chip that detected the event
+                \param period           Period number of the event
+                \param toaclk           Event TOA in clock ticks
+                \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
+                \param event            Raw event
+                */
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 {
                         logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;

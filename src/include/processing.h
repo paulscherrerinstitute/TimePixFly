@@ -1,6 +1,11 @@
 #ifndef PROCESSING_H
 #define PROCESSING_H
 
+/*!
+\file
+Includes for processing code
+*/
+
 #include "layout.h"
 
 namespace processing {

@@ -19,14 +19,20 @@ namespace {
     \brief Unit test object
     */
     struct test_unit final {
-        std::string name;
-        std::string desc;
-        std::function<void(const test_unit&)> test;
+        std::string name;                           //!< Name of test unit
+        std::string desc;                           //!< Description of test unit
+        std::function<void(const test_unit&)> test; //!< Test function for test unit
 
         /*!
         \brief Comparator for sorting unit test objects
         */
         struct less final {
+            /*!
+            \brief Comparison operator
+            \param a    Firts test unit
+            \param b    Second test unit
+            \return True if first test unit name is alphabetically less than that of the second test unit
+            */
             bool operator()(const test_unit& a, const test_unit& b) const
             {
                 return a.name < b.name;
@@ -38,8 +44,8 @@ namespace {
     \brief Unit test result
     */
     struct test_result final {
-        const test_unit* unit;
-        unsigned num;
+        const test_unit* unit;  //!< Pointer to test unit
+        unsigned num;           //!< Test position number
     };
 
     std::set<test_unit, test_unit::less> tests; //!< Set of all tests
@@ -51,9 +57,14 @@ namespace {
     */
     template<typename Stream>
     struct verbose_type final : public Stream {
-        bool output;
-        Stream& out;
+        bool output;    //!< Generate output?
+        Stream& out;    //!< Underlying output stream
 
+        /*!
+        \brief Output operator
+        \param val Value to print into the stream
+        \return Reference to `this`
+        */
         template<typename T>
         inline verbose_type& operator<<(const T& val)
         {
@@ -62,6 +73,11 @@ namespace {
             return *this;
         }
 
+        /*!
+        \brief Constructor
+        \param s            Underlying stream
+        \param not_quiet    True if output should not be hidden
+        */
         inline explicit verbose_type(Stream& s, bool not_quiet) noexcept
             : out(s), output(not_quiet)
         {}
@@ -69,10 +85,10 @@ namespace {
         inline ~verbose_type() = default;
 
         verbose_type(const verbose_type&) = delete;
-        inline verbose_type(verbose_type&&) = default;
+        inline verbose_type(verbose_type&&) = default;  //!< Move constructor
 
         verbose_type& operator=(const verbose_type&) = delete;
-        inline verbose_type& operator=(verbose_type&&) = default;
+        inline verbose_type& operator=(verbose_type&&) = default;   //!< Move assignment \return `this`
     };
     
     verbose_type<decltype(std::cout)> verbose{std::cout, false};    //!< verbose_type stream object
@@ -154,6 +170,11 @@ namespace {
     \brief Equality check for double
 
     Due to numeric issues, double values are considered equal if they are within a small distance (1e-6) of each other.
+
+    \param unit Test unit reference
+    \param t    Test position counter reference
+    \param a    First value
+    \param b    Second value
     */    
     template<>
     void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)

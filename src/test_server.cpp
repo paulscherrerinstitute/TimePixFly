@@ -135,6 +135,11 @@ namespace {
     \brief HTTP GET request handler
     */
     struct GetRequestHandler final : public HTTPRequestHandler {
+        /*!
+        \brief Handler function
+        \param request  Poco HTTP request object reference
+        \param response Poco HTTP response object
+        */
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             std::string path = URI{request.getURI()}.getPath();
@@ -151,6 +156,11 @@ namespace {
     \brief HTTP PUT request handler
     */
     struct PutRequestHandler final : public HTTPRequestHandler {
+        /*!
+        \brief Handler function
+        \param request  Poco HTTP request object reference
+        \param response Poco HTTP response object
+        */
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             std::string path = URI{request.getURI()}.getPath();
@@ -171,25 +181,39 @@ namespace {
     \brief HTTP unknown request type handler
     */
     struct ErrorRequestHandler final : public HTTPRequestHandler {
+        /*!
+        \brief Handler function
+        \param request  Poco HTTP request object reference
+        \param response Poco HTTP response object
+        */
         void handleRequest([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             error_response(response, error);
         }
 
+        /*!
+        \brief Constructor
+        \param err  Error string
+        */
         explicit ErrorRequestHandler(const std::string err)
             : error(err)
         {}
 
         virtual ~ErrorRequestHandler() = default;
 
-        std::string error;
+        std::string error;  //!< Error string
     };
 
     /*!
     \brief Factory generating HTTP request specific handlers
     */
     struct TestServerRequestHandlerFactory  final : public HTTPRequestHandlerFactory {
-        HTTPRequestHandler * createRequestHandler(const HTTPServerRequest & request) override
+        /*!
+        \brief Create a request handler depending on request method
+        \param request Poco HTPP request object reference
+        \return Pointer to Poco request handler object
+        */
+        HTTPRequestHandler* createRequestHandler(const HTTPServerRequest & request) override
         {
 
             if (request.getMethod() == "GET")
@@ -376,9 +400,14 @@ namespace {
     }
 
     /*!
-    \brief Commandline options handler
+    \brief Commandline options handler type
     */
     struct option_handler_type final {
+        /*!
+        \brief Help option handler
+        \param name  Option name
+        \param value Option value
+        */
         inline void handle_help([[maybe_unused]] const std::string& name, [[maybe_unused]] const std::string& value)
         {
             HelpFormatter helpFormatter(args);
@@ -389,6 +418,11 @@ namespace {
             std::exit(Application::EXIT_OK);
         }
 
+        /*!
+        \brief String valued option handler
+        \param name  Option name
+        \param value Option value
+        */
         inline void handle_string(const std::string& name, const std::string& value)
         {
             if (name == "input")
@@ -397,7 +431,12 @@ namespace {
                 bind_to = ServerSocket{SocketAddress{value}};
         }
 
-        inline void handle_number(const std::string& name, const std::string& value)
+         /*!
+        \brief Integer values option handler
+        \param name  Option name
+        \param value Option value
+        */
+       inline void handle_number(const std::string& name, const std::string& value)
         {
             long num = stol(value);
             if (name == "nchips")

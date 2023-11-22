@@ -297,14 +297,9 @@ class DataHandler final {
         const float tdc = Decode::clockToFloat(tdcclk);
         logger << chipIndex << ": TDC: " << tdc << log_info;
         auto& rq = queues[chipIndex].registerStart(index, tdcclk);
-        // modify index so that
-        // - index.period is the period before the tdc
-        // - index.disputed_period is the period after the tdc
-        if (index.period == index.disputed_period)
-            index.period -= 1;
         for (; !rq.empty(); rq.pop()) {
             auto& el = rq.top();
-            processEvent(chipIndex, (tdcclk < el.toa ? index.disputed_period : index.period), el.toa, el.event);
+            processEvent(chipIndex, (tdcclk <= el.toa ? index.disputed_period : index.period), el.toa, el.event);
         }
         // remove old period data
         purgeQueues(chipIndex, maxPeriodQueues);

@@ -1,16 +1,18 @@
 #ifndef REORDER_QUEUE_H
 #define REORDER_QUEUE_H
 
-// Provide code for a reorder queue
+/*!
+\file
+Provide code for a reorder queue
 
-// Design:
-// Priority queue
-
-// TODO: check if fixed capacity queue implementation is faster
+Design: Priority queue
+*/
 
 #include <queue>
 
-// Simple priority queue wrapper
+/*!
+\brief Simple priority queue wrapper
+*/
 template<typename T, typename Compare>
 using reorder_queue = std::priority_queue<T, std::vector<T>, Compare>;
 
