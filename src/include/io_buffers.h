@@ -48,7 +48,7 @@ struct io_buffer_pool final {
     \brief Buffer pool content data type
 
     The buffer pool content is a multimap with sorted keys referring to the raw event data packet chunk number.
-    The raw event data packet chunks are split into pieces of `buffer_size`that end up in the multimap with
+    The raw event data packet chunks are split into pieces of `buffer_size` that end up in the multimap with
     the their associated chunk number.
 
     Since keys are sorted, the begin of the multimap contains the first seen piece of the oldest chunk in the pool.

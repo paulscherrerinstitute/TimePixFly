@@ -772,3 +772,55 @@ int main (int argc, char* argv[])
         std::cerr << "fatal error: " << ex.what() << '\n';
     }
 }
+
+/*!
+\mainpage ASI TPX3 Detector Event Analysis Software
+
+\section intro_sec Introduction
+
+The software consists of
+
+- tpx3app
+    Analysis program generating histogram output by receiving raw event data through a TCP stream from the ASI server
+    .
+- test
+    Unit tests for some of the tpx3app components
+    .
+- server
+    ASI server raw event stream replay server
+    .
+
+\section design_sec Design
+
+Currently, in analysis mode, the process is devided into
+
+- a main thread (see main.cpp) that interacts with the ASI server
+- a reader thread (see data_handler.h) that reads the TCP raw event data stream produced by the ASI server
+- per chip analysis threads (see data_handler.h) that dispatch events from the raw stream, build and write the histograms
+
+The incoming data stream is split into per chip data streams.
+
+\image html io_buffers.png width=80%
+
+The raw event stream from the ASI server comes in packets per chip.
+These packets are distributed by a single reader thread to per chip reordering IO buffer queues (see io_buffers.h).
+Per chip there's a single analysis thread that dispatches events from IO buffers.
+
+Every analysis thread deals with event data originating from a single detector chip.
+
+\image html period_queues.png width=80%
+
+The period changes for which no TDC has been seen yet, are predicted (see period_predictor.h).
+Events that fall into a disputed interval (see undisputedThreshold) around expected period changes are put into a reordering queue (see event_reordering.h).
+Such reordering queues are maintained for a number of recent period changes (see maxPeriodQueues and period_queues.h). Events for which period number assignment
+is undisputed - because they don't fall into a disputed interval, or because the TDC of the disputed interval has been seen - are sent to the histogramming code
+(see processing.cpp). The histogram is saved and cleared periodically (see save_interval).
+
+\section issues_sec Issues
+
+- The parallelization into and synchronization between threads is probably too simple to be fast.
+- Logging and error handling are implemented for debugging right now, which might be too slow.
+- Missing requirements for many aspects, like logging, exception handling, and configuration.
+- Missing requirements for the software environment the analysis process will be embedded into.
+- No functional verification has been done yet.
+*/
