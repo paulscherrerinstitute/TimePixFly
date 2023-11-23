@@ -1,5 +1,11 @@
 using ArgParse
 
+"""
+    gen_ystripes(area, ystripes)
+
+Create energy point map for `area`, which is divided into
+stripes along Y according to `ystripes::StepRange`
+"""
 function gen_ystripes(area, ystripes)
     dims = size(area)
     intervals = collect(zip(ystripes, ystripes[2:end]))
@@ -15,6 +21,11 @@ function gen_ystripes(area, ystripes)
     end
 end
 
+"""
+    write_map(io, area)
+
+Write energy point map `area` to `io`.
+"""
 function write_map(io, area)
     dims = size(area)
     chips = dims .÷ 256
@@ -37,6 +48,13 @@ function write_map(io, area)
     end
 end
 
+"""
+    arg_parse()
+
+Parse commandline arguments.
+
+Return tuple `(width, height, ystripes, fname)`.
+"""
 function arg_parse()
     settings = ArgParseSettings(
         description = """Generate pixel to XES energy point mapping file."""
@@ -78,6 +96,11 @@ function arg_parse()
     return (width, height, ystripes, fname)
 end
 
+"""
+    main()
+
+Parse arguments, generate energy point stripes and their output.
+"""
 function main()
     (width, height, ystripes, fname) = arg_parse()
     area = Array{Union{Nothing, Int}}(nothing, height, width)

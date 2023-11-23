@@ -1,16 +1,31 @@
 using Base.Iterators
 using ArgParse
 
+"""
+    hex(x)
+
+Return hexadecimal representation of `x` as a `String`.
+"""
 function hex(x::UInt64)::String
     return string(x, base=16, pad=16)
 end
 
+"""
+    get_bits(data, h, l)
+
+Return bits between high bit `h` inclusive and low bit `l`.
+"""
 function get_bits(data::UInt64, h::Integer, l::Integer)::UInt64
     nbits = (h - l) + 1;
     mask::UInt64 = (1 << nbits) - 1;
     return (data >> l) & mask;
 end
 
+"""
+    tdc_clock(data)
+
+Extract TDC time in clock ticks from raw event `data`.
+"""
 function tdc_clock(tdc::UInt64)::Int64
     coarse = get_bits(tdc, 43, 9)
     fract = get_bits(tdc, 8, 5)
@@ -18,6 +33,11 @@ function tdc_clock(tdc::UInt64)::Int64
     return (coarse << 1) | div((fract - 1), 6)
 end
 
+"""
+    toa_clock(data)
+
+Extract TOA time in clock ticks from raw event `data`.
+"""
 function toa_clock(data::UInt64)::Int64
     ftoa = get_bits(data, 19, 16);
     toa = get_bits(data, 43, 30);
@@ -25,6 +45,11 @@ function toa_clock(data::UInt64)::Int64
     return (((coarse << 14) + toa) << 4) - ftoa;
 end
 
+"""
+    tpx3()
+
+Generate raw representation of the chunk header identification.
+"""
 function tpx3()::UInt64
     id = "3XPT"
     res::UInt64 = 0
@@ -34,10 +59,22 @@ function tpx3()::UInt64
     return res
 end
 
+"""
+    chunk_header(nbytes, chip)
+
+Generate raw chunk header for `chip` containing `nbytes` payload.
+"""
 function chunk_header(nbytes::Integer, chip::Integer)::UInt64
     return (UInt64(nbytes) << 48) + (UInt64(chip) << 32) + tpx3()
 end
 
+"""
+    toa_time(t)
+
+Split clock tick `t` into TOA time representation parts.
+
+Return array `[toa, ftoa, spidr]`.
+"""
 function toa_time(t::Integer)::Vector{UInt64}
     ticks = Int64(t)
     spidr::UInt64 = ticks >> 18
@@ -53,17 +90,34 @@ function toa_time(t::Integer)::Vector{UInt64}
     return [toa, ftoa, spidr]
 end
 
+"""
+    toa(pixaddr, toa, tot, ftoa, spidr)
+
+Generate raw TOA event representation at time `toa` with fraction `ftoa`, `tot`, `spidr`,
+and raw pixel coordinate representation `pixaddr`.
+"""
 function toa(pixaddr::Integer, toa::Integer, tot::Integer, ftoa::Integer, spidr::Integer)::UInt64
     return ((UInt64(0xb) << 60) + (UInt64(pixaddr) << 44)
           + (UInt64(toa) << 30) + (UInt64(tot) << 20)
           + (UInt64(ftoa) << 16) + (UInt64(spidr)))
 end
 
+"""
+    toa(pixaddr, clk, tot)
+
+Generate raw TOA event representation at time `clk` with `tot` and raw pixel coordinate
+representation `pixaddr`.
+"""
 function toa(pixaddr::Integer, clk::Integer, tot::Integer)::UInt64
     t = toa_time(clk)
     return toa(pixaddr, t[1], tot, t[2], t[3])
 end
 
+"""
+    tdc_time(t)
+
+Return array `[time, tim efraction]` for time `t`.
+"""
 function tdc_time(t::Integer)::Vector{UInt64}
     ticks = UInt64(t)
     coarse::UInt64 = ticks >> 1
@@ -76,30 +130,63 @@ function tdc_time(t::Integer)::Vector{UInt64}
     return [coarse, fract]
 end
 
+"""
+    tdc(t, ft)
+
+Return raw representation of TDC event at coarse time `t` with time fraction `ft`.
+"""
 function tdc(t::Integer, ft::Integer)::UInt64
     return (UInt64(0x6b) << 56) + (UInt64(t) << 9) + (UInt64(ft) << 5)
 end
 
+"""
+    tdc(clk)
+
+Return raw representation of TDC event at time `clk`.
+"""
 function tdc(clk::Integer)::UInt64
     t = tdc_time(clk)
     return tdc(t[1], t[2])
 end
 
+"""
+    pkcount(count)
+
+Return the raw representation packet ID `count`.
+"""
 function pkcount(count::Integer)::UInt64
     return (UInt64(0x50) << 56) + count
 end
 
+"""
+    header(nevents, chip, count)
+
+Generate raw event packet header for a packet with ID `count`, originating from `chip`
+and containing `nevents` events.
+
+Return `UInt64` vector representing the raw packet header.
+"""
 function header(nevents::Integer, chip::Integer, count::Integer)::Vector{UInt64}
     return [chunk_header(8 + 8 * nevents, chip), pkcount(count)]
 end
 
+"""
+Raw event packet representation
+"""
 struct EventPacket
+    "Chip that generated the events in this packet"
     chip::UInt32            # chip number
+    "Packet ID"
     id::UInt32              # packet number
+    "Start time in clock ticks"
     tstart::UInt64          # start clock counter
+    "End time in clock ticks"
     tend::UInt64            # end clock counter
+    "Number of TOA events in this packet"
     ntoa::UInt32            # number of TOA events
+    "Number of TDC events in this packet - ignored for now"
     ntdc::UInt32            # number of TDC events, must be 1 currently
+    "List of raw events"
     events::Vector{UInt64}  # list of raw events
 end
 
@@ -137,7 +224,7 @@ end
 """
     write_packets(io, packets)
 
-Writes `packets` content in binary form to `io`.
+Write `packets` content in binary form to `io`.
 """
 function write_packets(io, packets)
     for pk in packets
@@ -149,7 +236,7 @@ end
 """
     print_packets(io, packets)
 
-Prints `packets` content in readable form to `ìo`.
+Print `packets` content in readable form to `ìo`.
 """
 function print_packets(io, packets)
     for pk in packets
@@ -166,7 +253,7 @@ end
 
 Parse commandline arguments.
 
-Returns the tuple `(nchips, period, tot, tstart, tend, fname)``.
+Return the tuple `(nchips, period, tot, tstart, tend, fname)``.
 """
 function arg_parse()
     settings = ArgParseSettings(
@@ -213,6 +300,14 @@ function arg_parse()
     return (nchips, period, tot, tstart, tend, fname)
 end
 
+"""
+    main()
+
+Parse commandline arguments, generate raw event data packets and either
+
+- write raw event data packets to file `fname`
+- or print them in human readable form to `stdout
+"""
 function main()
     (nchips, period, tot, tstart, tend, fname) = arg_parse()
     npackets = round(UInt32, (tend - tstart) / period)
