@@ -19,6 +19,12 @@ CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS"
 
 TEST_FLAGS+=" -Og -ggdb -march=native"
 
+test -f README.md || { echo "This command must be executed from the git top directory"; exit 1; }
+
+VERSION="$(git branch --show-current) $(git log -n1 --format="%h %as")"
+(($? == 0)) || { echo "This command must be executed inside the git repository"; exit 1; }
+echo "const char VERSION[]=\"$VERSION\";" > src/include/version.h
+
 case "$TARGET" in
     "tpx3app")
         cmd="${CXX} -I src/include src/main.cpp src/processing.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"

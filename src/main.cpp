@@ -59,6 +59,8 @@ namespace {
     using Poco::Dynamic::Var;
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
+    #include "version.h"
+
     /*!
     \brief Extract object from JSON object
     \param object   JSON object containing another object
@@ -225,6 +227,12 @@ namespace {
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
+
+            options.addOption(Option("version", "v")
+                .description("show version")
+                .required(false)
+                .repeatable(false)
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleVersion)));
         }
 
         /*!
@@ -354,6 +362,19 @@ namespace {
                 streamFilePath = value;
             else
                 throw LogicException{std::string{"unknown file path argument name: "} + name};
+        }
+
+        /*!
+        \brief Version option handler
+        \param name     Option name
+        \param value    Option value
+        */
+        inline void handleVersion(const std::string& name, const std::string& value)
+        {
+            logger << "handleVersion(" << name << ", " << value << ')' << log_trace;
+            std::cout << VERSION << '\n';
+            stopOptionsProcessing();
+            stop = true;
         }
 
         /*!

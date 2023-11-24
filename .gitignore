@@ -5,3 +5,4 @@ server
 generate_data/data
 doc/html
 save_data
+version.h
