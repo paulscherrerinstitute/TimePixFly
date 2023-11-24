@@ -135,17 +135,6 @@ namespace {
     }
 
     /*!
-    \brief Unequality check for abstract period indices
-    \param a First period index
-    \param b Second period index
-    \return true iff a is not equal to b by value
-    */
-    bool operator!=(const period_index& a, const period_index& b) noexcept
-    {
-        return a != b;
-    }
-
-    /*!
     \brief Equality check
 
     This test fails iff a!=b
@@ -259,8 +248,8 @@ namespace {
             unsigned t = 0;
             ::period_queues pq;
             double d = pq.threshold / 2.0;
-            check_eq(unit, t, pq.period_index_for(1.0), period_index{1, 1, true});
-            check_eq(unit, t, pq.period_index_for(1.0 + d), period_index{1, 1, true});
+            check_eq(unit, t, pq.period_index_for(1.0), period_index{0, 1, true});
+            check_eq(unit, t, pq.period_index_for(1.0 + d), period_index{0, 1, true});
             check_eq(unit, t, pq.period_index_for(1.5), period_index{1, 1, false});
             check_eq(unit, t, pq.period_index_for(2.0 - d), period_index{1, 2, true});
         }
@@ -280,13 +269,13 @@ namespace {
             pq.refined_index(idx, 0);
             check_eq(unit, t, idx, period_index{0, 0, false});
             idx = pq.period_index_for(d);   // disputed index
-            check_eq(unit, t, idx, period_index{0, 0, true});
+            check_eq(unit, t, idx, period_index{-1, 0, true});
             pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{0, 0, true});
+            check_eq(unit, t, idx, period_index{-1, 0, true});
             pq[idx] = period_queue_element{};
             check_eq(unit, t, pq[idx].start_seen, false);
             pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{0, 0, true});
+            check_eq(unit, t, idx, period_index{-1, 0, true});
             pq.registerStart(idx, 1);
             check_eq(unit, t, pq[idx].start, (int64_t)1);
             check_eq(unit, t, pq[idx].start_seen, true);
@@ -294,7 +283,7 @@ namespace {
             check_eq(unit, t, idx, period_index{0, 0, false});
             idx.disputed = true;
             pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{-1, 0, false});
+            check_eq(unit, t, idx, period_index{0, 0, false});
         }
 
         /*!

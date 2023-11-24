@@ -44,6 +44,18 @@ struct period_index final {
     period_type period;         //!< Period number for undisputed period, lower period number for disputed period
     period_type disputed_period;//!< Higher period number for disputed period, equal to `period` if period is not disputed
     bool disputed;              //!< Is the period disputed?
+
+    /*!
+    \brief Unequal test operator
+    \param other Other abstract period index
+    \return True if `other`is not equal in value to `this`
+    */
+    bool operator!=(const period_index& other) const noexcept
+    {
+        return  (other.disputed != disputed) ||
+                (other.period != period) ||
+                (other.disputed_period != disputed_period);
+    }
 };
 
 /*!
