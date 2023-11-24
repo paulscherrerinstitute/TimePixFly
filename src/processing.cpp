@@ -14,6 +14,7 @@ Event analysis code
 #include <unordered_map>
 #include <mutex>
 #include <atomic>
+#include <memory>
 
 #include "logging.h"
 #include "decoder.h"
