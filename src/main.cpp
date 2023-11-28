@@ -844,4 +844,52 @@ is undisputed - because they don't fall into a disputed interval, or because the
 - Missing requirements for many aspects, like logging, exception handling, and configuration.
 - Missing requirements for the software environment the analysis process will be embedded into.
 - No functional verification has been done yet.
+
+\section unit_test Unit Tests
+
+To run the unit tests, assuming your C++ compiler is g++-11:
+
+\code{.unparsed}
+$ CXX=g++-11 ./compile.sh test
+$ ./test
+\endcode
+
+This should give you a list of executed tests with all OK as test result. Extra arguments are documented through the --help option.
+The test executable takes a C++ regular expression as filter pattern, for example.
+
+\section example_run Example Run
+
+In order to get some test output, the tpx3app and server executables have to be compiled. Assuming your C++ compiler is g++-11:
+
+\code{.unparsed}
+$ CXX=g++-11 ./compile.sh
+$ CXX=g++-11 ./compile.sh server
+\endcode
+
+Then the mock ASI server has to be started with a captured raw event stream file and the number of TPX3 chips used to produce the stream,
+as an example:
+
+\code{.unparsed}
+$ ./server  --input=/data/TCP-raw/event-stream-v3-asynch-70Kcs.raw --nchips=4
+\endcode
+
+The server will print TCP address information for the TCP address it is listening on. The --help option documents other options.
+
+Now the analysis application can be started. For this the tpx3app needs a number of inputs, the specification of which is not
+very consistent, unfortunately, due to lack of specifications.
+
+- "XESPoints.inp" is a file with hardcoded name in the current directory (see readAreaROI() function in processing.cpp) specifying
+  the mapping between detector pixels and energy points.
+- "Processing.ini" is a file with hardcoded name in the current directory (see init() function in processing.cpp) specifying
+  time ROI and output files.
+- Commandline options documented through the --help option. All of them have defaults which should make sense for well behaved data
+  and TCP adresses. The --max-period-queues option gives the size of the period changes memory described above.
+
+Assuming you have input fils that make sense:
+
+\code{.unparsed}
+$ ./tpx3app --initial-period=5000 --max-period-queues=6 --loglevel=warning
+\endcode
+
+And hopefully you'll have some output in the folder specified via the Processing.inp file.
 */
