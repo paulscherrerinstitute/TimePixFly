@@ -6,6 +6,7 @@
 Code for event reordering based on event TOA
 */
 
+#include <cstdint>
 #include "reorder_queue.h"
 
 /*!
