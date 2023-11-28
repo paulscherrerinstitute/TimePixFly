@@ -6,6 +6,10 @@
 Code for processing raw data stream
 */
 
+#ifndef SERVER_VERSION
+    #define SERVER_VERSION 320  //!< Default ASI server version
+#endif
+
 #include <vector>
 #include <atomic>
 #include <thread>
