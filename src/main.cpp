@@ -801,15 +801,12 @@ int main (int argc, char* argv[])
 
 The software consists of
 
-- tpx3app
+- tpx3app\n
     Analysis program generating histogram output by receiving raw event data through a TCP stream from the ASI server
-    .
-- test
+- test\n
     Unit tests for some of the tpx3app components
-    .
-- server
+- server\n
     ASI server raw event stream replay server
-    .
 
 \section design_sec Design
 
