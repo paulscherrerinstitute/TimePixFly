@@ -113,7 +113,7 @@ namespace {
                         TRoiN = tRoiN;
 
                         TRoiEnd = TRoiStart + TRoiStep * TRoiN;
-                        logger << "Detector TRoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
+                        logger << "Detector TRualified-id before ‘>’ tokenoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
                 }
 
                 /*!
@@ -143,7 +143,7 @@ namespace {
         \brief Parse object of type T in a string
         \param s   String having a representation of T at pos
         \param pos Position in the string from where to parse
-        \return Parsed object of type T
+        \return Parsed object of type Tualified-id before ‘>’ token
         */
         template <typename T>
         T parse(std::string_view& s, std::string_view::size_type pos)
@@ -256,8 +256,9 @@ namespace {
                 std::array<Data, 2> data;
                 u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
-                u16 TOTMin = 0;                         //!< Minimal energy encountered in handled events
-                u16 TOTMax = 0;                         //!< Maximum energy encountered in handled events
+                                                        //TOTMin and TOTMax probably can be removed. Not really used. TOTROIStart are the ROI...
+                u16 TOTMin = 0;                         //
+                u16 TOTMax = 64000;                         //
 
                 static constexpr period_type no_save = 2; //!< Don't save save data before this period
                 period_type save_point = no_save;       //!< Next period for which a file is written
@@ -331,16 +332,22 @@ namespace {
                 */
                 inline void Register(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
-                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
+
+
+//                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
+                        int qwe;
                         if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
                                 const auto& flat_pixel = detector.energy_points[index];
                                 if (! flat_pixel.part.empty()) {
                                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                                         for (const auto& part : flat_pixel.part)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                             
+//This line takes most of the time of Register (and 50% of time of ProcessEvent)
                                                 data[dataIndex].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
-                                }
-                        } else
-                                logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                }
+                        } //else
+                          //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
+  
                 }
 
                 /*!
@@ -352,7 +359,7 @@ namespace {
                 */
                 inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
                 {
-                        logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
+  //                      logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
                         //----------------------------------------------------------------------
                         // parsing one data line
                         //----------------------------------------------------------------------
@@ -362,20 +369,20 @@ namespace {
                         data[dataIndex].Total++;
 
                         // temporary here
-                        if (tot < TOTMin)
-                                TOTMin = tot;
-                        if (tot > TOTMax)
-                                TOTMax = tot;
+                        //if (tot < TOTMin)
+                        //        TOTMin = tot;
+                        //if (tot > TOTMax)
+                        //        TOTMax = tot;
                         // end of temporary
 
                         const u64 FullToA = detector.TOAMode ? reltoa : tot;
 
                         if (FullToA < detector.TRoiStart) {
                                 data[dataIndex].BeforeRoi++;
-                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
+//                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
                         } else if (FullToA >= detector.TRoiEnd) {
                                 data[dataIndex].AfterRoi++;
-                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
+//                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
                         } else {
                                 const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
                                 // not ideal here. Does not work if tot step is
@@ -402,8 +409,8 @@ namespace {
                 */
                 void PurgePeriod(unsigned chipIndex, period_type period)
                 {
-                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
-                        logger << chipIndex << ": purge period " << period << log_info;
+//                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
+//                        logger << chipIndex << ": purge period " << period << log_info;
 
                         u8 ac;
                         period_type sp;
@@ -439,18 +446,20 @@ namespace {
                 */
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 {
-                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
+//                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
                         const uint64_t totclk = Decode::getTotClock(event);
-                        const float toa = Decode::clockToFloat(toaclk);
-                        const float tot = Decode::clockToFloat(totclk, 40e6);
+                        //const float toa = Decode::clockToFloat(toaclk);
+                        //const float tot = Decode::clockToFloat(totclk, 40e6);
                         const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
-                        logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
-                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
+//                        logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
+//                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
+                
                         auto index = PixelIndex::from(chipIndex, xy);
                         {
                                 std::lock_guard lock{histo_lock};
                                 Analyse((period > save_point ? active ^ 1 : active), index, relative_toaclk, totclk);
                         }
+                
                 }
 
         }; // end type Analysis
