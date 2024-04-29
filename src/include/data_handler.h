@@ -297,9 +297,9 @@ class DataHandler final {
     */
     inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk, uint64_t event)
     {
-        logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
+//        logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         const float tdc = Decode::clockToFloat(tdcclk);
-        logger << chipIndex << ": TDC: " << tdc << log_info;
+//        logger << chipIndex << ": TDC: " << tdc << log_info;
         auto& rq = queues[chipIndex].registerStart(index, tdcclk);
         for (; !rq.empty(); rq.pop()) {
             auto& el = rq.top();
@@ -361,11 +361,11 @@ class DataHandler final {
                     
                     size_t dataSize = eventBuffer->content_size;
                     chunkSize = eventBuffer->chunk_size;
-                    logger << threadId << ": full buffer " << eventBuffer->id
-                                        << " chunk " << chunkSize
-                                        << " offset " << eventBuffer->content_offset
-                                        << " size " << eventBuffer->content_size
-                                        << " packet " << packetNumber << log_debug;
+//                    logger << threadId << ": full buffer " << eventBuffer->id
+//                                        << " chunk " << chunkSize
+//                                        << " offset " << eventBuffer->content_offset
+//                                        << " size " << eventBuffer->content_size
+//                                        << " packet " << packetNumber << log_debug;
 
                     size_t processingByte = 0;
                     const char* content = eventBuffer->content.data();
@@ -382,7 +382,7 @@ class DataHandler final {
                                 const int64_t toaclk = Decode::getToaClock(d);
                                 const double period = predictor[chipIndex].period_prediction(toaclk);
                                 auto index = queues[chipIndex].period_index_for(period);
-                                logger << threadId << ": toaclk=" << toaclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_debug;
+  //                              logger << threadId << ": toaclk=" << toaclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_debug;
                                 queues[chipIndex].refined_index(index, toaclk);
                                 hits++;
                                 if (! index.disputed)
@@ -394,15 +394,15 @@ class DataHandler final {
                             }
                         } else if (Decode::matchesNibble(d, 0x6)) {
                             const uint64_t tdcclk = Decode::getTdcClock(d);
-                            logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
+    //                        logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
                             if (tdcHits == 0) {
                                 predictor[chipIndex].reset(tdcclk, initialPeriod);
-                                logger << threadId << ": predictor start, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
+    //                            logger << threadId << ": predictor start, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
                             } else {
                                 predictor[chipIndex].prediction_update(tdcclk);
                                 if (tdcHits == 2) {
                                     predictorReady = true;
-                                    logger << threadId << ": predictor ready, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
+    //                                logger << threadId << ": predictor ready, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
                                 }
                             }
                             tdcHits++;
@@ -410,12 +410,12 @@ class DataHandler final {
                                 const double period = predictor[chipIndex].period_prediction(tdcclk);
                                 auto index = queues[chipIndex].period_index_for(period);
                                 if (! index.disputed) {
-                                    logger << threadId << ": tdc=" << tdcclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_fatal;
+//                                    logger << threadId << ": tdc=" << tdcclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_fatal;
                                     throw RuntimeException("encountered undisputed period for tdc");
                                 }
                                 if (! predictor[chipIndex].ok(tdcclk)) {
                                     predictor[chipIndex].start_update(tdcclk);
-                                    logger << threadId << ": predictor recalibrate " << predictor[chipIndex] << log_info;
+//                                    logger << threadId << ": predictor recalibrate " << predictor[chipIndex] << log_info;
                                 }
                                 processTdc(chipIndex, index, tdcclk, d);
                             }

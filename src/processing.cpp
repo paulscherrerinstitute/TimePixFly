@@ -239,7 +239,10 @@ namespace {
                 \brief TDSpectra data aggregated over one data saving period
                 */
                 struct Data final {
-                        vector<float> TDSpectra;        //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
+
+//  Modified type of vector to check speed in the XAS mode (when there is no division of pixels over a few points)
+                        vector <int> TDSpectra;
+//                        vector<float> TDSpectra;        //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
                         int BeforeRoi = 0;              //!< Number of events before roi
                         int AfterRoi = 0;               //!< Number of events after roi
@@ -340,15 +343,31 @@ namespace {
                                 const auto& flat_pixel = detector.energy_points[index];
                                 if (! flat_pixel.part.empty()) {
                                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
-                                        for (const auto& part : flat_pixel.part)
+                                        for (const auto& part : flat_pixel.part) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                             
 //This line takes most of the time of Register (and 50% of time of ProcessEvent)
+                                                //if (detector.energy_points.npoints!=15) std::cout<<"!!!!!!! ";
+                                                //std::cout<<part.energy_point<<" ";
+                                                //in the example detector.energy_points.npoints is always 15
+                                                // in the example part.energy_point is from 0 to 14 defined by the event coordinate 
+                                                // in the example part.weight is 1;
+                                                // TimePoint is from 0 to ~2500
+                                                //std::cout<<TimePoint<<" ";
                                                 data[dataIndex].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                }
+                                        }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
+                                }                                
                         } //else
                           //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
   
                 }
+                inline void RegisterXAS(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
+                {
+                        data[dataIndex].TDSpectra[TimePoint*15]+=1;
+  
+                }
+
+
 
                 /*!
                 \brief Analyse event and add it to histogram if appropriate
@@ -388,10 +407,17 @@ namespace {
                                 // not ideal here. Does not work if tot step is
                                 // not 1
                                 if (detector.TOAMode == true) {
-                                        Register(dataIndex, index, TP, tot);
+                                        //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
+                                        
+                                        //Register(dataIndex, index, TP, tot);
+                          
+
+                                        RegisterXAS(dataIndex, index, TP, tot);
+
                                 } else {
                                         const int TOTP = tot;
-                                        Register(dataIndex, index, TOTP, tot);
+                                        //Register(dataIndex, index, TOTP, tot);
+                                        RegisterXAS(dataIndex, index, TOTP, tot);
                                 }
                         }
                 } // end Analyse()
@@ -447,14 +473,34 @@ namespace {
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
-                        const uint64_t totclk = Decode::getTotClock(event);
+                        
+
+                        // substituted tot by constant to test speed since tot is typically ignored 
+
+                        // const uint64_t totclk = Decode::getTotClock(event);
+                        const uint64_t totclk = 100;
+                        
+                        
+                        
                         //const float toa = Decode::clockToFloat(toaclk);
                         //const float tot = Decode::clockToFloat(totclk, 40e6);
-                        const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
-//                        logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
+                        
+                        
+                        // commented to test speed since xy is typically ignored for XAS (not for XES!)
+
+                        //const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
+                        
+                                             
+//                          logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
 //                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
                 
-                        auto index = PixelIndex::from(chipIndex, xy);
+                        //replaced to test speed
+                        
+                        //auto index = PixelIndex::from(chipIndex, xy);
+                        auto index = PixelIndex::from(chipIndex, 10);
+
+
+                        
                         {
                                 std::lock_guard lock{histo_lock};
                                 Analyse((period > save_point ? active ^ 1 : active), index, relative_toaclk, totclk);
