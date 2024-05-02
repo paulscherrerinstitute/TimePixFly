@@ -16,12 +16,14 @@ Event analysis code
 #include <atomic>
 #include <memory>
 
+#include "shared_types.h"
 #include "logging.h"
 #include "decoder.h"
 #include "pixel_index.h"
 #include "energy_points.h"
 #include "shared_types.h"
 #include "processing.h"
+#include "detector.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 
@@ -44,12 +46,7 @@ namespace {
         using clock = high_resolution_clock;    //!< Clock object
 
         using std::remove;
-
         using std::exit;
-
-        using u8 = uint8_t;     //!< Unsigned 8 bit integer
-        using u16 = uint16_t;   //!< Unsigned 16 bit integer
-        using u64 = uint64_t;   //!< Unsigned 64 bit integer
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
 
@@ -69,73 +66,6 @@ namespace {
 
                 inline ~ConfigFile() noexcept = default;
         };
-
-        /*!
-        \brief Constant detector data
-        */
-        struct Detector final {
-                const detector_layout& layout;  //!< Detector layout reference
-                int DetWidth;                   //!< Detector width
-                int NumPixels;                  //!< Detector number of pixels
-
-                /*!
-                \brief Histogramming mode
-                
-                If TOAMode is false then TOT is used for binnig (counts as a
-                function of energy and TOT as output)
-                */
-                static constexpr bool TOAMode = true;
-
-                static constexpr u16 TOTRoiStart = 1;           //!< ROI start in terms of TOT
-                static constexpr u16 TOTRoiEnd = 100;           //!< ROI end in terms of TOT
-
-                u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
-                u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks
-                u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
-                u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
-
-                PixelIndexToEp energy_points;   //!< Abstract pixel index to energy point mapping
-
-                /*!
-                \brief Set region of interest within period interval
-
-                Values are in steps of 1.5625 ns
-
-                \param tRoiStart        Start clock tick
-                \param tRoiStep         Step size
-                \param tRoiN            Number of steps to end
-                */
-                void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN) noexcept
-                {
-                        logger << "SetTimeROI(" << tRoiStart << ", " << tRoiStep << ", " << tRoiN << ')' << log_trace;
-                        TRoiStart = tRoiStart;
-                        TRoiStep = tRoiStep;
-                        TRoiN = tRoiN;
-
-                        TRoiEnd = TRoiStart + TRoiStep * TRoiN;
-                        logger << "Detector TRualified-id before ‘>’ tokenoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
-                }
-
-                /*!
-                \brief Get number of detector chips
-                \return Number of detector chips
-                */
-                [[gnu::const]] unsigned NumChips() const noexcept
-                {
-                        return layout.chip.size();
-                }
-
-                /*!
-                \brief Constructor
-                \param layout_ Detector layout reference
-                */
-                Detector(const detector_layout& layout_)
-                : layout{layout_}, DetWidth(layout.width), NumPixels(layout.width * layout.height)
-                {}
-
-                ~Detector()
-                {}
-        };  // end type Detector
 
         std::unique_ptr<Detector> detptr;       //!< Pointer to detector object, created by init()
 
@@ -502,7 +432,7 @@ namespace {
 
                         
                         {
-                                std::lock_guard lock{histo_lock};
+                                std::lock_guard lock{histo_lock}; // <---- problematic lock
                                 Analyse((period > save_point ? active ^ 1 : active), index, relative_toaclk, totclk);
                         }
                 
