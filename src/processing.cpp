@@ -24,6 +24,7 @@ Event analysis code
 #include "shared_types.h"
 #include "processing.h"
 #include "detector.h"
+#include "xes_data.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 
@@ -165,20 +166,7 @@ namespace {
         */
         struct Analysis final {
 
-                /*!
-                \brief TDSpectra data aggregated over one data saving period
-                */
-                struct Data final {
-
-//  Modified type of vector to check speed in the XAS mode (when there is no division of pixels over a few points)
-                        vector <int> TDSpectra;
-//                        vector<float> TDSpectra;        //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
-
-                        int BeforeRoi = 0;              //!< Number of events before roi
-                        int AfterRoi = 0;               //!< Number of events after roi
-                        int Total = 0;                  //!< Total events handled
-                };
-
+                using Data = xes::Data;                 //!< XES data type
                 /*!
                 \brief Histogram data
 
@@ -209,7 +197,7 @@ namespace {
                 : outFileName(OutFName), detector(det)
                 {
                         for (auto& histo: data)
-                                histo.TDSpectra.resize(det.TRoiN * det.energy_points.npoints);
+                                histo.Init(det);
                 }
 
                 /*!
@@ -219,12 +207,7 @@ namespace {
                 inline void Reset(const u8 data_index)
                 {
                         logger << "Reset(" << (int)data_index << ')' << log_trace;
-                        auto& d = data[data_index];
-                        auto& tds = d.TDSpectra;
-                        std::fill(tds.begin(), tds.end(), 0);
-                        d.BeforeRoi = 0;
-                        d.AfterRoi = 0;
-                        d.Total = 0;
+                        data[data_index].Reset();
                 }
 
                 /*!
@@ -239,19 +222,8 @@ namespace {
                 {
                         logger << "SaveToFile(" << (int)data_index << ", " << OutFileName << ')' << log_trace;
                         const auto t1 = clock::now();
-                        std::ofstream OutFile(OutFileName + ".xes");
-
-                        const int NumEnergyPoints = detector.energy_points.npoints;
-                        for (int i=0; i<NumEnergyPoints; ++i) {
-                                for (u64 j=0; j<detector.TRoiN; ++j) {
-                                        OutFile << data[data_index].TDSpectra[j * NumEnergyPoints + i] << " ";
-                                }
-                                OutFile << "\n";
-                        }
+                        data[data_index].SaveToFile(OutFileName);
                         const auto t2 = clock::now();
-                        if (OutFile.fail())
-                                throw std::ios_base::failure("Detector::SaveToFile failed");
-                        OutFile.close();
                         auto save_time = duration_cast<milliseconds>(t2 - t1).count();
                         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
                 }
