@@ -17,6 +17,7 @@ Provide functionality to manage partial XES data per thread
 #include <stdexcept>
 #include "shared_types.h"
 #include "logging.h"
+#include "timing.h"
 
 /*!
 \brief XES data manager functionality
@@ -120,10 +121,16 @@ namespace xes {
             }
 
             writerThread = std::thread([this]() {
+                double t_wait = .0;
+                double t_aggregate = .0;
+                double t_write = .0;
+                Timer clock;
+
                 try {
                     while (true) {
                         Period* period;
                         {
+                            clock.set();
                             std::unique_lock lock(thread_lock);
                             while (true) {
                                 if (stopWriter)
@@ -135,8 +142,11 @@ namespace xes {
                             // periodQueue.size() > 0
                             period = periodQueue.back();
                             periodQueue.pop_back();
+                            t_wait += clock.elapsed();
+                            clock.set();
                         }
-                        logger << "write data for period " << period->period << log_notice;
+
+                        logger << "output: aggregate and write data for period " << period->period << log_debug;
                         Data* data = nullptr;
                         for (auto& d : period->threadData) {
                             if (data) {
@@ -146,10 +156,15 @@ namespace xes {
                                 data = &d;
                             }
                         }
+                        t_aggregate += clock.elapsed();
+                        clock.set();
+
                         data->SaveToFile(outFileName+"-"+std::to_string(period->period));
                         data->Reset();
                         period->ready.store(0);
                         period->period.store(none);
+
+                        t_write += clock.elapsed();
                     }
                 } catch (std::exception& ex) {
                     logger << "writer thread exception: " << ex.what() << log_fatal;
@@ -159,7 +174,7 @@ namespace xes {
                 std::exit((EXIT_FAILURE));
 
             stop:
-                ;
+                logger << "output wait: " << t_wait << "s, aggregate: " << t_aggregate << "s, write: " << t_write << 's' << log_notice;
             });
         }
 
