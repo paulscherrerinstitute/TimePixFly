@@ -12,7 +12,7 @@ if [ -z "${DEBUG}" ]; then
 elif [ -z "${NOOPT}" ]; then
     SPEED_FLAGS+="-Og -ggdb -march=native"
 else
-    SPEED_FLAGS+="-O0 -ggdb -march=native"
+    SPEED_FLAGS+="-O0 -ggdb"
 fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS"

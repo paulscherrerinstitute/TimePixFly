@@ -25,6 +25,7 @@ Event analysis code
 #include "processing.h"
 #include "detector.h"
 #include "xes_data.h"
+#include "xes_data_manager.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 
@@ -167,25 +168,16 @@ namespace {
         struct Analysis final {
 
                 using Data = xes::Data;                 //!< XES data type
-                /*!
-                \brief Histogram data
+                xes::Manager dataManager;               //!< XES data manager
 
-                There are two histograms to do double buffering:
-                - One is built up by analysing events
-                - The other is beeing written to disk
-                */
-                std::array<Data, 2> data;
                 u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
                                                         //TOTMin and TOTMax probably can be removed. Not really used. TOTROIStart are the ROI...
-                u16 TOTMin = 0;                         //
-                u16 TOTMax = 64000;                         //
+                u16 TOTMin = 0;                         //!< Minimum TOT value accepted
+                u16 TOTMax = 64000;                     //!< Maximum TOT value accepted
 
                 static constexpr period_type no_save = 2; //!< Don't save save data before this period
-                period_type save_point = no_save;       //!< Next period for which a file is written
-                std::array<unsigned, 2> save_ok;        //!< Counter for chips that reached the save point
-
-                const std::string outFileName;          //!< Output file name
+                std::vector<period_type> save_point;    //!< Next period for which a file is written
                 const Detector& detector;               //!< Reference to constant Detector data
 
                 /*!
@@ -194,20 +186,19 @@ namespace {
                 \param OutFName Output file name
                 */
                 inline Analysis(const Detector& det, const std::string& OutFName)
-                : outFileName(OutFName), detector(det)
-                {
-                        for (auto& histo: data)
-                                histo.Init(det);
-                }
+                        : dataManager{det, OutFName, 3},
+                          save_point(det.layout.chip.size(), no_save),
+                          detector(det)
+                {}
 
                 /*!
                 \brief Reset histogram to zero
-                \param data_index Which histogram
+                \param data Histogram
                 */
-                inline void Reset(const u8 data_index)
+                inline void Reset(Data& data)
                 {
-                        logger << "Reset(" << (int)data_index << ')' << log_trace;
-                        data[data_index].Reset();
+                        logger << "Reset()" << log_trace;
+                        data.Reset();
                 }
 
                 /*!
@@ -215,14 +206,14 @@ namespace {
                 
                 The extension .xes will be appended to the output file path.
                 
-                \param data_index       Which histogram
+                \param data             Histogram
                 \param OutFileName      Path to output file without .xes extension
                 */
-                inline void SaveToFile(const u8 data_index, const string& OutFileName) const
+                inline void SaveToFile(Data& data, const string& OutFileName) const
                 {
-                        logger << "SaveToFile(" << (int)data_index << ", " << OutFileName << ')' << log_trace;
+                        logger << "SaveToFile(" << OutFileName << ')' << log_trace;
                         const auto t1 = clock::now();
-                        data[data_index].SaveToFile(OutFileName);
+                        data.SaveToFile(OutFileName);
                         const auto t2 = clock::now();
                         auto save_time = duration_cast<milliseconds>(t2 - t1).count();
                         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
@@ -230,12 +221,12 @@ namespace {
 
                 /*!
                 \brief Add one event to histogram
-                \param dataIndex        Which histogram
+                \param data             Histogram
                 \param index            Abstract pixel index of event
                 \param TimePoint        Clock tick relative to period interval start
                 \param TOT              Event TOT value
                 */
-                inline void Register(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
+                inline void Register(Data& data, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
 
 
@@ -255,7 +246,7 @@ namespace {
                                                 // in the example part.weight is 1;
                                                 // TimePoint is from 0 to ~2500
                                                 //std::cout<<TimePoint<<" ";
-                                                data[dataIndex].TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
+                                                data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
                                 }                                
@@ -263,9 +254,17 @@ namespace {
                           //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
   
                 }
-                inline void RegisterXAS(const u8 dataIndex, PixelIndex index, int TimePoint, u16 TOT) noexcept
+
+                /*!
+                \brief Add one event to histogram
+                \param data             Histogram
+                \param index            Abstract pixel index of event
+                \param TimePoint        Clock tick relative to period interval start
+                \param TOT              Event TOT value
+                */
+                inline void RegisterXAS(Data& data, PixelIndex index, int TimePoint, u16 TOT) noexcept
                 {
-                        data[dataIndex].TDSpectra[TimePoint*15]+=1;
+                        data.TDSpectra[TimePoint*15]+=1;
   
                 }
 
@@ -273,12 +272,12 @@ namespace {
 
                 /*!
                 \brief Analyse event and add it to histogram if appropriate
-                \param dataIndex        Which histogram
+                \param data             Histogram
                 \param index            Abstract pixel index of event
                 \param reltoa           Event TOA relative to period interval start
                 \param tot              Event TOT value
                 */
-                inline void Analyse(const u8 dataIndex, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
+                inline void Analyse(Data& data, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
                 {
   //                      logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
                         //----------------------------------------------------------------------
@@ -287,7 +286,7 @@ namespace {
                         // double fulltoa = toa*25.0 - ftoa*25.0/16.0;
                         // double ftoaC=ftoa*1.0;
 
-                        data[dataIndex].Total++;
+                        data.Total++;
 
                         // temporary here
                         //if (tot < TOTMin)
@@ -299,10 +298,10 @@ namespace {
                         const u64 FullToA = detector.TOAMode ? reltoa : tot;
 
                         if (FullToA < detector.TRoiStart) {
-                                data[dataIndex].BeforeRoi++;
+                                data.BeforeRoi++;
 //                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
                         } else if (FullToA >= detector.TRoiEnd) {
-                                data[dataIndex].AfterRoi++;
+                                data.AfterRoi++;
 //                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
                         } else {
                                 const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
@@ -314,12 +313,12 @@ namespace {
                                         //Register(dataIndex, index, TP, tot);
                           
 
-                                        RegisterXAS(dataIndex, index, TP, tot);
+                                        RegisterXAS(data, index, TP, tot);
 
                                 } else {
                                         const int TOTP = tot;
-                                        //Register(dataIndex, index, TOTP, tot);
-                                        RegisterXAS(dataIndex, index, TOTP, tot);
+                                        //Register(data, index, TOTP, tot);
+                                        RegisterXAS(data, index, TOTP, tot);
                                 }
                         }
                 } // end Analyse()
@@ -339,29 +338,17 @@ namespace {
                 {
 //                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
 //                        logger << chipIndex << ": purge period " << period << log_info;
-
-                        u8 ac;
-                        period_type sp;
-
-                        {
-                                std::lock_guard lock{histo_lock};
-                                ac = active;
-                                sp = save_point;
-
-                                if (period < sp)
-                                        return;         // too early
-
-                                if ((save_ok[ac] += 1) < detector.NumChips())
-                                        return;         // others need to catch up
-
-                                save_ok[ac] = 0;        // reset count
-                                save_point = sp + save_interval;
-                                active = ac ^ 1;
+                        period_type& sp = save_point[chipIndex];
+                        if (period < sp)
+                                return;
+                        
+                        if (sp == no_save) {
+                                sp += save_interval;
+                                return;
                         }
 
-                        if ((sp > no_save) || (save_point < period))
-                                SaveToFile(ac, outFileName + std::to_string(sp) + ".tds");
-                        Reset(ac);
+                        dataManager.ReturnData(chipIndex, sp);
+                        sp += save_interval;
                 }
 
                 /*!
@@ -375,7 +362,10 @@ namespace {
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
-                        
+
+                        period_type sp = save_point[chipIndex];
+                        if (period > sp)
+                                sp += save_interval;
 
                         // substituted tot by constant to test speed since tot is typically ignored 
 
@@ -404,15 +394,15 @@ namespace {
 
                         
                         {
-                                std::lock_guard lock{histo_lock}; // <---- problematic lock
-                                Analyse((period > save_point ? active ^ 1 : active), index, relative_toaclk, totclk);
+                                // std::lock_guard lock{histo_lock}; // <---- problematic lock
+                                Analyse(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk, totclk);
                         }
                 
                 }
 
         }; // end type Analysis
 
-        std::vector<Analysis> analysis;                 //!< space for as many Analysis objects as there are threads
+        std::unique_ptr<Analysis> analysis;    //!< Analysis object
 
 } // anonymous namespace
 
@@ -493,17 +483,17 @@ namespace processing {
                 detptr->SetTimeROI(TRStart, TRStep, TRN);
                 readAreaROI(detptr->energy_points, layout, "XESPoints.inp");
 
-                analysis.emplace_back(Analysis{*detptr, FileOutputPath + ShortFileName});
+                analysis.reset(new Analysis{*detptr, FileOutputPath + ShortFileName});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period)
         {
-                analysis[0].PurgePeriod(chipIndex, period);
+                analysis->PurgePeriod(chipIndex, period);
         }
 
         void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
         {
-                analysis[0].ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
+                analysis->ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
         }
 
 } // namespace processing

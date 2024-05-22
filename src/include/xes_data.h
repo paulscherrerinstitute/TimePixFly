@@ -3,6 +3,11 @@
 #ifndef XES_DATA_H
 #define XES_DATA_H
 
+/*!
+\file
+Provide data container for XES data
+*/
+
 #include <vector>
 #include <string>
 #include <fstream>
@@ -16,7 +21,7 @@ namespace xes {
             const Detector* detector = nullptr; //!< This data refers to detector
 
     //  Modified type of vector to check speed in the XAS mode (when there is no division of pixels over a few points)
-            using histo_type = std::vector<int>;
+            using histo_type = std::vector<int>;    //!< Histogram type
             // using histo_type = std::vector<float>;
             histo_type TDSpectra;           //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
@@ -33,16 +38,26 @@ namespace xes {
                 : detector(&det), TDSpectra(det.TRoiN * det.energy_points.npoints)
             {}
 
-            inline Data() = default;
-            inline Data(const Data&) = default;
+            inline Data() = default;                        //!< Default constructor
+            inline Data(const Data&) = default;             //!< Copy constructor
+            inline Data(Data&&) = default;                  //!< Move constructor
+            inline ~Data() = default;                       //!< Destructor
+
+            /*!
+            \brief Assignment
+            \return this
+            */
             inline Data& operator=(const Data&) = default;
-            inline Data(Data&&) = default;
+
+            /*!
+            \brief Move assignment
+            \return this
+            */
             inline Data& operator=(Data&&) = default;
-            inline ~Data() = default;
 
             /*!
             \brief Aggregate another partial TDSpectra into this one
-            \param d other Data
+            \param data other Data
             \return *this
             */
             inline Data& operator+=(const Data& data)
