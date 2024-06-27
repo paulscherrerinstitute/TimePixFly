@@ -158,6 +158,17 @@ namespace {
 
                 energy_points.npoints += 1;
                 logger << "num energy points: " << energy_points.npoints << log_debug;
+
+	/*
+	//check that it was read correctly:
+	for (int ii=0;ii<numPixels; ii++) {
+	    int ep1=energy_points.at(PixelIndex::from(0, ii)).part[0].energy_point;
+	    float wp1=energy_points.at(PixelIndex::from(0, ii)).part[0].weight;
+	    
+	    
+	    std::cout<<"ep1wp1="<<ep1<<"  "<<wp1<<"\n";
+	    }
+	*/
         }
 
         std::mutex histo_lock;  //!< Lock for protecting analysis object with histogram
@@ -232,9 +243,15 @@ namespace {
 
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
                         int qwe;
-                        if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
-                                const auto& flat_pixel = detector.energy_points[index];
+			//std::cout<<"e"<<TOT<<"  "<<detector.TOTRoiStart<<"  "<<detector.TOTRoiEnd<<"\n";
+                        //TOT is always 100 which is probably wrong. Check....
+    			if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
+                                //std::cout<<"w";
+				const auto& flat_pixel = detector.energy_points[index];
+
+
                                 if (! flat_pixel.part.empty()) {
+					//std::cout<<"q";
                                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                                         for (const auto& part : flat_pixel.part) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                             
@@ -246,7 +263,11 @@ namespace {
                                                 // in the example part.weight is 1;
                                                 // TimePoint is from 0 to ~2500
                                                 //std::cout<<TimePoint<<" ";
-                                                data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
+
+		    				//int iii=index.flat_pixel;
+
+                                                //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
+						data.TDSpectra[TimePoint * detector.energy_points.npoints+ part.energy_point] += 1;//part.weight; // / clb;
                                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
                                 }                                
@@ -310,15 +331,15 @@ namespace {
                                 if (detector.TOAMode == true) {
                                         //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
                                         
-                                        //Register(dataIndex, index, TP, tot);
+                                        Register(data, index, TP, tot);
                           
 
-                                        RegisterXAS(data, index, TP, tot);
+                                        //RegisterXAS(data, index, TP, tot);
 
                                 } else {
                                         const int TOTP = tot;
-                                        //Register(data, index, TOTP, tot);
-                                        RegisterXAS(data, index, TOTP, tot);
+                                        Register(data, index, TOTP, tot);
+                                        //RegisterXAS(data, index, TOTP, tot);
                                 }
                         }
                 } // end Analyse()
@@ -369,8 +390,8 @@ namespace {
 
                         // substituted tot by constant to test speed since tot is typically ignored 
 
-                        // const uint64_t totclk = Decode::getTotClock(event);
-                        const uint64_t totclk = 100;
+                        const uint64_t totclk = Decode::getTotClock(event);
+                        //const uint64_t totclk = 100;
                         
                         
                         
@@ -380,16 +401,16 @@ namespace {
                         
                         // commented to test speed since xy is typically ignored for XAS (not for XES!)
 
-                        //const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
+                        const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
                         
                                              
 //                          logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
 //                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
                 
-                        //replaced to test speed
+                        //can be replaced to test speed in XAS mode
                         
-                        //auto index = PixelIndex::from(chipIndex, xy);
-                        auto index = PixelIndex::from(chipIndex, 10);
+                        auto index = PixelIndex::from(chipIndex, xy);
+                        //auto index = PixelIndex::from(chipIndex, 10);
 
 
                         
