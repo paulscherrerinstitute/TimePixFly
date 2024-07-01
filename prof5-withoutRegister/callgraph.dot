@@ -1,0 +1,10 @@
+digraph {
+	graph [fontname=Arial, nodesep=0.125, ranksep=0.25];
+	node [fontcolor=white, fontname=Arial, height=0, shape=box, style=filled, width=0];
+	edge [fontname=Arial];
+	1 [color="#fb1801", fontcolor="#ffffff", fontsize="10.00", label="DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int)\n97.63%\n(55.60%)"];
+	1 -> 2 [arrowsize="0.64", color="#0baa41", fontcolor="#0baa41", fontsize="10.00", label="41.42%\n371602831×", labeldistance="1.66", penwidth="1.66"];
+	2 [color="#0baa41", fontcolor="#ffffff", fontsize="10.00", label="processing::processEvent(unsigned int, long, long, long, unsigned long)\n41.42%\n(41.42%)\n371602831×"];
+	3 [color="#0d1174", fontcolor="#ffffff", fontsize="10.00", label="DataHandler<AsiRawStreamDecoder>::~DataHandler()\n1.03%\n(1.03%)"];
+	4 [color="#0d1074", fontcolor="#ffffff", fontsize="10.00", label="std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0]\n0.79%\n(0.79%)"];
+}

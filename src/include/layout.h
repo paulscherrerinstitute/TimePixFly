@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef LAYOUT_H
 #define LAYOUT_H
 
@@ -5,6 +7,8 @@
 \file
 Detector layout description
 */
+
+#include <vector>
 
 constexpr static unsigned chip_size = 256;  //!< Width and length in pixels of quadratic TPX3 chip
 

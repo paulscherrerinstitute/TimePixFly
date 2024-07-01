@@ -1,0 +1,407 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 52.51      1.68     1.68                             DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int)
+ 16.56      2.21     0.53 38968105     0.00     0.00  (anonymous namespace)::Analysis::Analyse(unsigned char, PixelIndex, long, long)
+ 12.81      2.62     0.41 37704843     0.00     0.00  processing::processEvent(unsigned int, long, long, long, unsigned long)
+  7.81      2.87     0.25 43362922     0.00     0.00  Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const
+  3.44      2.98     0.11  2253955     0.00     0.00  (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long)
+  3.13      3.08     0.10  2182221     0.00     0.00  DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long)
+  1.25      3.12     0.04  6718051     0.00     0.00  LogProxy::LogProxy(Poco::Logger&)
+  0.94      3.15     0.03  4448822     0.00     0.00  LogProxy::operator<<(Poco::Message::Priority const&)
+  0.63      3.17     0.02                             DataHandler<AsiRawStreamDecoder>::~DataHandler()
+  0.31      3.18     0.01  2194248     0.00     0.00  processing::purgePeriod(unsigned int, long)
+  0.31      3.19     0.01   737280     0.00     0.00  unsigned int (anonymous namespace)::parse<unsigned int>(std::basic_string_view<char, std::char_traits<char> >&, unsigned long)
+  0.31      3.20     0.01        1    10.00    20.00  (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+  0.00      3.20     0.00  2190187     0.00     0.00  std::_Rb_tree_iterator<std::pair<long const, period_queue_element> > std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<long const&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<long const, period_queue_element> >, std::piecewise_construct_t const&, std::tuple<long const&>&&, std::tuple<>&&)
+  0.00      3.20     0.00  2127177     0.00     0.00  void std::__adjust_heap<double*, long, double, __gnu_cxx::__ops::_Iter_less_iter>(double*, long, long, double, __gnu_cxx::__ops::_Iter_less_iter)
+  0.00      3.20     0.00   245760     0.00     0.00  void std::vector<EpPart, std::allocator<EpPart> >::_M_realloc_insert<EpPart>(__gnu_cxx::__normal_iterator<EpPart*, std::vector<EpPart, std::allocator<EpPart> > >, EpPart&&)
+  0.00      3.20     0.00    65615     0.00     0.00  LogProxy::~LogProxy()
+  0.00      3.20     0.00    33101     0.00     0.00  DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&)
+  0.00      3.20     0.00       50     0.00     0.00  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0]
+  0.00      3.20     0.00       24     0.00     0.00  void std::vector<reordering_element, std::allocator<reordering_element> >::_M_realloc_insert<reordering_element>(__gnu_cxx::__normal_iterator<reordering_element*, std::vector<reordering_element, std::allocator<reordering_element> > >, reordering_element&&)
+  0.00      3.20     0.00        8     0.00     0.00  std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*)
+  0.00      3.20     0.00        5     0.00     0.00  operator<<(LogProxy&, period_index const&)
+  0.00      3.20     0.00        4     0.00     0.00  DataHandler<AsiRawStreamDecoder>::purgeQueues(unsigned int, unsigned int)
+  0.00      3.20     0.00        4     0.00     0.00  (anonymous namespace)::Tpx3App::handleHelp(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+  0.00      3.20     0.00        4     0.00     0.00  (anonymous namespace)::Tpx3App::checkSession(std::istream&)
+  0.00      3.20     0.00        4     0.00     0.00  (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&)
+  0.00      3.20     0.00        4     0.00     0.00  Poco::JSON::ParserImpl::resetImpl()
+  0.00      3.20     0.00        4     0.00     0.00  std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > __gnu_cxx::__to_xstring<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char>(int (*)(char*, unsigned long, char const*, __va_list_tag*), unsigned long, char const*, ...)
+  0.00      3.20     0.00        4     0.00     0.00  Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > const& Poco::Dynamic::Var::extract<Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > >() const
+  0.00      3.20     0.00        4     0.00     0.00  std::vector<FlatPixelToEp, std::allocator<FlatPixelToEp> >::_M_default_append(unsigned long)
+  0.00      3.20     0.00        3     0.00     0.00  Poco::Net::Impl::IPv4SocketAddressImpl::~IPv4SocketAddressImpl()
+  0.00      3.20     0.00        3     0.00     0.00  void period_predictor::print_to<std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> > >(std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >&) const
+  0.00      3.20     0.00        2     0.00     0.00  Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::~OptionCallback()
+  0.00      3.20     0.00        2     0.00     0.00  std::vector<float, std::allocator<float> >::_M_default_append(unsigned long)
+  0.00      3.20     0.00        1     0.00     0.00  _GLOBAL__sub_I__ZN10processing4initERK15detector_layout
+  0.00      3.20     0.00        1     0.00     0.00  _GLOBAL__sub_I__ZlsR8LogProxyRK16period_predictor
+  0.00      3.20     0.00        1     0.00     0.00  std::vector<ChipToEp, std::allocator<ChipToEp> >::_M_default_append(unsigned long)
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.31% of 3.20 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     98.7    1.68    1.48                 DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.41    0.53 37704843/37704843     processing::processEvent(unsigned int, long, long, long, unsigned long) [2]
+                0.10    0.21 2182221/2182221     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+                0.22    0.00 38854409/43362922     Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+                0.00    0.00       4/2253955     (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long) [6]
+                0.00    0.00      20/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       8/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       4/4           DataHandler<AsiRawStreamDecoder>::purgeQueues(unsigned int, unsigned int) [21]
+                0.00    0.00       4/2194248     processing::purgePeriod(unsigned int, long) [12]
+                0.00    0.00 2127177/2127177     void std::__adjust_heap<double*, long, double, __gnu_cxx::__ops::_Iter_less_iter>(double*, long, long, double, __gnu_cxx::__ops::_Iter_less_iter) [33]
+                0.00    0.00     110/2190187     std::_Rb_tree_iterator<std::pair<long const, period_queue_element> > std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<long const&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<long const, period_queue_element> >, std::piecewise_construct_t const&, std::tuple<long const&>&&, std::tuple<>&&) [32]
+                0.00    0.00      24/24          void std::vector<reordering_element, std::allocator<reordering_element> >::_M_realloc_insert<reordering_element>(__gnu_cxx::__normal_iterator<reordering_element*, std::vector<reordering_element, std::allocator<reordering_element> > >, reordering_element&&) [37]
+                0.00    0.00       4/65615       LogProxy::~LogProxy() [35]
+                0.00    0.00       3/3           void period_predictor::print_to<std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> > >(std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >&) const [45]
+-----------------------------------------------
+                0.41    0.53 37704843/37704843     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[2]     29.4    0.41    0.53 37704843         processing::processEvent(unsigned int, long, long, long, unsigned long) [2]
+                0.53    0.00 38968105/38968105     (anonymous namespace)::Analysis::Analyse(unsigned char, PixelIndex, long, long) [3]
+-----------------------------------------------
+                0.53    0.00 38968105/38968105     processing::processEvent(unsigned int, long, long, long, unsigned long) [2]
+[3]     16.6    0.53    0.00 38968105         (anonymous namespace)::Analysis::Analyse(unsigned char, PixelIndex, long, long) [3]
+-----------------------------------------------
+                0.10    0.21 2182221/2182221     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[4]      9.8    0.10    0.21 2182221         DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+                0.11    0.00 2253951/2253955     (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long) [6]
+                0.04    0.00 6583461/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.03    0.00 4382595/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.03    0.00 4443304/43362922     Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+                0.01    0.00 2194244/2194248     processing::purgePeriod(unsigned int, long) [12]
+                0.00    0.00 2190077/2190187     std::_Rb_tree_iterator<std::pair<long const, period_queue_element> > std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<long const&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<long const, period_queue_element> >, std::piecewise_construct_t const&, std::tuple<long const&>&&, std::tuple<>&&) [32]
+-----------------------------------------------
+                0.00    0.00       1/43362922     DataHandler<AsiRawStreamDecoder>::readData() [14]
+                0.00    0.00       5/43362922     (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00   65203/43362922     DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+                0.03    0.00 4443304/43362922     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+                0.22    0.00 38854409/43362922     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[5]      7.8    0.25    0.00 43362922         Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+-----------------------------------------------
+                0.00    0.00       4/2253955     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.11    0.00 2253951/2253955     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+[6]      3.4    0.11    0.00 2253955         (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long) [6]
+                0.00    0.00       4/4           std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > __gnu_cxx::__to_xstring<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char>(int (*)(char*, unsigned long, char const*, __va_list_tag*), unsigned long, char const*, ...) [41]
+-----------------------------------------------
+                0.00    0.00       1/6718051     DataHandler<AsiRawStreamDecoder>::readData() [14]
+                0.00    0.00       1/6718051     DataHandler<AsiRawStreamDecoder>::DataHandler(Poco::Net::StreamSocket&, Poco::Logger&, unsigned long, unsigned long, long, double, unsigned int) [22]
+                0.00    0.00       2/6718051     (anonymous namespace)::Tpx3App::handleNumber(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [20]
+                0.00    0.00       4/6718051     (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+                0.00    0.00       6/6718051     operator<<(LogProxy&, period_index const&) [18]
+                0.00    0.00       6/6718051     (anonymous namespace)::Tpx3App::checkSession(std::istream&) [19]
+                0.00    0.00       8/6718051     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.00    0.00      10/6718051     (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00  134552/6718051     DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+                0.04    0.00 6583461/6718051     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+[7]      1.3    0.04    0.00 6718051         LogProxy::LogProxy(Poco::Logger&) [7]
+-----------------------------------------------
+                0.00    0.00       1/4448822     (anonymous namespace)::Tpx3App::handleLogLevel(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [23]
+                0.00    0.00       1/4448822     DataHandler<AsiRawStreamDecoder>::DataHandler(Poco::Net::StreamSocket&, Poco::Logger&, unsigned long, unsigned long, long, double, unsigned int) [22]
+                0.00    0.00       2/4448822     (anonymous namespace)::Tpx3App::handleNumber(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [20]
+                0.00    0.00       3/4448822     DataHandler<AsiRawStreamDecoder>::purgeQueues(unsigned int, unsigned int) [21]
+                0.00    0.00       4/4448822     (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+                0.00    0.00       5/4448822     (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00       6/4448822     operator<<(LogProxy&, period_index const&) [18]
+                0.00    0.00       6/4448822     (anonymous namespace)::Tpx3App::checkSession(std::istream&) [19]
+                0.00    0.00      20/4448822     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.00    0.00   66179/4448822     DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+                0.03    0.00 4382595/4448822     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+[8]      0.9    0.03    0.00 4448822         LogProxy::operator<<(Poco::Message::Priority const&) [8]
+-----------------------------------------------
+                0.01    0.01       1/1           processing::init(detector_layout const&) [10]
+[9]      0.6    0.01    0.01       1         (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+                0.01    0.00  737280/737280      unsigned int (anonymous namespace)::parse<unsigned int>(std::basic_string_view<char, std::char_traits<char> >&, unsigned long) [13]
+                0.00    0.00  245760/245760      void std::vector<EpPart, std::allocator<EpPart> >::_M_realloc_insert<EpPart>(__gnu_cxx::__normal_iterator<EpPart*, std::vector<EpPart, std::allocator<EpPart> > >, EpPart&&) [34]
+                0.00    0.00       4/4           std::vector<FlatPixelToEp, std::allocator<FlatPixelToEp> >::_M_default_append(unsigned long) [43]
+                0.00    0.00       1/1           std::vector<ChipToEp, std::allocator<ChipToEp> >::_M_default_append(unsigned long) [50]
+-----------------------------------------------
+                                                 <spontaneous>
+[10]     0.6    0.00    0.02                 processing::init(detector_layout const&) [10]
+                0.01    0.01       1/1           (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+                0.00    0.00       2/2           std::vector<float, std::allocator<float> >::_M_default_append(unsigned long) [47]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     0.6    0.02    0.00                 DataHandler<AsiRawStreamDecoder>::~DataHandler() [11]
+                0.00    0.00       8/8           std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*) [38]
+-----------------------------------------------
+                0.00    0.00       4/2194248     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.01    0.00 2194244/2194248     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+[12]     0.3    0.01    0.00 2194248         processing::purgePeriod(unsigned int, long) [12]
+-----------------------------------------------
+                0.01    0.00  737280/737280      (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+[13]     0.3    0.01    0.00  737280         unsigned int (anonymous namespace)::parse<unsigned int>(std::basic_string_view<char, std::char_traits<char> >&, unsigned long) [13]
+-----------------------------------------------
+                                                 <spontaneous>
+[14]     0.1    0.00    0.00                 DataHandler<AsiRawStreamDecoder>::readData() [14]
+                0.00    0.00   33101/33101       DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+                0.00    0.00       1/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       1/43362922     Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+                0.00    0.00       1/65615       LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                0.00    0.00   33101/33101       DataHandler<AsiRawStreamDecoder>::readData() [14]
+[15]     0.1    0.00    0.00   33101         DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+                0.00    0.00  134552/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00   66179/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00   65203/43362922     Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+                0.00    0.00   65584/65615       LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                                                 <spontaneous>
+[16]     0.0    0.00    0.00                 (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::checkSession(std::istream&) [19]
+                0.00    0.00       4/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       4/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       4/65615       LogProxy::~LogProxy() [35]
+                0.00    0.00       4/4           Poco::JSON::ParserImpl::resetImpl() [40]
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::handleHelp(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [39]
+                0.00    0.00       4/4           Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > const& Poco::Dynamic::Var::extract<Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > >() const [42]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+[17]     0.0    0.00    0.00       4         (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00       5/5           operator<<(LogProxy&, period_index const&) [18]
+                0.00    0.00      10/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       5/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       5/43362922     Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const [5]
+                0.00    0.00      10/65615       LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                0.00    0.00       5/5           (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+[18]     0.0    0.00    0.00       5         operator<<(LogProxy&, period_index const&) [18]
+                0.00    0.00       6/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       6/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       6/65615       LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+[19]     0.0    0.00    0.00       4         (anonymous namespace)::Tpx3App::checkSession(std::istream&) [19]
+                0.00    0.00       6/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       6/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       6/65615       LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                                                 <spontaneous>
+[20]     0.0    0.00    0.00                 (anonymous namespace)::Tpx3App::handleNumber(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [20]
+                0.00    0.00       2/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       2/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+-----------------------------------------------
+                0.00    0.00       4/4           DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[21]     0.0    0.00    0.00       4         DataHandler<AsiRawStreamDecoder>::purgeQueues(unsigned int, unsigned int) [21]
+                0.00    0.00       3/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+-----------------------------------------------
+                                                 <spontaneous>
+[22]     0.0    0.00    0.00                 DataHandler<AsiRawStreamDecoder>::DataHandler(Poco::Net::StreamSocket&, Poco::Logger&, unsigned long, unsigned long, long, double, unsigned int) [22]
+                0.00    0.00       1/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+                0.00    0.00       1/6718051     LogProxy::LogProxy(Poco::Logger&) [7]
+                0.00    0.00       1/3           Poco::Net::Impl::IPv4SocketAddressImpl::~IPv4SocketAddressImpl() [44]
+-----------------------------------------------
+                                                 <spontaneous>
+[23]     0.0    0.00    0.00                 (anonymous namespace)::Tpx3App::handleLogLevel(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [23]
+                0.00    0.00       1/4448822     LogProxy::operator<<(Poco::Message::Priority const&) [8]
+-----------------------------------------------
+                0.00    0.00     110/2190187     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.00    0.00 2190077/2190187     DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [4]
+[32]     0.0    0.00    0.00 2190187         std::_Rb_tree_iterator<std::pair<long const, period_queue_element> > std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<long const&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<long const, period_queue_element> >, std::piecewise_construct_t const&, std::tuple<long const&>&&, std::tuple<>&&) [32]
+-----------------------------------------------
+                0.00    0.00 2127177/2127177     DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[33]     0.0    0.00    0.00 2127177         void std::__adjust_heap<double*, long, double, __gnu_cxx::__ops::_Iter_less_iter>(double*, long, long, double, __gnu_cxx::__ops::_Iter_less_iter) [33]
+-----------------------------------------------
+                0.00    0.00  245760/245760      (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+[34]     0.0    0.00    0.00  245760         void std::vector<EpPart, std::allocator<EpPart> >::_M_realloc_insert<EpPart>(__gnu_cxx::__normal_iterator<EpPart*, std::vector<EpPart, std::allocator<EpPart> > >, EpPart&&) [34]
+-----------------------------------------------
+                0.00    0.00       1/65615       DataHandler<AsiRawStreamDecoder>::readData() [14]
+                0.00    0.00       4/65615       (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+                0.00    0.00       4/65615       DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+                0.00    0.00       6/65615       operator<<(LogProxy&, period_index const&) [18]
+                0.00    0.00       6/65615       (anonymous namespace)::Tpx3App::checkSession(std::istream&) [19]
+                0.00    0.00      10/65615       (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [17]
+                0.00    0.00   65584/65615       DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [15]
+[35]     0.0    0.00    0.00   65615         LogProxy::~LogProxy() [35]
+-----------------------------------------------
+                0.00    0.00      50/50          (anonymous namespace)::Tpx3App::defineOptions(Poco::Util::OptionSet&) [60]
+[36]     0.0    0.00    0.00      50         std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0] [36]
+-----------------------------------------------
+                0.00    0.00      24/24          DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[37]     0.0    0.00    0.00      24         void std::vector<reordering_element, std::allocator<reordering_element> >::_M_realloc_insert<reordering_element>(__gnu_cxx::__normal_iterator<reordering_element*, std::vector<reordering_element, std::allocator<reordering_element> > >, reordering_element&&) [37]
+-----------------------------------------------
+                                  16             std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*) [38]
+                0.00    0.00       8/8           DataHandler<AsiRawStreamDecoder>::~DataHandler() [11]
+[38]     0.0    0.00    0.00       8+16      std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*) [38]
+                                  16             std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*) [38]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+[39]     0.0    0.00    0.00       4         (anonymous namespace)::Tpx3App::handleHelp(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [39]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+[40]     0.0    0.00    0.00       4         Poco::JSON::ParserImpl::resetImpl() [40]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long) [6]
+[41]     0.0    0.00    0.00       4         std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > __gnu_cxx::__to_xstring<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char>(int (*)(char*, unsigned long, char const*, __va_list_tag*), unsigned long, char const*, ...) [41]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::Tpx3App::getJsonObject(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [16]
+[42]     0.0    0.00    0.00       4         Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > const& Poco::Dynamic::Var::extract<Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > >() const [42]
+-----------------------------------------------
+                0.00    0.00       4/4           (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+[43]     0.0    0.00    0.00       4         std::vector<FlatPixelToEp, std::allocator<FlatPixelToEp> >::_M_default_append(unsigned long) [43]
+-----------------------------------------------
+                0.00    0.00       1/3           DataHandler<AsiRawStreamDecoder>::DataHandler(Poco::Net::StreamSocket&, Poco::Logger&, unsigned long, unsigned long, long, double, unsigned int) [22]
+                0.00    0.00       2/3           (anonymous namespace)::Tpx3App::~Tpx3App() [66]
+[44]     0.0    0.00    0.00       3         Poco::Net::Impl::IPv4SocketAddressImpl::~IPv4SocketAddressImpl() [44]
+-----------------------------------------------
+                0.00    0.00       3/3           DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [1]
+[45]     0.0    0.00    0.00       3         void period_predictor::print_to<std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> > >(std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >&) const [45]
+-----------------------------------------------
+                0.00    0.00       2/2           (anonymous namespace)::operator|(Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [68]
+[46]     0.0    0.00    0.00       2         Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::~OptionCallback() [46]
+-----------------------------------------------
+                0.00    0.00       2/2           processing::init(detector_layout const&) [10]
+[47]     0.0    0.00    0.00       2         std::vector<float, std::allocator<float> >::_M_default_append(unsigned long) [47]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [128]
+[48]     0.0    0.00    0.00       1         _GLOBAL__sub_I__ZN10processing4initERK15detector_layout [48]
+-----------------------------------------------
+                0.00    0.00       1/1           __libc_csu_init [128]
+[49]     0.0    0.00    0.00       1         _GLOBAL__sub_I__ZlsR8LogProxyRK16period_predictor [49]
+-----------------------------------------------
+                0.00    0.00       1/1           (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [9]
+[50]     0.0    0.00    0.00       1         std::vector<ChipToEp, std::allocator<ChipToEp> >::_M_default_append(unsigned long) [50]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [48] _GLOBAL__sub_I__ZN10processing4initERK15detector_layout [19] (anonymous namespace)::Tpx3App::checkSession(std::istream&) [5] Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::clone() const
+  [49] _GLOBAL__sub_I__ZlsR8LogProxyRK16period_predictor [17] (anonymous namespace)::Tpx3App::serverGet(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, Poco::Net::HTTPResponse&) [42] Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > const& Poco::Dynamic::Var::extract<Poco::SharedPtr<Poco::JSON::Object, Poco::ReferenceCounter, Poco::ReleasePolicy<Poco::JSON::Object> > >() const
+  [12] processing::purgePeriod(unsigned int, long) [6] (anonymous namespace)::Analysis::PurgePeriod(unsigned int, long) [43] std::vector<FlatPixelToEp, std::allocator<FlatPixelToEp> >::_M_default_append(unsigned long)
+   [2] processing::processEvent(unsigned int, long, long, long, unsigned long) [3] (anonymous namespace)::Analysis::Analyse(unsigned char, PixelIndex, long, long) [37] void std::vector<reordering_element, std::allocator<reordering_element> >::_M_realloc_insert<reordering_element>(__gnu_cxx::__normal_iterator<reordering_element*, std::vector<reordering_element, std::allocator<reordering_element> > >, reordering_element&&)
+   [4] DataHandler<AsiRawStreamDecoder>::processTdc(unsigned int, period_index&, long, unsigned long) [44] Poco::Net::Impl::IPv4SocketAddressImpl::~IPv4SocketAddressImpl() [34] void std::vector<EpPart, std::allocator<EpPart> >::_M_realloc_insert<EpPart>(__gnu_cxx::__normal_iterator<EpPart*, std::vector<EpPart, std::allocator<EpPart> > >, EpPart&&)
+   [1] DataHandler<AsiRawStreamDecoder>::analyseData(unsigned int) [40] Poco::JSON::ParserImpl::resetImpl() [50] std::vector<ChipToEp, std::allocator<ChipToEp> >::_M_default_append(unsigned long)
+  [21] DataHandler<AsiRawStreamDecoder>::purgeQueues(unsigned int, unsigned int) [46] Poco::Util::OptionCallback<(anonymous namespace)::Tpx3App>::~OptionCallback() [47] std::vector<float, std::allocator<float> >::_M_default_append(unsigned long)
+  [15] DataHandler<AsiRawStreamDecoder>::readPacketHeader(unsigned long&, unsigned long&, unsigned long&) [7] LogProxy::LogProxy(Poco::Logger&) [36] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string<std::allocator<char> >(char const*, std::allocator<char> const&) [clone .constprop.0]
+  [11] DataHandler<AsiRawStreamDecoder>::~DataHandler() [35] LogProxy::~LogProxy() [32] std::_Rb_tree_iterator<std::pair<long const, period_queue_element> > std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<long const&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<long const, period_queue_element> >, std::piecewise_construct_t const&, std::tuple<long const&>&&, std::tuple<>&&)
+   [9] (anonymous namespace)::readAreaROI(PixelIndexToEp&, detector_layout const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [8] LogProxy::operator<<(Poco::Message::Priority const&) [38] std::_Rb_tree<long, std::pair<long const, period_queue_element>, std::_Select1st<std::pair<long const, period_queue_element> >, std::less<long>, std::allocator<std::pair<long const, period_queue_element> > >::_M_erase(std::_Rb_tree_node<std::pair<long const, period_queue_element> >*)
+  [13] unsigned int (anonymous namespace)::parse<unsigned int>(std::basic_string_view<char, std::char_traits<char> >&, unsigned long) [41] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > __gnu_cxx::__to_xstring<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char>(int (*)(char*, unsigned long, char const*, __va_list_tag*), unsigned long, char const*, ...) [33] void std::__adjust_heap<double*, long, double, __gnu_cxx::__ops::_Iter_less_iter>(double*, long, long, double, __gnu_cxx::__ops::_Iter_less_iter)
+  [39] (anonymous namespace)::Tpx3App::handleHelp(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) [45] void period_predictor::print_to<std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> > >(std::__cxx11::basic_ostringstream<char, std::char_traits<char>, std::allocator<char> >&) const [18] operator<<(LogProxy&, period_index const&)
