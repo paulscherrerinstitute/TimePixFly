@@ -242,7 +242,6 @@ namespace {
 
 
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
-                        int qwe;
 			//std::cout<<"e"<<TOT<<"  "<<detector.TOTRoiStart<<"  "<<detector.TOTRoiEnd<<"\n";
                         //TOT is always 100 which is probably wrong. Check....
     			if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
@@ -250,7 +249,7 @@ namespace {
 				const auto& flat_pixel = detector.energy_points[index];
 
 
-                                if (! flat_pixel.part.empty()) {
+                                // if (! flat_pixel.part.empty()) { <-- remove
 					//std::cout<<"q";
                                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                                         for (const auto& part : flat_pixel.part) {
@@ -267,10 +266,10 @@ namespace {
 		    				//int iii=index.flat_pixel;
 
                                                 //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
-						data.TDSpectra[TimePoint * detector.energy_points.npoints+ part.energy_point] += 1;//part.weight; // / clb;
+						data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
-                                }                                
+                                // } <-- remove
                         } //else
                           //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
   
