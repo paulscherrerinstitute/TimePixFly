@@ -264,7 +264,8 @@ class DataHandler final {
     inline void processEvent(unsigned chipIndex, period_type period, int64_t toaclk, uint64_t event)
     {
         auto start = queues[chipIndex][period].start;
-        processing::processEvent(chipIndex, period, toaclk, toaclk - start, event);
+        // processing::processEvent(chipIndex, period, toaclk, toaclk - start, event);
+        processing::processEvent(chipIndex, period, toaclk - start, event);
     }
     // --------------------------------------------------------------------------
 
@@ -295,10 +296,10 @@ class DataHandler final {
     \param tdcclk       TDC clock
     \param event        Raw event
     */
-    inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk, uint64_t event)
+    inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk) //, uint64_t event)
     {
 //        logger << "processTdc(" << chipIndex << ", " << index << ", " << tdcclk << ", " << std::hex << event << std::dec << ')' << log_trace;
-        const float tdc = Decode::clockToFloat(tdcclk);
+        // const float tdc = Decode::clockToFloat(tdcclk);
 //        logger << chipIndex << ": TDC: " << tdc << log_info;
         auto& rq = queues[chipIndex].registerStart(index, tdcclk);
         for (; !rq.empty(); rq.pop()) {
@@ -417,7 +418,7 @@ class DataHandler final {
                                     predictor[chipIndex].start_update(tdcclk);
 //                                    logger << threadId << ": predictor recalibrate " << predictor[chipIndex] << log_info;
                                 }
-                                processTdc(chipIndex, index, tdcclk, d);
+                                processTdc(chipIndex, index, tdcclk); //, d);
                             }
                         } else {
                             logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;

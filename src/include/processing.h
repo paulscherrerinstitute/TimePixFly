@@ -35,11 +35,20 @@ namespace processing {
     \brief Process a TOA event
     \param chipIndex        Event was on this chip
     \param period           Period of the event
-    \param toaclk           The absolute TOA for the event
     \param relative_toaclk  The relative TOA for the event, relative to the last TDC event
     \param event            The raw event data
     */
-    void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event);
+    void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event);
+
+    // /*!
+    // \brief Process a TOA event
+    // \param chipIndex        Event was on this chip
+    // \param period           Period of the event
+    // \param toaclk           The absolute TOA for the event
+    // \param relative_toaclk  The relative TOA for the event, relative to the last TDC event
+    // \param event            The raw event data
+    // */
+    // void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event);
 
 } // namespace processing
 

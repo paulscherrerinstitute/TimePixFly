@@ -150,7 +150,7 @@ struct period_queues final {
     \return Period queue element
     */
     [[gnu::pure]]
-    inline period_queue_element& operator[](const period_index& idx)
+    inline period_queue_element& operator[](const period_index& idx) noexcept
     {
         return element[idx.disputed_period];
     }
@@ -161,7 +161,7 @@ struct period_queues final {
     \return Period queue element
     */
     [[gnu::pure]]
-    inline period_queue_element& operator[](const period_type& period)
+    inline period_queue_element& operator[](const period_type& period) noexcept
     {
         return element[period];
     }
@@ -172,7 +172,7 @@ struct period_queues final {
     \param start    Time stamp in clock ticks
     \return Event reorder queue for the period change indexed by `idx`
     */
-    inline event_reorder_queue& registerStart(const period_index& idx, int64_t start)
+    inline event_reorder_queue& registerStart(const period_index& idx, int64_t start) noexcept
     {
         assert(idx.disputed);
         auto& pqe = (*this)[idx];

@@ -171,11 +171,11 @@ namespace {
 	*/
         }
 
-        std::mutex histo_lock;  //!< Lock for protecting analysis object with histogram
-
         /*!
         \brief Analysis data and operations
+        \tparam TOAMode TOA Mode
         */
+        template<bool TOAMode>
         struct Analysis final {
 
                 using Data = xes::Data;                 //!< XES data type
@@ -232,61 +232,55 @@ namespace {
 
                 /*!
                 \brief Add one event to histogram
+                TOT must be within (TOTRoiStart,TOTRoiEnd) for this event
                 \param data             Histogram
                 \param index            Abstract pixel index of event
                 \param TimePoint        Clock tick relative to period interval start
-                \param TOT              Event TOT value
                 */
-                inline void Register(Data& data, PixelIndex index, int TimePoint, u16 TOT) noexcept
+                inline void Register(Data& data, PixelIndex index, int TimePoint) noexcept
                 {
 
 
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
 			//std::cout<<"e"<<TOT<<"  "<<detector.TOTRoiStart<<"  "<<detector.TOTRoiEnd<<"\n";
                         //TOT is always 100 which is probably wrong. Check....
-    			if ((TOT > detector.TOTRoiStart) && (TOT < detector.TOTRoiEnd)) {
-                                //std::cout<<"w";
-				const auto& flat_pixel = detector.energy_points[index];
+                        //std::cout<<"w";
+                        const auto& flat_pixel = detector.energy_points[index];
 
-
-                                // if (! flat_pixel.part.empty()) { <-- remove
-					//std::cout<<"q";
-                                        // const float clb = detector.Calibrate(PixelIndex, TimePoint);
-                                        for (const auto& part : flat_pixel.part) {
+                        //std::cout<<"q";
+                        // const float clb = detector.Calibrate(PixelIndex, TimePoint);
+                        for (const auto& part : flat_pixel.part) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                             
 //This line takes most of the time of Register (and 50% of time of ProcessEvent)
-                                                //if (detector.energy_points.npoints!=15) std::cout<<"!!!!!!! ";
-                                                //std::cout<<part.energy_point<<" ";
-                                                //in the example detector.energy_points.npoints is always 15
-                                                // in the example part.energy_point is from 0 to 14 defined by the event coordinate 
-                                                // in the example part.weight is 1;
-                                                // TimePoint is from 0 to ~2500
-                                                //std::cout<<TimePoint<<" ";
+                                //if (detector.energy_points.npoints!=15) std::cout<<"!!!!!!! ";
+                                //std::cout<<part.energy_point<<" ";
+                                //in the example detector.energy_points.npoints is always 15
+                                // in the example part.energy_point is from 0 to 14 defined by the event coordinate 
+                                // in the example part.weight is 1;
+                                // TimePoint is from 0 to ~2500
+                                //std::cout<<TimePoint<<" ";
 
-		    				//int iii=index.flat_pixel;
+                                //int iii=index.flat_pixel;
 
-                                                //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
-						data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
-                                        }
+                                //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
+                                data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
+                        }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
-                                // } <-- remove
-                        } //else
-                          //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
+                        //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
   
                 }
 
-                /*!
-                \brief Add one event to histogram
-                \param data             Histogram
-                \param index            Abstract pixel index of event
-                \param TimePoint        Clock tick relative to period interval start
-                \param TOT              Event TOT value
-                */
-                inline void RegisterXAS(Data& data, PixelIndex index, int TimePoint, u16 TOT) noexcept
-                {
-                        data.TDSpectra[TimePoint*15]+=1;
-  
-                }
+                // /*!
+                // \brief Add one event to histogram
+                // \param data             Histogram
+                // \param index            Abstract pixel index of event
+                // \param TimePoint        Clock tick relative to period interval start
+                // \param TOT              Event TOT value
+                // */
+                // inline void RegisterXAS(Data& data, PixelIndex index, int TimePoint) noexcept //, u16 TOT) noexcept
+                // {
+                //         data.TDSpectra[TimePoint * 15] += 1;
+                // }
 
 
 
@@ -315,7 +309,7 @@ namespace {
                         //        TOTMax = tot;
                         // end of temporary
 
-                        const u64 FullToA = detector.TOAMode ? reltoa : tot;
+                        const u64 FullToA = TOAMode ? reltoa : tot;
 
                         if (FullToA < detector.TRoiStart) {
                                 data.BeforeRoi++;
@@ -323,21 +317,19 @@ namespace {
                         } else if (FullToA >= detector.TRoiEnd) {
                                 data.AfterRoi++;
 //                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
-                        } else {
-                                const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
+                        } else if ((tot > detector.TOTRoiStart) && (tot < detector.TOTRoiEnd)) {
                                 // not ideal here. Does not work if tot step is
                                 // not 1
-                                if (detector.TOAMode == true) {
-                                        //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
-                                        
-                                        Register(data, index, TP, tot);
-                          
 
+                                if constexpr (TOAMode == true) {
+                                        //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
+                                        const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
+                                        Register(data, index, TP);
                                         //RegisterXAS(data, index, TP, tot);
 
                                 } else {
                                         const int TOTP = tot;
-                                        Register(data, index, TOTP, tot);
+                                        Register(data, index, TOTP);
                                         //RegisterXAS(data, index, TOTP, tot);
                                 }
                         }
@@ -379,7 +371,8 @@ namespace {
                 \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
                 \param event            Raw event
                 */
-                void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
+                // void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
+                void ProcessEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
                 {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
 
@@ -422,7 +415,7 @@ namespace {
 
         }; // end type Analysis
 
-        std::unique_ptr<Analysis> analysis;    //!< Analysis object
+        std::unique_ptr<Analysis<Detector::TOAMode>> analysis;    //!< Analysis object
 
 } // anonymous namespace
 
@@ -503,7 +496,7 @@ namespace processing {
                 detptr->SetTimeROI(TRStart, TRStep, TRN);
                 readAreaROI(detptr->energy_points, layout, "XESPoints.inp");
 
-                analysis.reset(new Analysis{*detptr, FileOutputPath + ShortFileName});
+                analysis.reset(new Analysis<Detector::TOAMode>{*detptr, FileOutputPath + ShortFileName});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period)
@@ -511,9 +504,11 @@ namespace processing {
                 analysis->PurgePeriod(chipIndex, period);
         }
 
-        void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
+        // void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
+        void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
         {
-                analysis->ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
+                // analysis->ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
+                analysis->ProcessEvent(chipIndex, period, relative_toaclk, event);
         }
 
 } // namespace processing
