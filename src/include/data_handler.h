@@ -85,7 +85,7 @@ class DataHandler final {
     */
     int readData(void* buf, int size)
     {
-        logger << "readData(" << buf << ", " << size << ')' << log_trace;
+        // logger << "readData(" << buf << ", " << size << ')' << log_trace;
         int numBytes = 0;
 
         do {
@@ -107,7 +107,7 @@ class DataHandler final {
     */
     int readPacketHeader(uint64_t& chipIndex, uint64_t& chunkSize, uint64_t& packetId)
     {
-        logger << "readPacketHeader()" << log_trace;
+        // logger << "readPacketHeader()" << log_trace;
         #if SERVER_VERSION >= 320
             uint64_t header[2];
         #else
@@ -120,11 +120,11 @@ class DataHandler final {
         if (numRead != sizeof(header))
             throw ReadFileException(std::string("unable to read packet header") + std::to_string(numRead));
 
-        logger << "packed header: " << std::hex << header[0]
-            #if SERVER_VERSION >= 320
-                << ' ' << header[1]
-            #endif
-                << std::dec << log_debug;
+        // logger << "packed header: " << std::hex << header[0]
+        //     #if SERVER_VERSION >= 320
+        //         << ' ' << header[1]
+        //     #endif
+        //         << std::dec << log_debug;
 
         if ((header[0] & 0xffffffffUL) != tpxHeader)
             throw DataFormatException("chunk header expected");
@@ -134,10 +134,10 @@ class DataHandler final {
             if (!Decode::matchesByte(header[1], 0x50))
                 throw DataFormatException("packet id expected");
             packetId = Decode::getBits(header[1], 47, 0);
-            logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_info;
+            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_info;
         #else
             packetId = 0;
-            logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << log_info;
+            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << log_info;
         #endif
 
         return numRead;
@@ -193,8 +193,8 @@ class DataHandler final {
                         bytesRead = dataStream.receiveBytes(&data[bytesBuffered], readSize);
                         totalBytes += bytesRead;
 
-                        logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes
-                               << " total" << log_debug;
+                        // logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes
+                        //        << " total" << log_debug;
 
                         eventBuffer->content_size += bytesRead;
 
@@ -280,11 +280,11 @@ class DataHandler final {
     */
     inline void purgeQueues(unsigned chipIndex, unsigned toSize=0)
     {
-        logger << "purgeQueues(" << chipIndex << ", " << toSize << ')' << log_trace;
-        while (queues[chipIndex].size() > maxPeriodQueues) {
+        // logger << "purgeQueues(" << chipIndex << ", " << toSize << ')' << log_trace;
+        while (queues[chipIndex].size() > toSize) {
             auto pp = queues[chipIndex].oldest();
             purgePeriod(chipIndex, pp->first);
-            logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
+            // logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
             queues[chipIndex].erase(pp);
         }
     }
@@ -319,9 +319,9 @@ class DataHandler final {
     */
     inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
     {
-        logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
-        logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
-               << " (" << std::hex << event << std::dec << ')' << log_debug;
+        // logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
+        // logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
+        //        << " (" << std::hex << event << std::dec << ')' << log_debug;
         queues[chipIndex][index].queue->push({toaclk, event});
     }
 
@@ -391,7 +391,7 @@ class DataHandler final {
                                 else
                                     enqueueEvent(chipIndex, index, toaclk, d);
                             } else {
-                                logger << threadId << ": skip event " << std::hex << d << std::dec << log_info;
+                                // logger << threadId << ": skip event " << std::hex << d << std::dec << log_info;
                             }
                         } else if (Decode::matchesNibble(d, 0x6)) {
                             const uint64_t tdcclk = Decode::getTdcClock(d);
@@ -421,7 +421,7 @@ class DataHandler final {
                                 processTdc(chipIndex, index, tdcclk); //, d);
                             }
                         } else {
-                            logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;
+                            // logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;
                         }
 
                         processingByte += sizeof(uint64_t);
