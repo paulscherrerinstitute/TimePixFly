@@ -104,7 +104,7 @@ struct period_queues final {
     inline period_index period_index_for(double period) const noexcept
     {
         period_type p = std::floor(period);
-        double f = period - p;
+        const double f = period - p;
         if (f > 1. - threshold)
             return { p, p+1, true };
         if (f < threshold)

@@ -32,8 +32,8 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static unsigned getBits(uint64_t data, unsigned high, unsigned low) noexcept
     {
-        unsigned nbits = (high - low) + 1;
-        uint64_t mask = (1UL << nbits) - 1UL;
+        const unsigned nbits = (high - low) + 1;
+        const uint64_t mask = (1UL << nbits) - 1UL;
         // uint64_t maskShifted = mask << low;
         // return (data & maskShifted) >> low;
         return (data >> low) & mask;
@@ -49,16 +49,16 @@ struct AsiRawStreamDecoder final {
     {
         //     # See Timepix manual
         //     encoded = data >> 44
-        uint64_t encoded = data >> 44;
+        const uint64_t encoded = data >> 44;
         //     # doublecolumn * 2
         //     dcol = (encoded & 0x0FE00) >> 8
-        uint64_t dcol = (encoded & 0x0FE00UL) >> 8;
+        const uint64_t dcol = (encoded & 0x0FE00UL) >> 8;
         //     # superpixel * 4
         //     spix = (encoded & 0x001F8) >> 1 # (16+28+3-2)
-        uint64_t spix = (encoded & 0x001F8UL) >> 1;
+        const uint64_t spix = (encoded & 0x001F8UL) >> 1;
         //     # pixel
         //     pix = (encoded & 0x00007)
-        uint64_t pix = encoded & 0x00007UL;
+        const uint64_t pix = encoded & 0x00007UL;
         //     return (dcol + pix // 4), (spix + (pix & 0x3))
         return std::make_pair(dcol + pix / 4UL, spix + (pix & 0x3UL));
     }
@@ -113,11 +113,11 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static uint64_t getTdcClock(uint64_t tdc) noexcept
     {
-        uint64_t tdcCoarse = (tdc >> 9) & 0x7ffffffffUL;
+        const uint64_t tdcCoarse = (tdc >> 9) & 0x7ffffffffUL;
         //     tdcCoarse = (tdc >> 9) & 0x7ffffffff
         //     # fractional counts, values 1-12, 0.26 ns
         //     fract = (tdc >> 5) & 0xf        
-        uint64_t fract = (tdc >> 5) & 0xfUL;
+        const uint64_t fract = (tdc >> 5) & 0xfUL;
         //     # Bug: fract is sometimes 0 for older firmware but it should be 1 <= fract <= 12
         //     assert 1 <= fract <= 12, f"Incorrect fractional TDC part {fract}, corrupt data: {tdc}"
         assert((1 <= fract) && (fract <= 12));
@@ -140,9 +140,9 @@ struct AsiRawStreamDecoder final {
         //     toa = get_bits(data, 43, 30)
         //     coarse = get_bits(data, 15, 0)        
         //     return (((coarse << 14) + toa) << 4) - ftoa
-        int64_t ftoa = getBits(data, 19, 16);
-        int64_t toa = getBits(data, 43, 30);
-        int64_t coarse = getBits(data, 15, 0);
+        const int64_t ftoa = getBits(data, 19, 16);
+        const int64_t toa = getBits(data, 43, 30);
+        const int64_t coarse = getBits(data, 15, 0);
         return (((coarse << 14) + toa) << 4) - ftoa;
     }
 
