@@ -190,6 +190,7 @@ namespace {
                 static constexpr period_type no_save = 2; //!< Don't save save data before this period
                 std::vector<period_type> save_point;    //!< Next period for which a file is written
                 const Detector& detector;               //!< Reference to constant Detector data
+                const float TRoiStep_inv;               //!< 1. / TRoiStep
 
                 /*!
                 \brief Constructor
@@ -199,7 +200,8 @@ namespace {
                 inline Analysis(const Detector& det, const std::string& OutFName)
                         : dataManager{det, OutFName, 3},
                           save_point(det.layout.chip.size(), no_save),
-                          detector(det)
+                          detector{det},
+                          TRoiStep_inv{1.f/detector.TRoiStep}
                 {}
 
                 /*!
@@ -323,7 +325,7 @@ namespace {
 
                                 if constexpr (TOAMode == true) {
                                         //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
-                                        const int TP = static_cast<int>((FullToA - detector.TRoiStart) / detector.TRoiStep);
+                                        const int TP = static_cast<int>((FullToA - detector.TRoiStart) * TRoiStep_inv);
                                         Register(data, index, TP);
                                         //RegisterXAS(data, index, TP, tot);
 
