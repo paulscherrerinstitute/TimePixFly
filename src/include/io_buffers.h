@@ -9,7 +9,6 @@ Code for buffering incoming IO
 #include <atomic>
 #include <vector>
 #include <map>
-#include <list>
 #include <mutex>
 #include <condition_variable>
 
@@ -57,7 +56,7 @@ struct io_buffer_pool final {
 
     using element_type = buffer_type::value_type;   //!< Alias for multimap element type
     buffer_type buffer;                             //!< The collection of IO buffers
-    std::list<std::unique_ptr<io_buffer>> free_list;//!< Empty IO buffers for reuse
+    std::vector<std::unique_ptr<io_buffer>> free_list;//!< Empty IO buffers for reuse
     std::mutex modify_buffer;                       //!< Protect multimap with buffers
     std::condition_variable ready_for_reading;      //!< Condition: there are full buffers
     std::mutex modify_free_list;                    //!< Protect `free_list`
@@ -92,7 +91,7 @@ struct io_buffer_pool final {
     inline void put_empty_buffer(std::unique_ptr<io_buffer>&& buf)
     {
         std::lock_guard lock(modify_free_list);
-        free_list.push_front(std::move(buf));
+        free_list.push_back(std::move(buf));
     }
 
     /*!
@@ -102,11 +101,10 @@ struct io_buffer_pool final {
     inline std::unique_ptr<io_buffer> get_empty_buffer()
     {
         std::lock_guard lock(modify_free_list);
-        auto top = std::begin(free_list);
-        if (top == std::end(free_list))
+        if (free_list.empty())
             return std::unique_ptr<io_buffer>(new io_buffer{buffer_size});
-        auto res = std::move(*top);
-        free_list.pop_front();
+        auto res = std::move(free_list.back());
+        free_list.pop_back();
         res->content_size = 0;
         return res;
     }
