@@ -13,7 +13,6 @@ Code for processing raw data stream
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <mutex>
 #include <chrono>
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
@@ -22,6 +21,7 @@ Code for processing raw data stream
 #include "period_predictor.h"
 #include "period_queues.h"
 #include "processing.h"
+#include "spin_lock.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -51,7 +51,7 @@ class DataHandler final {
     std::thread readerThread;                   //!< Raw event data stream reader thread
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
     // std::mutex coutMutex;                    //!< Output mutex for debugging
-    std::mutex memberMutex;                     //!< Protection for member variables
+    spin_lock::type memberMutex{spin_lock::init}; //!< Protection for member variables
     std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
@@ -234,7 +234,7 @@ class DataHandler final {
             pool->finish_writing();
 
         {
-            std::lock_guard lock{memberMutex};
+            spin_lock lock{memberMutex};
             readTime += workTime;
             readSpinTime += spinTime;
         }
@@ -450,7 +450,7 @@ class DataHandler final {
             purgePeriod(chipIndex, std::numeric_limits<period_type>::max());
 
             {
-                std::lock_guard lock{memberMutex};
+                spin_lock lock{memberMutex};
                 hitCount += hits;
                 analyseTime += workTime;
                 analyseSpinTime += spinTime;

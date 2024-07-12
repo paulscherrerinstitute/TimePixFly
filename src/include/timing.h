@@ -8,7 +8,7 @@ Provide means to measure elapsed time
 */
 
 #include <chrono>
-#include <mutex>
+#include "spin_lock.h"
 
 /*!
 \brief Timer clock
@@ -147,8 +147,8 @@ class TimeAggregatorAgent final {
 \brief Aggregator for elapsed time
 */
 class TimeAggregator final {
-    std::mutex add_lock;    //!< Protect aggregated value
-    double aggregated=0.0;  //!< Aggregated value
+    spin_lock::type add_lock{spin_lock::init};  //!< Protect aggregated value
+    double aggregated=0.0;                      //!< Aggregated value
 
     public:
     TimeAggregator() = default;
@@ -164,7 +164,7 @@ class TimeAggregator final {
     */
     void add(double value)
     {
-        std::unique_lock lock(add_lock);
+        spin_lock lock(add_lock);
         aggregated += value;
     }
 

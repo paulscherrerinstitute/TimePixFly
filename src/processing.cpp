@@ -12,8 +12,6 @@ Event analysis code
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
-#include <mutex>
-#include <atomic>
 #include <memory>
 
 #include "shared_types.h"

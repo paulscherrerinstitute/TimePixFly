@@ -9,8 +9,7 @@ Code for buffering incoming IO
 #include <atomic>
 #include <vector>
 #include <map>
-#include <mutex>
-#include <condition_variable>
+#include "spin_lock.h"
 
 /*!
 \brief Buffer for holding partial raw stream chunk data
@@ -57,9 +56,8 @@ struct io_buffer_pool final {
     using element_type = buffer_type::value_type;   //!< Alias for multimap element type
     buffer_type buffer;                             //!< The collection of IO buffers
     std::vector<std::unique_ptr<io_buffer>> free_list;//!< Empty IO buffers for reuse
-    std::mutex modify_buffer;                       //!< Protect multimap with buffers
-    std::condition_variable ready_for_reading;      //!< Condition: there are full buffers
-    std::mutex modify_free_list;                    //!< Protect `free_list`
+    spin_lock::type mb_lock{spin_lock::init};       //!< Protect multimap with buffers
+    spin_lock::type fl_lock{spin_lock::init};       //!< Protect `free_list`
     bool no_more_data = false;                      //!< Flag for "no more data is coming"
 
     /*!
@@ -72,17 +70,21 @@ struct io_buffer_pool final {
     */
     inline element_type get_nonempty_buffer()
     {
-        std::unique_lock lock(modify_buffer);
-        while (buffer.empty()) {
-            if (no_more_data)
-                return {0, nullptr};
-            ready_for_reading.wait(lock);
-        }
-        auto top = std::begin(buffer);
-        element_type res = std::move(*top);
-        buffer.erase(top);
-        return res;
-    }
+        bool empty = false;
+        bool stop = false;
+        buffer_type::node_type node;
+        do {
+            {
+                spin_lock lock(mb_lock);
+                stop = no_more_data;
+                if (!(empty = buffer.empty()))
+                    node = std::move(buffer.extract(std::begin(buffer)));
+            }
+            if (! empty)
+                return {node.key(), std::move(node.mapped())};
+        } while (! stop);
+        return {0, nullptr};
+    }   
 
     /*!
     \brief Put a used buffer back to the `free_list`
@@ -90,7 +92,7 @@ struct io_buffer_pool final {
     */
     inline void put_empty_buffer(std::unique_ptr<io_buffer>&& buf)
     {
-        std::lock_guard lock(modify_free_list);
+        spin_lock lock{fl_lock};
         free_list.push_back(std::move(buf));
     }
 
@@ -100,11 +102,17 @@ struct io_buffer_pool final {
     */
     inline std::unique_ptr<io_buffer> get_empty_buffer()
     {
-        std::lock_guard lock(modify_free_list);
-        if (free_list.empty())
+        bool empty = false;
+        std::unique_ptr<io_buffer> res;
+        do {
+            spin_lock lock(fl_lock);
+            if ((empty = free_list.empty()))
+                break;
+            res = std::move(free_list.back());
+            free_list.pop_back();
+        } while(false);
+        if (empty)
             return std::unique_ptr<io_buffer>(new io_buffer{buffer_size});
-        auto res = std::move(free_list.back());
-        free_list.pop_back();
         res->content_size = 0;
         return res;
     }
@@ -115,9 +123,8 @@ struct io_buffer_pool final {
     */
     inline void put_nonempty_buffer(element_type&& element)
     {
-        std::lock_guard lock(modify_buffer);
+        spin_lock lock(mb_lock);
         buffer.insert(std::move(element));
-        ready_for_reading.notify_one();
     }
 
     /*!
@@ -125,9 +132,8 @@ struct io_buffer_pool final {
     */
     inline void finish_writing()
     {
-        std::lock_guard lock(modify_buffer);
+        spin_lock lock(mb_lock);
         no_more_data = true;
-        ready_for_reading.notify_one();
     }
 
     io_buffer_pool() = default;
