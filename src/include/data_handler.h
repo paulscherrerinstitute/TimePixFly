@@ -374,12 +374,10 @@ class DataHandler final {
 
                     while (processingByte < dataSize) {
                         uint64_t d = *reinterpret_cast<const uint64_t*>(&content[processingByte]);
-                        if ((d & 0xffffffffUL) == tpxHeader) {
+                        if (__builtin_expect((d & 0xffffffffUL) == tpxHeader, 0)) {
                             throw RuntimeException(std::string("encountered chunk header within chunk at offset ") + std::to_string(processingByte));
-                        } else if (Decode::matchesByte(d, 0x50)) {
-                            throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
-                        } else if (Decode::matchesNibble(d, 0xb)) {
-                            if (predictorReady) {
+                        } else if (__builtin_expect(Decode::matchesNibble(d, 0xb), 1)) {
+                            if (__builtin_expect(predictorReady, 1)) {
                                 const int64_t toaclk = Decode::getToaClock(d);
                                 const double period = predictor[chipIndex].period_prediction(toaclk);
                                 auto index = queues[chipIndex].period_index_for(period);
@@ -393,10 +391,10 @@ class DataHandler final {
                             } else {
                                 // logger << threadId << ": skip event " << std::hex << d << std::dec << log_info;
                             }
-                        } else if (Decode::matchesNibble(d, 0x6)) {
+                        } else if (__builtin_expect(Decode::matchesNibble(d, 0x6), 0)) {
                             const uint64_t tdcclk = Decode::getTdcClock(d);
     //                        logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
-                            if (tdcHits == 0) {
+                            if (__builtin_expect(tdcHits == 0, 0)) {
                                 predictor[chipIndex].reset(tdcclk, initialPeriod);
     //                            logger << threadId << ": predictor start, tdc " << tdcclk << " predictor " << predictor[chipIndex] << log_info;
                             } else {
@@ -407,10 +405,10 @@ class DataHandler final {
                                 }
                             }
                             tdcHits++;
-                            if (predictorReady) {
+                            if (__builtin_expect(predictorReady, 1)) {
                                 const double period = predictor[chipIndex].period_prediction(tdcclk);
                                 auto index = queues[chipIndex].period_index_for(period);
-                                if (! index.disputed) {
+                                if (! __builtin_expect(index.disputed, 1)) {
 //                                    logger << threadId << ": tdc=" << tdcclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_fatal;
                                     throw RuntimeException("encountered undisputed period for tdc");
                                 }
@@ -421,6 +419,9 @@ class DataHandler final {
                                 processTdc(chipIndex, index, tdcclk); //, d);
                             }
                         } else {
+                            if (__builtin_expect(Decode::matchesByte(d, 0x50), 0)) {
+                                throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
+                            }
                             // logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;
                         }
 
