@@ -78,7 +78,7 @@ struct io_buffer_pool final {
                 spin_lock lock(mb_lock);
                 stop = no_more_data;
                 if (!(empty = buffer.empty()))
-                    node = std::move(buffer.extract(std::begin(buffer)));
+                    node = buffer.extract(std::begin(buffer));
             }
             if (! empty)
                 return {node.key(), std::move(node.mapped())};
