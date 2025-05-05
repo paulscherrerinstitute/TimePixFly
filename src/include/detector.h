@@ -17,7 +17,6 @@ Detector description
 */
 struct Detector final {
         const detector_layout& layout;  //!< Detector layout reference
-        int DetWidth;                   //!< Detector width
         int NumPixels;                  //!< Detector number of pixels
 
         /*!
@@ -73,7 +72,7 @@ struct Detector final {
         \param layout_ Detector layout reference
         */
         inline Detector(const detector_layout& layout_)
-            : layout{layout_}, DetWidth(layout.width), NumPixels(layout.width * layout.height)
+            : layout{layout_}, NumPixels(layout.width * layout.height)
         {}
 
         ~Detector() = default;
