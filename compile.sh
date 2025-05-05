@@ -8,7 +8,7 @@ LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread"
 WARN_FLAGS+=" -Wall -Wextra"
 
 if [ -z "${DEBUG}" ]; then
-    SPEED_FLAGS+="-Ofast -DNDEBUG -march=native"
+    SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -march=native"
 elif [ -z "${NOOPT}" ]; then
     SPEED_FLAGS+="-Og -ggdb  -DNDEBUG -march=native"
 else
