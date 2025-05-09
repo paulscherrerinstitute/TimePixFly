@@ -25,10 +25,18 @@ Author: hans-christian.stadler@psi.ch
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
 #include "Poco/Net/HTTPResponse.h"
+#include "Poco/Net/HTTPServerParams.h"
+#include "Poco/Net/HTTPServerRequest.h"
+#include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/Net/HTTPRequestHandlerFactory.h"
+#include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/MediaType.h"
 #include "Poco/URI.h"
 #include "Poco/Process.h"
 #include "Poco/Exception.h"
+
+#include "Poco/StreamCopier.h"
 
 #include "logging.h"
 #include "decoder.h"
@@ -36,6 +44,7 @@ Author: hans-christian.stadler@psi.ch
 #include "copy_handler.h"
 #include "layout.h"
 #include "processing.h"
+#include "global.h"
 
 namespace {
     using namespace std::string_view_literals;
@@ -51,6 +60,12 @@ namespace {
     using Poco::Net::HTTPClientSession;
     using Poco::Net::HTTPRequest;
     using Poco::Net::HTTPResponse;
+    using Poco::Net::HTTPServerParams;
+    using Poco::Net::HTTPServerRequest;
+    using Poco::Net::HTTPServerResponse;
+    using Poco::Net::HTTPRequestHandler;
+    using Poco::Net::HTTPRequestHandlerFactory;
+    using Poco::Net::HTTPServer;
     using Poco::Net::MediaType;
     using Poco::URI;
     using Poco::LogicException;
@@ -60,6 +75,10 @@ namespace {
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
     #include "version.h"
+
+    //=========================
+    // JSON handling functions
+    //=========================
 
     /*!
     \brief Extract object from JSON object
@@ -103,6 +122,192 @@ namespace {
         return objPtr;
     }
 
+    //=========================
+    // REST server
+    //=========================
+
+    /*!
+    \brief Server response proxy object for text/plain response
+    */
+    class ResponseText final {
+        HTTPServerResponse& response;   //!< Server response
+        std::ostream& out;              //!< Stream for response text
+
+    public:
+        /*!
+        \brief Construct proxy
+        \param response_ Server response
+        */
+        inline ResponseText(HTTPServerResponse& response_)
+            : response(response_), out(response_.send())
+        {
+            response.setContentType("text/plain");
+        }
+
+        /*!
+        \brief Text output
+        \param val Value to print as text/plain in the response
+        \return this
+        */
+        template<typename T>
+        inline ResponseText& operator<<(const T& val)
+        {
+            out << val;
+            return *this;
+        }
+
+        /*!
+        \brief Set response status code
+        \param status Status code
+        \return this
+        */
+        inline ResponseText& operator<<(const HTTPResponse::HTTPStatus status)
+        {
+            response.setStatus(status);
+            return *this;
+        }
+    };
+
+    /*!
+    \brief Handle control commands with a rest interface
+    */
+    class RestHandler final : public HTTPRequestHandler {
+        Logger& logger;                 //!< Logger
+        Poco::JSON::Parser jsonParser;  //!< Poco JSON parser
+
+    public:
+        /*!
+        \brief Construct request handler
+        \param logger_ Logger
+        */
+        RestHandler(Logger& logger_)
+            : logger(logger_)
+        {}
+
+        /*!
+        \brief Handle rest requests
+        \param request Rest request
+        \param response Rest response
+        */
+        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override {
+            try {
+                URI uri{request.getURI()};
+                logger << request.getMethod() << " Request: " << uri.toString() << log_notice;
+                std::string key = uri.getPath();
+                if (request.getMethod() == Poco::Net::HTTPRequest::HTTP_PUT) {
+                    if (request.getContentType() != "application/json")
+                        throw Poco::DataFormatException("PUT only allowed with JSON content");
+                    jsonParser.reset();
+                    Poco::JSON::Object::Ptr result = jsonParser
+                        .parse(request.stream())
+                        .extract<Poco::JSON::Object::Ptr>();
+                    const auto& callbacks = global::instance->put_callbacks;
+                    try {
+                        std::string res = callbacks.at(key)(result);
+                        ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                    } catch (std::out_of_range&) {
+                        throw Poco::DataFormatException(std::string("illegal path - ") + key);
+                    }
+                } else if (request.getMethod() == Poco::Net::HTTPRequest::HTTP_GET) {
+                    URI::QueryParameters params = uri.getQueryParameters();
+                    std::string val;
+                    if (params.size() == 1) {
+                        const auto& keyval = params[0];
+                        key += '?';
+                        key += keyval.first;
+                        val = keyval.second;
+                    } else if (params.size() > 1) {
+                        ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Only one key is allowed per request";
+                        return;
+                    }
+                    const auto& callbacks = global::instance->get_callbacks;
+                    try {
+                        std::string res = callbacks.at(key)(val);
+                        ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                    } catch (std::out_of_range&) {
+                        throw Poco::DataFormatException(std::string("illegal path/key - ") + key);
+                    }
+                } else {
+                    ResponseText(response) << HTTPResponse::HTTP_METHOD_NOT_ALLOWED << "Unsupported method: " << request.getMethod();
+                }
+            } catch (Poco::Exception& ex) {
+                ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Unable to handle request: " << ex.displayText();
+            } catch (const std::exception& ex) {
+                ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Unable to handle request: " << ex.what();
+            }
+        }
+    };
+
+    /*!
+    \brief Factory for creating rest handlers
+    */
+    class RestHandlerFactory final : public HTTPRequestHandlerFactory {
+        Logger& logger; //!< Logger
+
+    public:
+        /*!
+        \brief Create factory
+        \param logger_ Logger
+        */
+        RestHandlerFactory(Logger& logger_)
+            : logger(logger_)
+        {}
+
+        /*!
+        \brief Create rest handler
+        \param request Rest request
+        \return Handler for rest requests
+        */
+        HTTPRequestHandler* createRequestHandler([[maybe_unused]] const HTTPServerRequest& request) override {
+            return new RestHandler(logger);
+        }
+    };
+
+    /*!
+    \brief Wrapper for rest request handling HTTP server
+    */
+    class RestService final {
+        HTTPServerParams::Ptr http_params{new HTTPServerParams};    //!< Server parameters
+        HTTPServer server;                                          //!< HTTP server
+
+    public:
+        /*!
+        \brief Create HTTP server
+        \param listen_to Server address
+        */
+        RestService(Logger& logger, const SocketAddress& listen_to)
+            : server(new RestHandlerFactory(logger), ServerSocket(listen_to), http_params)
+        {}
+
+        /*!
+        \brief Start HTTP server
+        */
+        void start()
+        {
+            server.start();
+        }
+
+        /*!
+        \brief Stop HTTP server
+        */
+        void stop()
+        {
+            server.stop();
+        }
+
+        /*!
+        \brief Stop HTTP server
+        */
+        ~RestService()
+        {
+            server.stop();
+        }
+    };
+
+    //=========================
+    // Main Poco Application
+    //=========================
+
     /*!
     \brief Poco object for TPX3 raw stream analysis application
     */
@@ -113,11 +318,11 @@ namespace {
         // constexpr static unsigned DEFAULT_NUM_ANALYSERS = 6;
 
         Logger& logger;                 //!< Poco::Logger object
-        bool stop = false;              //!< Stop flag for options processing
         int rval = Application::EXIT_OK;//!< Default application return value
 
         SocketAddress serverAddress = SocketAddress{"localhost:8080"};  //!< Default ASI server address
         SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};  //!< Default raw data stream tcp destination (own address)
+        SocketAddress controlAddress = SocketAddress{"127.0.0.1:8452"}; //!< Default control interface address (own address)
 
         std::unique_ptr<HTTPClientSession> clientSession;   //!< Client session with ASI server
         std::unique_ptr<ServerSocket> serverSocket;         //!< Socket for connecting to myself
@@ -167,6 +372,13 @@ namespace {
 
             options.addOption(Option("address", "a")
                 .description("my address")
+                .required(false)
+                .repeatable(false)
+                .argument("ADDRESS")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleAddress)));
+
+            options.addOption(Option("control", "c")
+                .description("control interface address")
                 .required(false)
                 .repeatable(false)
                 .argument("ADDRESS")
@@ -260,7 +472,7 @@ namespace {
             helpFormatter.setHeader("Handle TimePix3 raw stream.");
             helpFormatter.format(std::cout);
             stopOptionsProcessing();
-            stop = true;
+            global::instance->stop = true;
         }
 
         /*!
@@ -341,6 +553,12 @@ namespace {
                 } catch (Poco::Exception& ex) {
                     throw InvalidArgumentException{"my address", ex, __LINE__};
                 }
+            } else if (name == "control") {
+                try {
+                    controlAddress = SocketAddress(value);
+                } catch (Poco::Exception& ex) {
+                    throw InvalidArgumentException{"control interface address", ex, __LINE__};
+                }
             } else {
                 throw LogicException{std::string{"unknown address argument name: "} + name};
             }
@@ -374,7 +592,7 @@ namespace {
             logger << "handleVersion(" << name << ", " << value << ')' << log_trace;
             std::cout << VERSION << '\n';
             stopOptionsProcessing();
-            stop = true;
+            global::instance->stop = true;
         }
 
         /*!
@@ -623,8 +841,39 @@ namespace {
 
             logger << "running on process " << Poco::Process::id() << log_info;
 
-            if (stop)
+            if (global::instance->stop)
                 return rval;
+
+            global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
+                if (val == "true") {
+                    global::instance->stop = true;
+                    return "OK";
+                }
+                throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
+            };
+
+            // ---------------- BEGIN test code -------
+            // TODO: remove
+            global::instance->put_callbacks["/echo"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                std::ostringstream oss;
+                obj->stringify(oss);
+                return oss.str();
+            };
+
+            RestService restService(logger, controlAddress);
+            logger << "listen for commands on " << controlAddress.toString() << log_info;
+            restService.start();
+
+            {
+                using namespace std::chrono_literals;
+                while (!global::instance->stop) {
+                    std::cout << "doing something...\n";
+                    std::this_thread::sleep_for(2s);
+                }
+                restService.stop();
+                std::exit(0);
+            }
+            // ---------------- END test code ---------
 
             logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
             clientSession.reset(new HTTPClientSession{serverAddress});
@@ -717,7 +966,7 @@ namespace {
 
                 const auto t2 = wall_clock::now();
                 const double time = std::chrono::duration<double>{t2 - t1}.count();
-                
+
                 logger << "time: " << time << "s\n";
             } else {
                 const auto t1 = wall_clock::now();

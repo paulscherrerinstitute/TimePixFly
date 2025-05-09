@@ -27,7 +27,7 @@ echo "const char VERSION[]=\"$VERSION\";" > src/include/version.h
 
 case "$TARGET" in
     "tpx3app")
-        cmd="${CXX} -I src/include src/main.cpp src/processing.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
+        cmd="${CXX} -I src/include src/main.cpp src/processing.cpp src/global.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
         echo "$cmd"
         eval "$cmd";;
     "server")
