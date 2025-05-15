@@ -28,7 +28,7 @@ Event analysis code
 #include "Poco/Util/IniFileConfiguration.h"
 
 // anonymous namespace to prevent symbol visibility
-namespace {       
+namespace {
         using Decode = AsiRawStreamDecoder;     //!< Raw stream decoder object
 
         using std::string;
@@ -162,8 +162,8 @@ namespace {
 	for (int ii=0;ii<numPixels; ii++) {
 	    int ep1=energy_points.at(PixelIndex::from(0, ii)).part[0].energy_point;
 	    float wp1=energy_points.at(PixelIndex::from(0, ii)).part[0].weight;
-	    
-	    
+
+
 	    std::cout<<"ep1wp1="<<ep1<<"  "<<wp1<<"\n";
 	    }
 	*/
@@ -212,23 +212,23 @@ namespace {
                         data.Reset();
                 }
 
-                /*!
-                \brief Save histogram to .xes file
-                
-                The extension .xes will be appended to the output file path.
-                
-                \param data             Histogram
-                \param OutFileName      Path to output file without .xes extension
-                */
-                inline void SaveToFile(Data& data, const string& OutFileName) const
-                {
-                        logger << "SaveToFile(" << OutFileName << ')' << log_trace;
-                        const auto t1 = clock::now();
-                        data.SaveToFile(OutFileName);
-                        const auto t2 = clock::now();
-                        auto save_time = duration_cast<milliseconds>(t2 - t1).count();
-                        logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
-                }
+                // /*!
+                // \brief Save histogram to .xes file
+
+                // The extension .xes will be appended to the output file path.
+
+                // \param data             Histogram
+                // \param OutFileName      Path to output file without .xes extension
+                // */
+                // inline void SaveToFile(Data& data, const string& OutFileName) const
+                // {
+                //         logger << "SaveToFile(" << OutFileName << ')' << log_trace;
+                //         const auto t1 = clock::now();
+                //         data.SaveToFile(OutFileName);
+                //         const auto t2 = clock::now();
+                //         auto save_time = duration_cast<milliseconds>(t2 - t1).count();
+                //         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
+                // }
 
                 /*!
                 \brief Add one event to histogram
@@ -250,12 +250,12 @@ namespace {
                         //std::cout<<"q";
                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                         for (const auto& part : flat_pixel.part) {
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                             
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //This line takes most of the time of Register (and 50% of time of ProcessEvent)
                                 //if (detector.energy_points.npoints!=15) std::cout<<"!!!!!!! ";
                                 //std::cout<<part.energy_point<<" ";
                                 //in the example detector.energy_points.npoints is always 15
-                                // in the example part.energy_point is from 0 to 14 defined by the event coordinate 
+                                // in the example part.energy_point is from 0 to 14 defined by the event coordinate
                                 // in the example part.weight is 1;
                                 // TimePoint is from 0 to ~2500
                                 //std::cout<<TimePoint<<" ";
@@ -265,9 +265,9 @@ namespace {
                                 //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
                                 data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
                         }
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                                
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                         //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
-  
+
                 }
 
                 // /*!
@@ -353,7 +353,7 @@ namespace {
                         period_type& sp = save_point[chipIndex];
                         if (period < sp)
                                 return;
-                        
+
                         if (sp == no_save) {
                                 sp += save_interval;
                                 return;
@@ -380,37 +380,37 @@ namespace {
                         if (period > sp)
                                 sp += save_interval;
 
-                        // substituted tot by constant to test speed since tot is typically ignored 
+                        // substituted tot by constant to test speed since tot is typically ignored
 
                         const uint64_t totclk = Decode::getTotClock(event);
                         //const uint64_t totclk = 100;
-                        
-                        
-                        
+
+
+
                         //const float toa = Decode::clockToFloat(toaclk);
                         //const float tot = Decode::clockToFloat(totclk, 40e6);
-                        
-                        
+
+
                         // commented to test speed since xy is typically ignored for XAS (not for XES!)
 
                         const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
-                        
-                                             
+
+
 //                          logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
 //                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
-                
+
                         //can be replaced to test speed in XAS mode
-                        
+
                         auto index = PixelIndex::from(chipIndex, xy);
                         //auto index = PixelIndex::from(chipIndex, 10);
 
 
-                        
+
                         {
                                 // std::lock_guard lock{histo_lock}; // <---- problematic lock
                                 Analyse(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk, totclk);
                         }
-                
+
                 }
 
         }; // end type Analysis
