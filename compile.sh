@@ -25,15 +25,25 @@ VERSION="$(git branch --show-current) $(git log -n1 --format="%h %as")"
 (($? == 0)) || { echo "This command must be executed inside the git repository"; exit 1; }
 echo "const char VERSION[]=\"$VERSION\";" > src/include/version.h
 
+function strip_target() {
+        if [ -n "${STRIP}" ]; then
+            cmd="strip $1"
+            echo "$cmd"
+            eval "$cmd"
+        fi
+}
+
 case "$TARGET" in
     "tpx3app")
-        cmd="${CXX} -I src/include src/main.cpp src/processing.cpp src/global.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
+        cmd="${CXX} -I src/include src/main.cpp src/processing.cpp src/xes_data_writer.cpp src/global.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
         echo "$cmd"
-        eval "$cmd";;
+        eval "$cmd"
+        strip_target "tpx3app";;
     "server")
         cmd="${CXX} -I src/include src/test_server.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o server"
         echo "$cmd"
-        eval "$cmd";;
+        eval "$cmd"
+        strip_target "server";;
     "test")
         cmd="${CXX} -I src/include src/test.cpp -std=c++17 ${TEST_FLAGS} -o test"
         echo "$cmd"
@@ -59,6 +69,7 @@ case "$TARGET" in
         echo "    LDFLAGS      extra linker flags"
         echo "    SPEED_FLAGS  extra optimization flags"
         echo "    WARN_FLAGS   extra warning flags"
+        echo "    STRIP        strip executable"
         echo "  test:"
         echo "    TEST_FLAGS   extra test executable flags";;
     *)
