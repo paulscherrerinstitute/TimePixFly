@@ -18,6 +18,7 @@ Provide functionality to manage partial XES data per thread
 #include "shared_types.h"
 #include "logging.h"
 #include "timing.h"
+#include "xes_data_writer.h"
 
 /*!
 \brief XES data manager functionality
@@ -97,19 +98,18 @@ namespace xes {
         std::condition_variable action_required; //!< Signal for data aggregate+write thread
         bool stopWriter = false;            //!< Stop data aggregate+write thread
         std::thread writerThread;           //!< Data aggregate+write thread
-
-        const std::string outFileName;      //!< Output file name (without period and .xes)
+        std::unique_ptr<xes::Writer> writer; //!< Writer for file or tcp
 
         Logger& logger;                     //!< Logger reference
 
         /*!
         \brief Constructor
         \param detector Detector data reference
-        \param fname    Output file name (without period and .xes)
+        \param uri Output file://name (without period and .xes), or tcp://host:port
         \param nPeriods How many periods receive/emit data in parallel (see periodData member)
         */
-        inline Manager(const Detector& detector, const std::string& fname, unsigned nPeriods)
-            : outFileName(fname), logger(Logger::get("Tpx3App"))
+        inline Manager(const Detector& detector, const std::string& uri, unsigned nPeriods)
+            : writer(xes::Writer::from_uri(uri)), logger(Logger::get("Tpx3App"))
         {
             const unsigned nThreads = detector.layout.chip.size();
             dataCache.resize(nThreads);
@@ -159,7 +159,8 @@ namespace xes {
                         t_aggregate += clock.elapsed();
                         clock.set();
 
-                        data->SaveToFile(outFileName+"-"+std::to_string(period->period));
+                        writer->write(*data, period->period);
+                        //->SaveToFile(outFileName+"-"+std::to_string(period->period));
                         data->Reset();
                         period->ready.store(0);
                         period->period.store(none);
