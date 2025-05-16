@@ -87,29 +87,6 @@ namespace xes {
                 std::fill(TDSpectra.begin(), TDSpectra.end(), 0);
                 BeforeRoi = AfterRoi = Total = 0;
             }
-
-            /*!
-            \brief Save TDSpectra to .xes file
-            
-            The extension .xes will be appended to the output file path.
-            
-            \param OutFileName Path to output file without .xes extension
-            */
-            inline void SaveToFile(const std::string& OutFileName) const
-            {
-                std::ofstream OutFile(OutFileName + ".xes");
-
-                const int NumEnergyPoints = detector->energy_points.npoints;
-                for (int i=0; i<NumEnergyPoints; ++i) {
-                        for (u64 j=0; j<detector->TRoiN; ++j) {
-                                OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
-                        }
-                        OutFile << "\n";
-                }
-                if (OutFile.fail())
-                        throw std::ios_base::failure("Detector::SaveToFile failed");
-                OutFile.close();
-            }
     };
 
 } // namespace xes
