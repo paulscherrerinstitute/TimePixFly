@@ -5,6 +5,12 @@ Code for tpx3app analysis program
 Author: hans-christian.stadler@psi.ch
 */
 
+/*
+TODO:
+- test mode für rest
+- server mode with aquisition start removed
+*/
+
 // #include <filesystem>
 #include <string>
 #include <iostream>
