@@ -90,11 +90,14 @@ namespace {
             const auto elements = TDSpectra.size();
             Poco::Net::SocketStream send{dataReceiver};
 
-            send << "{\"Period\":" << period
+            send << "{\"type\":\"DataStructure\",\"period\":" << period
                  << ",\"TDSpectra\":[" << TDSpectra[0];
             for (std::remove_cv_t<decltype(elements)> i=1; i<elements; i++)
                 send << ',' << TDSpectra[i];
-            send << "]}" << std::flush;
+            send << "],\"TotalEvents\":" << data.TotalEvents
+                 << ",\"beforeROI\":" << data.beforeROI
+                 << ",\"afterROI\":" << data.afterROI
+                 << '}' << std::flush;
         }
 
         inline void start(const Detector& detector) override
