@@ -12,6 +12,7 @@ Provide XES data writer implementations
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/SocketStream.h"
 
+#include "global.h"
 #include "pixel_index.h"
 #include "energy_points.h"
 #include "xes_data_writer.h"
@@ -95,6 +96,25 @@ namespace {
                 send << ',' << TDSpectra[i];
             send << "]}" << std::flush;
         }
+
+        inline void start(const Detector& detector) override
+        {
+            Poco::Net::SocketStream send{dataReceiver};
+
+            send << "{\"type\":\"StartFrame\",\"Mode\":" << (detector.TOAMode ? "\"TOA\"" : "\"TOT\"")
+                 << ",\"TRoiStart\":" << detector.TRoiStart
+                 << ",\"TRoiStep\":" << detector.TRoiStep
+                 << ",\"TRoiN\":" << detector.TRoiN
+                 << ",\"save_interval\":" << global::instance->save_interval
+                 << '}' << std::flush;
+        }
+
+        inline void stop(const std::string& error_message) override
+        {
+            Poco::Net::SocketStream send{dataReceiver};
+
+            send << "{\"type\":\"EndFrame\",\"error\":\"" << error_message << "\"}" << std::flush;
+        }
     };
 
 }
@@ -102,6 +122,12 @@ namespace {
 namespace xes {
 
     Writer::~Writer()
+    {}
+
+    void Writer::start([[maybe_unused]] const Detector& detector)
+    {}
+
+    void Writer::stop([[maybe_unused]] const std::string& error_message)
     {}
 
     std::unique_ptr<Writer> Writer::from_uri(const std::string& uri)

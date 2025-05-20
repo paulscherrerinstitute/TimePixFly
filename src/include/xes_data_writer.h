@@ -27,6 +27,18 @@ namespace xes {
         virtual void write(const Data& data, period_type period) = 0;
 
         /*!
+        \brief Start data writing
+        \param detector Detector
+        */
+        virtual void start(const Detector& detector);
+
+        /*!
+        \brief Stop data writing
+        \param error_message Error message
+        */
+        virtual void stop(const std::string& error_message);
+
+        /*!
         \brief Create writer from uri
         \param uri Output file://name (without period and .xes), or tcp://host:port
         \return FileWriter or TcpWriter

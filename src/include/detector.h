@@ -20,7 +20,7 @@ struct Detector final {
 
         /*!
         \brief Histogramming mode
-        
+
         If TOAMode is false then TOT is used for binnig (counts as a
         function of energy and TOT as output)
         */

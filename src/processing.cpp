@@ -24,6 +24,7 @@ Event analysis code
 #include "detector.h"
 #include "xes_data.h"
 #include "xes_data_manager.h"
+#include "global.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 
@@ -49,8 +50,6 @@ namespace {
         using std::exit;
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
-
-        const period_type save_interval = 131000;       //!< Histogram saving period: ~1s for TDC frequency 131kHz
 
         /*!
         \brief Processing configuration file object
@@ -355,12 +354,12 @@ namespace {
                                 return;
 
                         if (sp == no_save) {
-                                sp += save_interval;
+                                sp += global::instance->save_interval;
                                 return;
                         }
 
                         dataManager.ReturnData(chipIndex, sp);
-                        sp += save_interval;
+                        sp += global::instance->save_interval;
                 }
 
                 /*!
@@ -378,7 +377,7 @@ namespace {
 
                         period_type sp = save_point[chipIndex];
                         if (period > sp)
-                                sp += save_interval;
+                                sp += global::instance->save_interval;
 
                         // substituted tot by constant to test speed since tot is typically ignored
 
