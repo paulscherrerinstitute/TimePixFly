@@ -94,9 +94,9 @@ namespace {
                  << ",\"TDSpectra\":[" << TDSpectra[0];
             for (std::remove_cv_t<decltype(elements)> i=1; i<elements; i++)
                 send << ',' << TDSpectra[i];
-            send << "],\"TotalEvents\":" << data.TotalEvents
-                 << ",\"beforeROI\":" << data.beforeROI
-                 << ",\"afterROI\":" << data.afterROI
+            send << "],\"totalEvents\":" << data.Total
+                 << ",\"beforeROI\":" << data.BeforeRoi
+                 << ",\"afterROI\":" << data.AfterRoi
                  << '}' << std::flush;
         }
 

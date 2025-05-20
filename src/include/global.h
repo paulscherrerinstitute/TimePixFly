@@ -25,8 +25,13 @@ struct global final {
     std::map<key_type, put_callback> put_callbacks;                                     //!< PUT callbacks
     std::map<key_type, get_callback> get_callbacks;                                     //!< GET callbacks
 
-    std::atomic_bool stop{false};                                                       //!< stop processing
-    period_type save_interval{131000};                                                  //!< Histogram saving period: ~1s for TDC frequency 131kHz
+    std::atomic_bool stop{false};                                                       //!< Stop processing
+    std::atomic_bool start{false};                                                      //!< Start processing
+    bool server_mode{false};                                                            //!< Run program in server mode
+    std::atomic<period_type> save_interval{131000};                                     //!< Histogram saving period: ~1s for TDC frequency 131kHz
+    std::atomic<u64> TRoiStart;                                                         //!< Time ROI start (server mode)
+    std::atomic<u64> TRoiStep;                                                          //!< Time ROI step (server mode)
+    std::atomic<u64> TRoiN;                                                             //!< Time ROI number of steps (server mode)
 
     static std::unique_ptr<global> instance;                                            //!< unique instance
 };

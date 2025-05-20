@@ -446,6 +446,12 @@ namespace {
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
 
+            options.addOption(Option("server-mode", "S")
+                .description("run in server-mode")
+                .required(false)
+                .repeatable(false)
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
+
             options.addOption(Option("version", "v")
                 .description("show version")
                 .required(false)
@@ -479,6 +485,32 @@ namespace {
             helpFormatter.format(std::cout);
             stopOptionsProcessing();
             global::instance->stop = true;
+        }
+
+        /*!
+        \brief Boolean valued option handler
+        \param name     Option name
+        \param value    Option value
+        */
+        inline void handleBool(const std::string& name, const std::string& value)
+        {
+            logger << "handleNumber(" << name << ", " << value << ")" << log_trace;
+            bool val = true;
+            if ((value == "") ||
+                (value == "true") ||
+                (value == "1")) {
+                ;
+            } else if ((value == "false") ||
+                        (value == "0")) {
+                val = false;
+            } else {
+                throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
+            }
+            if (name == "server") {
+                global::instance->server_mode = val;
+            } else {
+                throw LogicException{std::string{"unknown number argument name: "} + name};
+            }
         }
 
         /*!
@@ -858,6 +890,14 @@ namespace {
                 throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
             };
 
+            global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
+                if (val == "true") {
+                    global::instance->start = true;
+                    return "OK";
+                }
+                throw Poco::DataFormatException("only 'true' is accepted as 'start' value");
+            };
+
             // ---------------- BEGIN test code -------
             // TODO: remove
             global::instance->put_callbacks["/echo"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
@@ -874,7 +914,7 @@ namespace {
                 using namespace std::chrono_literals;
                 while (!global::instance->stop) {
                     std::cout << "doing something...\n";
-                    std::this_thread::sleep_for(2s);
+                    std::this_thread::sleep_for(1s);
                 }
                 restService.stop();
                 std::exit(0);
