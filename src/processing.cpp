@@ -424,62 +424,6 @@ namespace processing {
         {
                 ConfigFile config{"Processing.ini"};
 
-                /*
-                using std::getline;
-                using std::ws;
-
-                std::ifstream ProcessingFile("Processing.inp");
-
-                string Comment;
-                string FileInputPath, FileOutputPath, ShortFileName;
-
-                getline(ProcessingFile, Comment);
-                getline(ProcessingFile, FileInputPath);
-                getline(ProcessingFile, Comment);
-                getline(ProcessingFile, FileOutputPath);
-                getline(ProcessingFile, Comment);
-                getline(ProcessingFile, ShortFileName);
-
-                // int NumCalibFactors; //, FileIndexBegin, FileIndexEnd, FileIndexStep;
-
-                // getline(ProcessingFile, Comment);
-                // cout << Comment << "\n";
-                // ProcessingFile >> NumCalibFactors >> ws;
-                // getline(ProcessingFile, Comment);
-                // cout << Comment << "\n";
-                // ProcessingFile >> FileIndexBegin >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> FileIndexEnd >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> FileIndexStep >> ws;
-
-                // int DetROIStart, DetROIEnd, BinSize;
-                // bool BinVerticalOrientation;
-                int TRStart, TRStep, TRN;
-                // bool DeleteAfter;
-
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> DetROIStart >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> DetROIEnd >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> BinVerticalOrientation >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> BinSize >> ws;
-                getline(ProcessingFile, Comment);
-                ProcessingFile >> TRStart >> ws;
-                getline(ProcessingFile, Comment);
-                ProcessingFile >> TRStep >> ws;
-                getline(ProcessingFile, Comment);
-                ProcessingFile >> TRN >> ws;
-                // getline(ProcessingFile, Comment);
-                // ProcessingFile >> DeleteAfter >> ws;
-
-                ProcessingFile.close();
-                if (ProcessingFile.fail())
-                        throw std::ios_base::failure("failed to parse ProcessingFile");
-                */
-
                 int TRStart = config.getInt("TRStart");
                 int TRStep = config.getInt("TRStep");
                 int TRN = config.getInt("TRN");
