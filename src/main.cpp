@@ -51,6 +51,7 @@ TODO:
 #include "layout.h"
 #include "processing.h"
 #include "global.h"
+#include "json_ops.h"
 
 namespace {
     using namespace std::string_view_literals;
@@ -81,52 +82,6 @@ namespace {
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
     #include "version.h"
-
-    //=========================
-    // JSON handling functions
-    //=========================
-
-    /*!
-    \brief Extract object from JSON object
-    \param object   JSON object containing another object
-    \param name     Name of object to extract
-    \return Poco pointer to object, or nullptr if the object is not found
-    */
-    inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Object::Ptr& object, const std::string& name)
-    {
-        Poco::JSON::Object::Ptr objPtr = object->getObject(name);
-        if (objPtr.isNull())
-            throw RuntimeException(std::string("JSON Object contains no object ") + name, __LINE__);
-        return objPtr;
-    }
-
-    /*!
-    \brief Extract list from JSON object
-    \param object   JSON object containing a list
-    \param name     Name of list to extract
-    \return Poco pointer to list, or nullptr if the list is not found
-    */
-    inline Poco::JSON::Array::Ptr operator/(const Poco::JSON::Object::Ptr& object, const std::string& name)
-    {
-        Poco::JSON::Array::Ptr arrayPtr = object->getArray(name);
-        if (arrayPtr.isNull())
-            throw RuntimeException(std::string("JSON Object contains no array ") + name, __LINE__);
-        return arrayPtr;
-    }
-
-    /*!
-    \brief Extract object from JSON list
-    \param array    JSON list containing an object
-    \param index    List index of object to extract
-    \return Poco pointer to object, or nullptr if the object is not found
-    */
-    inline Poco::JSON::Object::Ptr operator|(const Poco::JSON::Array::Ptr& array, unsigned index)
-    {
-        Poco::JSON::Object::Ptr objPtr = array->getObject(index);
-        if (objPtr.isNull())
-            throw RuntimeException(std::string("JSON Array contains no index ") + std::to_string(index), __LINE__);
-        return objPtr;
-    }
 
     //=========================
     // REST server
@@ -882,6 +837,77 @@ namespace {
             if (global::instance->stop)
                 return rval;
 
+            // ----------------------- get detector server data -----------------------
+            logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
+            clientSession.reset(new HTTPClientSession{serverAddress});
+
+            auto dashboardPtr = dashboard();
+            std::string softwareVersion = (dashboardPtr|"Server")->getValue<std::string>("SoftwareVersion");
+            {
+                LogProxy log(logger);
+                log << "Server Software Version: " << softwareVersion << "\nDashboard: ";
+                dashboardPtr->stringify(log.base());
+                log << log_notice;
+            }
+
+            if (! global::instance->server_mode)
+                detectorInit();
+
+            {
+                auto configPtr = detectorConfig();
+                {
+                    LogProxy log(logger);
+                    log << "Response of getting the Detector Configuration from SERVAL: ";
+                    configPtr->stringify(log.base());
+                    log << log_notice;
+                }
+
+            }
+
+            {
+                auto infoPtr = detectorInfo();
+                {
+                    LogProxy log(logger);
+                    log << "Response of getting the Detector Info from SERVAL: ";
+                    infoPtr->stringify(log.base());
+                    log << log_notice;
+                }
+
+                infoPtr->get("NumberOfChips").convert(numChips);
+            }
+
+            detector_layout& layout = global::instance->layout;
+            {
+                auto layoutPtr = detectorLayout();
+                {
+                    LogProxy log(logger);
+                    log << "Response of getting the Detector Layout from SERVAL: ";
+                    layoutPtr->stringify(log.base());
+                    log << log_notice;
+                }
+
+                auto origPtr = layoutPtr | "Original";
+                origPtr->get("Width").convert(layout.width);
+                origPtr->get("Height").convert(layout.height);
+
+                auto chipPtr = origPtr / "Chips";
+                for (decltype(numChips) i=0; i<numChips; i++) {
+                    chip_position chip;
+                    (chipPtr | i)->get("X").convert(chip.x);
+                    (chipPtr | i)->get("Y").convert(chip.y);
+                    layout.chip.push_back(chip);
+                }
+
+                {
+                    LogProxy log(logger);
+                    log << "layout: " << layout.width << ',' << layout.height << ':';
+                    for (decltype(numChips) i=0; i<numChips; i++)
+                        log << ' ' << layout.chip[i].x << ',' << layout.chip[i].y;
+                    log << log_debug;
+                }
+            }
+
+            // ----------------------- setup and start rest service -----------------------
             global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
                 if (val == "true") {
                     global::instance->stop = true;
@@ -921,75 +947,6 @@ namespace {
             }
             // ---------------- END test code ---------
 
-            logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
-            clientSession.reset(new HTTPClientSession{serverAddress});
-
-            auto dashboardPtr = dashboard();
-            std::string softwareVersion = (dashboardPtr|"Server")->getValue<std::string>("SoftwareVersion");
-            {
-                LogProxy log(logger);
-                log << "Server Software Version: " << softwareVersion << "\nDashboard: ";
-                dashboardPtr->stringify(log.base());
-                log << log_notice;
-            }
-
-            detectorInit();
-
-            {
-                auto configPtr = detectorConfig();
-                {
-                    LogProxy log(logger);
-                    log << "Response of getting the Detector Configuration from SERVAL: ";
-                    configPtr->stringify(log.base());
-                    log << log_notice;
-                }
-
-                // unsigned numTriggers = 1;
-                // acquisitionInit(configPtr, numTriggers, 2, 950);
-            }
-
-            {
-                auto infoPtr = detectorInfo();
-                {
-                    LogProxy log(logger);
-                    log << "Response of getting the Detector Info from SERVAL: ";
-                    infoPtr->stringify(log.base());
-                    log << log_notice;
-                }
-
-                infoPtr->get("NumberOfChips").convert(numChips);
-            }
-
-            detector_layout layout;
-            {
-                auto layoutPtr = detectorLayout();
-                {
-                    LogProxy log(logger);
-                    log << "Response of getting the Detector Layout from SERVAL: ";
-                    layoutPtr->stringify(log.base());
-                    log << log_notice;
-                }
-
-                auto origPtr = layoutPtr | "Original";
-                origPtr->get("Width").convert(layout.width);
-                origPtr->get("Height").convert(layout.height);
-
-                auto chipPtr = origPtr / "Chips";
-                for (decltype(numChips) i=0; i<numChips; i++) {
-                    chip_position chip;
-                    (chipPtr | i)->get("X").convert(chip.x);
-                    (chipPtr | i)->get("Y").convert(chip.y);
-                    layout.chip.push_back(chip);
-                }
-
-                {
-                    LogProxy log(logger);
-                    log << "layout: " << layout.width << ',' << layout.height << ':';
-                    for (decltype(numChips) i=0; i<numChips; i++)
-                        log << ' ' << layout.chip[i].x << ',' << layout.chip[i].y;
-                    log << log_debug;
-                }
-            }
 
             processing::init(layout);
 

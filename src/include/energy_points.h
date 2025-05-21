@@ -6,6 +6,7 @@
 Pixel to energy point mapping
 */
 
+#include <istream>
 #include <vector>
 
 /*!
@@ -70,6 +71,26 @@ struct PixelIndexToEp final {
         {
                 return chip.at(index.chip).flat_pixel.at(index.flat_pixel);
         }
+
+        static constexpr unsigned FILE_STREAM = 0u;     //!< Parse from file stream
+        static constexpr unsigned JSON_STREAM = 1u;     //!< Parse from json stream
+
+        /*!
+        \brief Parse from input stream
+        \param pmap Result
+        \param in Input stream
+        \param type Input type, see constants above
+        */
+        static void from(PixelIndexToEp& pmap, std::istream& in, unsigned type=FILE_STREAM);
+
 };
+
+/*!
+\brief Write in json format to output stream
+\param out Output stream
+\param pmap The pixel to energy point mapping
+\return Output stream
+*/
+std::ostream& operator<<(std::ostream& out, const PixelIndexToEp& pmap);
 
 #endif // ENERGY_POINTS_H

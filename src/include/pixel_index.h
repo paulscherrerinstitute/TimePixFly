@@ -21,7 +21,7 @@ struct PixelIndex final {
     \param xy           Pixel coordinate pair relative to chip
     \return Abstract pixel index for chip and coordinate pair
     */
-    static PixelIndex from(unsigned chip_index, std::pair<uint64_t, uint64_t> xy)
+    static inline PixelIndex from(unsigned chip_index, std::pair<uint64_t, uint64_t> xy)
     {
         return PixelIndex{chip_index, (unsigned)(xy.first * chip_size + xy.second)};
     }
@@ -32,7 +32,7 @@ struct PixelIndex final {
     \param flat_pixel   Flat pixel index relative to chip
     \return Abstract pixel index for chip and flat pixel index
     */
-    static PixelIndex from(unsigned chip_index, unsigned flat_pixel)
+    static inline PixelIndex from(unsigned chip_index, unsigned flat_pixel)
     {
         return PixelIndex{chip_index, flat_pixel};
     }
