@@ -174,7 +174,7 @@ namespace {
 
 }
 
-void from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
+void PixelIndexToEp::from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
 {
     switch (type) {
         case PixelIndexToEp::FILE_STREAM:

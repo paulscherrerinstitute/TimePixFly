@@ -69,106 +69,6 @@ namespace {
         std::unique_ptr<Detector> detptr;       //!< Pointer to detector object, created by init()
 
         /*!
-        \brief Parse object of type T in a string
-        \param s   String having a representation of T at pos
-        \param pos Position in the string from where to parse
-        \return Parsed object of type Tualified-id before ‘>’ token
-        */
-        template <typename T>
-        T parse(std::string_view& s, std::string_view::size_type pos)
-        {
-                std::istringstream iss(s.substr(pos).data());
-                T t;
-                iss >> t;
-                if (!iss)
-                        throw std::ios_base::failure("failed to parse XESPoints file data");
-                return t;
-        }
-
-        /*!
-        \brief Read region of interest related to are (pixel to energy point mapping)
-
-        The file contains lines in the form
-
-        chip flatPixel energyPoint0 weight0 [energyPoint1 weight1 ...]
-
-        \param energy_points    Set this mapping to what was defined in XESPointsFile
-        \param layout           The detector layout
-        \param XESPointsFile    Name of the file that defines the pixel to energy point mapping
-        */
-        void readAreaROI(PixelIndexToEp& energy_points, const detector_layout& layout, const std::string& XESPointsFile)
-        {
-                logger << "readAreaROI(" << XESPointsFile << ')' << log_trace;
-                const auto numPixels = chip_size * chip_size;
-                const auto numChips = layout.chip.size();
-
-                energy_points.chip.resize(numChips);
-                for (auto& chip: energy_points.chip) {
-                        chip.flat_pixel.resize(numPixels);
-                }
-
-                constexpr size_t bufSize = 1024;
-                char buf[bufSize] = {0};
-                std::string_view::size_type posN[bufSize] = {0};
-                std::ifstream ifs(XESPointsFile);
-                if (! ifs)
-                        throw std::ios_base::failure(std::string{"failed to open "} + XESPointsFile);
-
-                for (unsigned line=1;;line++) {
-                        // i, j, XESEnergyIndex[i,j,k]..., XESWeight [i,j,k]...
-                        if (! ifs.getline(buf, bufSize).good()) {
-                                if (! ifs.eof())
-                                        throw std::ios_base::failure(std::string{"failed to parse XESPoints file at line "} + std::to_string(line));
-                                break;
-                        }
-                        std::string_view s(buf);
-                        std::string_view::size_type pos = 0;
-                        unsigned count = 0;
-                        posN[count] = pos;
-                        while ((pos = s.find(',', pos)) != std::string_view::npos) {
-                                count++;
-                                pos++;
-                                posN[count] = pos;
-                        }
-                        count += 1;
-                        if (count < 2)
-                                throw std::invalid_argument("invalid XESPoints file line (count < 2)");
-                        if ((count % 2) != 0)
-                                throw std::invalid_argument("invalid XESPoints file line (count % 2 != 0)");
-                        unsigned k = parse<unsigned>(s, posN[0]);       // chip
-                        if (k >= numChips)
-                                throw std::invalid_argument("invalid chip number in XESPoints file");
-                        unsigned l = parse<unsigned>(s, posN[1]);       // flatPixel
-                        if (l >= numPixels)
-                                throw std::invalid_argument("invalid pixel number in XESPoints file");
-                        FlatPixelToEp& pixel = energy_points.at(PixelIndex::from(k, l));
-                        const unsigned numEnergyPoints = (count - 2u) / 2u;
-                        for (unsigned m=0; m<numEnergyPoints; m++) {
-                                EpPart part;
-                                part.energy_point = parse<unsigned>(s, posN[2+m]);
-                                energy_points.npoints = std::max(energy_points.npoints, part.energy_point);
-                                pixel.part.push_back(std::move(part));
-                        }
-                        for (unsigned m=0; m<numEnergyPoints; m++)
-                                pixel.part[m].weight = parse<float>(s, posN[2+numEnergyPoints+m]);
-                }
-
-                energy_points.npoints += 1;
-                logger << "num energy points: " << energy_points.npoints << log_debug;
-
-	/*
-	//check that it was read correctly:
-	for (int ii=0;ii<numPixels; ii++) {
-	    int ep1=energy_points.at(PixelIndex::from(0, ii)).part[0].energy_point;
-	    float wp1=energy_points.at(PixelIndex::from(0, ii)).part[0].weight;
-
-
-	    std::cout<<"ep1wp1="<<ep1<<"  "<<wp1<<"\n";
-	    }
-	*/
-        }
-
-        /*!
         \brief Analysis data and operations
         \tparam TOAMode TOA Mode
         */
@@ -433,11 +333,15 @@ namespace processing {
                 std::string ShortFileName = config.getString("ShortFileName");
 
                 logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
-                       << ", FileOutputPath=" << FileOutputPath << ", ShortFileName=" << ShortFileName << log_info;
+                        << ", FileOutputPath=" << FileOutputPath << ", ShortFileName=" << ShortFileName << log_info;
 
                 detptr.reset(new Detector{layout});
                 detptr->SetTimeROI(TRStart, TRStep, TRN);
-                readAreaROI(detptr->energy_points, layout, "XESPoints.inp");
+
+                if (! global::instance->server_mode) {
+                        auto in = std::ifstream("XESPoints.inp");
+                        PixelIndexToEp::from(detptr->energy_points, in);
+                }
 
                 analysis.reset(new Analysis<Detector::TOAMode>{*detptr, FileOutputPath + ShortFileName});
         }

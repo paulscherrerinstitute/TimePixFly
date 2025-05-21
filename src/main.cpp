@@ -947,7 +947,6 @@ namespace {
             }
             // ---------------- END test code ---------
 
-
             processing::init(layout);
 
             logger << "listening at " << clientAddress.toString() << log_notice;
