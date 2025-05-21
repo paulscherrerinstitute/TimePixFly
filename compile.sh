@@ -70,6 +70,8 @@ case "$TARGET" in
         echo "    SPEED_FLAGS  extra optimization flags"
         echo "    WARN_FLAGS   extra warning flags"
         echo "    STRIP        strip executable"
+        echo "    DEBUG        debug friendly flags"
+        echo "    NOOPT        no optimization (with DEBUG)"
         echo "  test:"
         echo "    TEST_FLAGS   extra test executable flags";;
     *)
