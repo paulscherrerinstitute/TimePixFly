@@ -100,17 +100,19 @@ namespace xes {
         std::thread writerThread;           //!< Data aggregate+write thread
         std::unique_ptr<xes::Writer> writer; //!< Writer for file or tcp
 
+        const Detector& detector;           //!< Detector reference
         Logger& logger;                     //!< Logger reference
 
         /*!
         \brief Constructor
-        \param detector Detector data reference
+        \param detector_ Detector data reference
         \param uri Output file://name (without period and .xes), or tcp://host:port
         \param nPeriods How many periods receive/emit data in parallel (see periodData member)
         */
-        inline Manager(const Detector& detector, const std::string& uri, unsigned nPeriods)
-            : writer(xes::Writer::from_uri(uri)), logger(Logger::get("Tpx3App"))
+        inline Manager(const Detector& detector_, const std::string& uri, unsigned nPeriods)
+            : writer(xes::Writer::from_uri(uri)), detector(detector_), logger(Logger::get("Tpx3App"))
         {
+            logger << "xes::Manager connecting to " << writer->dest() << log_info;
             const unsigned nThreads = detector.layout.chip.size();
             dataCache.resize(nThreads);
             periodData.resize(nPeriods, Period{});
@@ -127,14 +129,18 @@ namespace xes {
                 Timer clock;
 
                 try {
+                    writer->start(detector);
+
                     while (true) {
                         Period* period;
                         {
                             clock.set();
                             std::unique_lock lock(thread_lock);
                             while (true) {
-                                if (stopWriter)
+                                if (stopWriter) {
+                                    writer->stop("");
                                     goto stop;
+                                }
                                 if (periodQueue.size() > 0)
                                     break;
                                 action_required.wait(lock);
@@ -168,8 +174,10 @@ namespace xes {
                         t_write += clock.elapsed();
                     }
                 } catch (std::exception& ex) {
+                    writer->stop(ex.what());
                     logger << "writer thread exception: " << ex.what() << log_fatal;
                 } catch (...) {
+                    writer->stop("unknown exception");
                     logger << "writer thread: unknown exception" << log_fatal;
                 }
                 std::exit((EXIT_FAILURE));

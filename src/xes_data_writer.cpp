@@ -59,6 +59,11 @@ namespace {
                     throw std::ios_base::failure("xes::FileWriter::write failed");
             OutFile.close();
         }
+
+        inline std::string dest() override
+        {
+            return basePath;
+        }
     };
 
     /*!
@@ -118,6 +123,11 @@ namespace {
 
             send << "{\"type\":\"EndFrame\",\"error\":\"" << error_message << "\"}" << std::flush;
         }
+
+        inline std::string dest() override
+        {
+            return dataReceiver.peerAddress().toString();
+        }
     };
 
 }
@@ -138,11 +148,11 @@ namespace xes {
         Poco::URI destination{uri};
         const std::string& scheme{destination.getScheme()};
         const std::string dest{destination.getPathEtc()};
-        if (scheme == "file")
+        if (scheme == "file") {
             return std::unique_ptr<Writer>{new FileWriter{dest}};
-        else if (scheme == "tcp")
+        } else if (scheme == "tcp") {
             return std::unique_ptr<Writer>{new TcpWriter{dest}};
-        else
+        } else
             throw Poco::UnknownURISchemeException{scheme + " - unsupported uri scheme"};
         return nullptr;
     }

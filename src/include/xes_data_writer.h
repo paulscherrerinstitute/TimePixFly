@@ -39,6 +39,11 @@ namespace xes {
         virtual void stop(const std::string& error_message);
 
         /*!
+        \brief Destination string
+        */
+        virtual std::string dest() = 0;
+
+        /*!
         \brief Create writer from uri
         \param uri Output file://name (without period and .xes), or tcp://host:port
         \return FileWriter or TcpWriter

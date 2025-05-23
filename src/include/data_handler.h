@@ -70,14 +70,6 @@ class DataHandler final {
     }
 
     /*!
-    \brief Request for all threads to stop
-    */
-    void stopNow()
-    {
-        stopOperation.store(true, std::memory_order_release);
-    }
-
-    /*!
     \brief Read from raw event data stream into buffer
     \param buf Byte buffer
     \param size Number of bytes to read
@@ -113,7 +105,7 @@ class DataHandler final {
         #else
             uint64_t header[1];
         #endif
-        
+
         int numRead = readData(header, sizeof(header));
         if (numRead == 0)
             return 0;
@@ -342,7 +334,7 @@ class DataHandler final {
         uint64_t hits = 0;
 
         try {
-        
+
             auto& bufferPool = *perChipBufferPool[chipIndex];
 
             do {
@@ -359,7 +351,7 @@ class DataHandler final {
 
                     if (eventBuffer == nullptr) // no more data
                         goto analyser_stopped;
-                    
+
                     size_t dataSize = eventBuffer->content_size;
                     chunkSize = eventBuffer->chunk_size;
 //                    logger << threadId << ": full buffer " << eventBuffer->id
@@ -487,6 +479,14 @@ public:
         logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ", " << period << ", " << undisputedThreshold << ')' << log_trace;
         for (auto& q : queues)
             q.threshold = undisputedThreshold;
+    }
+
+    /*!
+    \brief Request for all threads to stop
+    */
+    void stopNow()
+    {
+        stopOperation.store(true, std::memory_order_release);
     }
 
     /*!

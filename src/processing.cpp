@@ -91,11 +91,11 @@ namespace {
 
                 /*!
                 \brief Constructor
-                \param det      Constant detector data
-                \param OutFName Output file name
+                \param det Constant detector data
+                \param uri Output file://name (without period and .xes), or tcp://host:port
                 */
-                inline Analysis(const Detector& det, const std::string& OutFName)
-                        : dataManager{det, OutFName, 3},
+                inline Analysis(const Detector& det, const std::string& uri)
+                        : dataManager{det, uri, 3},
                           save_point(det.layout.chip.size(), no_save),
                           detector{det},
                           TRoiStep_inv{1.f/detector.TRoiStep}
@@ -322,28 +322,35 @@ namespace processing {
 
         void init(const detector_layout& layout)
         {
-                ConfigFile config{"Processing.ini"};
-
-                int TRStart = config.getInt("TRStart");
-                int TRStep = config.getInt("TRStep");
-                int TRN = config.getInt("TRN");
-
-                // std::string FileInputPath = config.getString("FileInputPath");
-                std::string FileOutputPath = config.getString("FileOutputPath");
-                std::string ShortFileName = config.getString("ShortFileName");
-
-                logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
-                        << ", FileOutputPath=" << FileOutputPath << ", ShortFileName=" << ShortFileName << log_info;
-
+                const auto& gvars = *global::instance;
+                std::string output_uri = gvars.output_uri;
                 detptr.reset(new Detector{layout});
-                detptr->SetTimeROI(TRStart, TRStep, TRN);
 
-                if (! global::instance->server_mode) {
+                if (!gvars.server_mode) {
+                        ConfigFile config{"Processing.ini"};
+
+                        int TRStart = config.getInt("TRStart");
+                        int TRStep = config.getInt("TRStep");
+                        int TRN = config.getInt("TRN");
+                        output_uri = config.getString("OutputURI");
+
+                        logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
+                               << ", Output=" << output_uri << log_info;
+
                         auto in = std::ifstream("XESPoints.inp");
                         PixelIndexToEp::from(detptr->energy_points, in);
+
+                        detptr->SetTimeROI(TRStart, TRStep, TRN);
+                } else {
+                        auto TRoiStart = gvars.TRoiStart.load();
+                        auto TRoiStep = gvars.TRoiStep.load();
+                        auto TRoiN = gvars.TRoiN.load();
+                        logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
+                               << ", Output=" << output_uri << log_info;
+                        detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
-                analysis.reset(new Analysis<Detector::TOAMode>{*detptr, FileOutputPath + ShortFileName});
+                analysis.reset(new Analysis<Detector::TOAMode>{*detptr, output_uri});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period)

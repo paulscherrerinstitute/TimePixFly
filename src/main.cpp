@@ -157,15 +157,22 @@ namespace {
                 std::string key = uri.getPath();
                 if (request.getMethod() == Poco::Net::HTTPRequest::HTTP_PUT) {
                     if (request.getContentType() != "application/json")
-                        throw Poco::DataFormatException("PUT only allowed with JSON content");
-                    jsonParser.reset();
-                    Poco::JSON::Object::Ptr result = jsonParser
-                        .parse(request.stream())
-                        .extract<Poco::JSON::Object::Ptr>();
+                        throw Poco::DataFormatException{"PUT only allowed with JSON content"};
                     const auto& callbacks = global::instance->put_callbacks;
                     try {
-                        std::string res = callbacks.at(key)(result);
-                        ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                        const auto& handle = callbacks.at(key);
+                        if (handle.index() == 0) {
+                            jsonParser.reset();
+                            Poco::JSON::Object::Ptr result = jsonParser
+                                .parse(request.stream())
+                                .extract<Poco::JSON::Object::Ptr>();
+                            std::string res = std::get<0>(handle)(result);
+                            ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                        } else if (handle.index() == 1) {
+                            std::string res = std::get<1>(handle)(request.stream());
+                            ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                        } else
+                            throw Poco::LogicException{"Unknown put handler variant"};
                     } catch (std::out_of_range&) {
                         throw Poco::DataFormatException(std::string("illegal path - ") + key);
                     }
@@ -461,10 +468,10 @@ namespace {
             } else {
                 throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
             }
-            if (name == "server") {
+            if (name == "server-mode") {
                 global::instance->server_mode = val;
             } else {
-                throw LogicException{std::string{"unknown number argument name: "} + name};
+                throw LogicException{std::string{"unknown bool argument name: "} + name};
             }
         }
 
@@ -837,6 +844,8 @@ namespace {
             if (global::instance->stop)
                 return rval;
 
+            bool server_mode = global::instance->server_mode;
+
             // ----------------------- get detector server data -----------------------
             logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
             clientSession.reset(new HTTPClientSession{serverAddress});
@@ -850,7 +859,7 @@ namespace {
                 log << log_notice;
             }
 
-            if (! global::instance->server_mode)
+            if (! server_mode)
                 detectorInit();
 
             {
@@ -908,24 +917,104 @@ namespace {
             }
 
             // ----------------------- setup and start rest service -----------------------
+            // /?stop=true  GET to a stop now
             global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
+                auto& gvars = *global::instance;
                 if (val == "true") {
-                    global::instance->stop = true;
+                    gvars.stop.store(true);
+                    for (const auto& handler : gvars.stop_handlers)
+                        handler();
                     return "OK";
                 }
                 throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
             };
 
-            global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
+            // /?kill=true  GET process killed
+            global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
                 if (val == "true") {
-                    global::instance->start = true;
-                    return "OK";
+                    std::exit(EXIT_FAILURE);
+                    throw Poco::LogicException("should be unreachable");
                 }
-                throw Poco::DataFormatException("only 'true' is accepted as 'start' value");
+                throw Poco::DataFormatException("only 'true' is accepted as 'kill' value");
             };
 
-            // ---------------- BEGIN test code -------
-            // TODO: remove
+            // /last-error  GET and reset last error message
+            global::instance->get_callbacks["/last-error"] = []([[maybe_unused]] const std::string& val) -> std::string {
+                std::string err;
+                std::swap(err, global::instance->last_error);
+                if (err.empty())
+                    return "OK";
+                return err;
+            };
+
+            // /version  GET version string
+            global::instance->get_callbacks["/version"] = []([[maybe_unused]] const std::string& val) -> std::string {
+                return VERSION;
+            };
+
+            if (server_mode) {
+                // /?start=true  GET started preparing for data taking
+                global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
+                    if (val == "true") {
+                        global::instance->start = true;
+                        return "OK";
+                    }
+                    throw Poco::DataFormatException("only 'true' is accepted as 'start' value");
+                };
+
+                // /pixel-map  GET and PUT pixel mapping to energy points, see PixelIndexToEp::from_json
+                constexpr const char* rest_pmap = "/pixel-map";
+                global::instance->get_callbacks[rest_pmap] = []([[maybe_unused]] const std::string& val) -> std::string {
+                    std::ostringstream oss;
+                    const auto& pmap_p = global::instance->pixel_map;
+                    if (pmap_p == nullptr)
+                        throw Poco::RuntimeException("pixel map has not been set");
+                    oss << *pmap_p;
+                    return oss.str();
+                };
+
+                global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
+                    std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
+                    PixelIndexToEp::from(*pmap, in, PixelIndexToEp::JSON_STREAM);
+                    auto& pmap_p = global::instance->pixel_map;
+                    pmap_p = std::move(pmap);
+                    return "OK";
+                };
+
+                // /other-config  GET and PUT other config, see global
+                // {
+                //  "type": "OtherConfig",
+                //  "output_uri": "tcp://localhost:3015",
+                //  "save_interval": 131000,
+                //  "TRoiStart": 0,
+                //  "TRoiStep: 1,
+                //  "TRoiN": 5000
+                // }
+                constexpr const char* rest_config = "/other-config";
+                global::instance->get_callbacks[rest_config] = []([[maybe_unused]] const std::string& val) -> std::string {
+                    std::ostringstream oss;
+                    const auto& gvars = *global::instance;
+                    oss << R"({"type":"OtherConfig","output_uri":")" << gvars.output_uri << '"'
+                        << R"(,"save_interval":)" << gvars.save_interval
+                        << R"(,"TRoiStart":)" << gvars.TRoiStart
+                        << R"(,"TRoiStep":)" << gvars.TRoiStep
+                        << R"(,"TRoiN":)" << gvars.TRoiN
+                        << '}';
+                    return oss.str();
+                };
+
+                global::instance->put_callbacks[rest_config] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                    auto& gvars = *global::instance;
+                    gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
+                    gvars.save_interval = obj->getValue<decltype(gvars.save_interval)::value_type>("save_interval");
+                    gvars.TRoiStart = obj->getValue<decltype(gvars.TRoiStart)::value_type>("TRoiStart");
+                    gvars.TRoiStep = obj->getValue<decltype(gvars.TRoiStep)::value_type>("TRoiStep");
+                    gvars.TRoiN = obj->getValue<decltype(gvars.TRoiN)::value_type>("TRoiN");
+                    return "OK";
+                };
+            }
+
+            // /echo  PUT something that is echoed (for testing)
             global::instance->put_callbacks["/echo"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                 std::ostringstream oss;
                 obj->stringify(oss);
@@ -933,64 +1022,92 @@ namespace {
             };
 
             RestService restService(logger, controlAddress);
-            logger << "listen for commands on " << controlAddress.toString() << log_info;
+            logger << "running in " << (server_mode ? "server" : "application") << " mode, listen for commands on " << controlAddress.toString() << log_notice;
             restService.start();
 
-            {
-                using namespace std::chrono_literals;
-                while (!global::instance->stop) {
-                    std::cout << "doing something...\n";
-                    std::this_thread::sleep_for(1s);
+            do { // server mode loop
+                if (global::instance->server_mode) { // wait for start signal
+                    using namespace std::chrono_literals;
+                    while (!global::instance->stop && !global::instance->start) {
+                        std::this_thread::sleep_for(1ms);
+                    }
+                    if (global::instance->stop)
+                        break; // exit server mode loop
+                    global::instance->start = false;
                 }
-                restService.stop();
-                std::exit(0);
-            }
-            // ---------------- END test code ---------
 
-            processing::init(layout);
+                try {
+                    processing::init(layout);
 
-            logger << "listening at " << clientAddress.toString() << log_notice;
-            serverSocket.reset(new ServerSocket{clientAddress});
+                    logger << "listening at " << clientAddress.toString() << log_notice;
+                    serverSocket.reset(new ServerSocket{clientAddress});
 
-            serverRawDestination(clientAddress);
+                    serverRawDestination(clientAddress);
 
-            acquisitionStart();
+                    if (! global::instance->server_mode)
+                        acquisitionStart();
 
-            SocketAddress senderAddress;
-            StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
+                    SocketAddress senderAddress;
+                    StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
 
-            if (! streamFilePath.empty()) {
-                const auto t1 = wall_clock::now();
+                    if (! streamFilePath.empty()) {
+                        const auto t1 = wall_clock::now();
 
-                CopyHandler copyHandler(dataStream, streamFilePath, logger);
-                copyHandler.run_async();
-                copyHandler.await();
+                        CopyHandler copyHandler(dataStream, streamFilePath, logger);
+                        global::instance->stop_handlers.emplace_back([&copyHandler]() {
+                            copyHandler.stopNow();
+                        });
 
-                const auto t2 = wall_clock::now();
-                const double time = std::chrono::duration<double>{t2 - t1}.count();
+                        copyHandler.run_async();
+                        copyHandler.await();
 
-                logger << "time: " << time << "s\n";
-            } else {
-                const auto t1 = wall_clock::now();
+                        const auto t2 = wall_clock::now();
+                        const double time = std::chrono::duration<double>{t2 - t1}.count();
 
-                logger << "connection from " << senderAddress.toString() << log_info;
+                        logger << "time: " << time << "s\n";
+                    } else {
+                        const auto t1 = wall_clock::now();
 
-                DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
-                dataHandler.run_async();
-                dataHandler.await();
+                        logger << "connection from " << senderAddress.toString() << log_info;
 
-                const auto t2 = wall_clock::now();
-                const double time = std::chrono::duration<double>{t2 - t1}.count();
+                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
+                        global::instance->stop_handlers.emplace_back([&dataHandler]() {
+                            dataHandler.stopNow();
+                        });
 
-                dataStream.close();
+                        dataHandler.run_async();
+                        dataHandler.await();
 
-                const uint64_t hits = dataHandler.hitCount;
-                logger << "time: " << time << "s, hits: " << hits << ", rate: " << (hits / time) << " hits/s\n"
-                    << "analysis spin: " << dataHandler.analyseSpinTime << "s, work: " << dataHandler.analyseTime
-                    << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
-            }
+                        const auto t2 = wall_clock::now();
+                        const double time = std::chrono::duration<double>{t2 - t1}.count();
 
-            return Application::EXIT_OK;
+                        dataStream.close();
+
+                        const uint64_t hits = dataHandler.hitCount;
+                        logger << "time: " << time << "s, hits: " << hits << ", rate: " << (hits / time) << " hits/s\n"
+                            << "analysis spin: " << dataHandler.analyseSpinTime << "s, work: " << dataHandler.analyseTime
+                            << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
+                    }
+                } catch (Poco::Exception& ex) {
+                    global::instance->last_error = ex.displayText();
+                    LogProxy log(logger);
+                    log << ex.displayText() << '\n';
+                    const Poco::Exception* pEx = & ex;
+                    while ((pEx = pEx->nested())) {
+                        log << "  " << pEx->displayText() << '\n';
+                    }
+                    log << log_critical;
+                } catch (std::exception& ex) {
+                    global::instance->last_error = ex.what();
+                    logger << "Exception: " << ex.what() << log_critical;
+                }
+            } while (global::instance->server_mode && !global::instance->stop);
+
+            restService.stop();
+
+            if (global::instance->last_error.empty())
+                return Application::EXIT_OK;
+            return Application::EXIT_USAGE;
         }
 
     public:
@@ -1039,7 +1156,7 @@ int main (int argc, char* argv[])
         }
 
     } catch (Poco::Exception& ex) {
-        std::cerr << "fatal error: " << ex.displayText() << log_fatal;
+        std::cerr << "fatal error: " << ex.displayText() << '\n';
     } catch (std::exception& ex) {
         std::cerr << "fatal error: " << ex.what() << '\n';
     }

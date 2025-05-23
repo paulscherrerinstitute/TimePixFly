@@ -59,14 +59,6 @@ class CopyHandler final {
     }
 
     /*!
-    \brief Request threads to stop
-    */
-    void stopNow()
-    {
-        stopOperation.store(true, std::memory_order_release);
-    }
-
-    /*!
     \brief Read data into byte buffer
     \param buf  Byte buffer
     \param size Number of bytes to read
@@ -172,7 +164,7 @@ class CopyHandler final {
                 } while (!stop() && (data.get() == nullptr));
 
                 if (stop())
-                    goto reader_stopped;
+                    goto writer_stopped;
 
                 const auto t1 = wall_clock::now();
                 streamFile.write(data->data(), data->size());
@@ -192,7 +184,7 @@ class CopyHandler final {
             logger << "reader exception: " << ex.what() << log_critical;
         }
 
-    reader_stopped:
+    writer_stopped:
         writeTime += time;
         logger << "writer stopped" << log_debug;
     }
@@ -208,6 +200,14 @@ public:
         : dataStream{socket}, streamFile(path), logger{log}
     {
         logger << "CopyHandler(" << socket.address().toString() << ", " << path << ')' << log_trace;
+    }
+
+    /*!
+    \brief Request threads to stop
+    */
+    void stopNow()
+    {
+        stopOperation.store(true, std::memory_order_release);
     }
 
     /*!
