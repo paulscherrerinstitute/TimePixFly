@@ -22,6 +22,7 @@ TODO:
 #include "Poco/Dynamic/Var.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
+#include "Poco/JSON/PrintHandler.h"
 #include "Poco/Util/Application.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
@@ -918,6 +919,9 @@ namespace {
 
             // ----------------------- setup and start rest service -----------------------
             // /?stop=true  GET to a stop now
+            // returns:
+            // - status 200
+            // - data OK
             global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
                 auto& gvars = *global::instance;
                 if (val == "true") {
@@ -930,6 +934,7 @@ namespace {
             };
 
             // /?kill=true  GET process killed
+            // no return
             global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
                 if (val == "true") {
                     std::exit(EXIT_FAILURE);
@@ -939,21 +944,38 @@ namespace {
             };
 
             // /last-error  GET and reset last error message
+            // return:
+            // - status 200
+            // - data {"type":"LastError","message":"none"}
             global::instance->get_callbacks["/last-error"] = []([[maybe_unused]] const std::string& val) -> std::string {
-                std::string err;
-                std::swap(err, global::instance->last_error);
-                if (err.empty())
-                    return "OK";
-                return err;
+                std::ostringstream oss;
+                {
+                    Poco::JSON::PrintHandler json{oss};
+                    std::string err;
+                    std::swap(err, global::instance->last_error);
+                    json.startObject();
+                    json.key("type"); json.value(std::string{"LastError"});
+                    json.key("message"); json.value(err.empty() ? "none" : err);
+                    json.endObject();
+                }
+                return oss.str();
             };
 
             // /version  GET version string
+            // return:
+            // - status 200
+            // - data {"type":"VersionString","version":"dev 9adfe29 2025-05-23"}
             global::instance->get_callbacks["/version"] = []([[maybe_unused]] const std::string& val) -> std::string {
-                return VERSION;
+                std::ostringstream oss;
+                oss << R"({"type":"VersionString","version":")" << VERSION << R"("})";
+                return oss.str();
             };
 
             if (server_mode) {
                 // /?start=true  GET started preparing for data taking
+                // return:
+                // - status 200
+                // - data OK
                 global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
                     if (val == "true") {
                         global::instance->start = true;
@@ -963,6 +985,9 @@ namespace {
                 };
 
                 // /pixel-map  GET and PUT pixel mapping to energy points, see PixelIndexToEp::from_json
+                // GET return:
+                // - status 200
+                // - data see energy_points.cpp from_json()
                 constexpr const char* rest_pmap = "/pixel-map";
                 global::instance->get_callbacks[rest_pmap] = []([[maybe_unused]] const std::string& val) -> std::string {
                     std::ostringstream oss;
@@ -973,6 +998,10 @@ namespace {
                     return oss.str();
                 };
 
+                // /pixel-map  GET and PUT pixel mapping to energy points, see PixelIndexToEp::from_json
+                // PUT return:
+                // - status 200
+                // - data OK
                 global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, in, PixelIndexToEp::JSON_STREAM);
@@ -982,6 +1011,9 @@ namespace {
                 };
 
                 // /other-config  GET and PUT other config, see global
+                // GET return:
+                // - status 200
+                // - data
                 // {
                 //  "type": "OtherConfig",
                 //  "output_uri": "tcp://localhost:3015",
@@ -1003,6 +1035,10 @@ namespace {
                     return oss.str();
                 };
 
+                // /other-config  GET and PUT other config, see global
+                // PUT return:
+                // - status 200
+                // - data OK
                 global::instance->put_callbacks[rest_config] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                     auto& gvars = *global::instance;
                     gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
@@ -1014,7 +1050,10 @@ namespace {
                 };
             }
 
-            // /echo  PUT something that is echoed (for testing)
+            // /echo  PUT json data that is echoed (for testing)
+            // return:
+            // - status 200
+            // - data same as input (in json format)
             global::instance->put_callbacks["/echo"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                 std::ostringstream oss;
                 obj->stringify(oss);

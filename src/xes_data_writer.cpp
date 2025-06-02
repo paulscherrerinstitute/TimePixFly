@@ -85,7 +85,7 @@ namespace {
 
         /*!
         \brief Write XES data to TCP address
-        Send: { "Period":<period>, "TDSpectra":[<ep0>, <ep1>, ..., <epNxM>] }
+        Send: { "type":"XesData", "Period":<period>, "TDSpectra":[<ep0>, <ep1>, ..., <epNxM>] }
         \param data XES Data
         \param period Which period
         */
@@ -95,26 +95,26 @@ namespace {
             const auto elements = TDSpectra.size();
             Poco::Net::SocketStream send{dataReceiver};
 
-            send << "{\"type\":\"DataStructure\",\"period\":" << period
-                 << ",\"TDSpectra\":[" << TDSpectra[0];
+            send << R"({"type":"XesData","period":")" << period
+                 << R"(","TDSpectra":[")" << TDSpectra[0];
             for (std::remove_cv_t<decltype(elements)> i=1; i<elements; i++)
                 send << ',' << TDSpectra[i];
-            send << "],\"totalEvents\":" << data.Total
-                 << ",\"beforeROI\":" << data.BeforeRoi
-                 << ",\"afterROI\":" << data.AfterRoi
-                 << '}' << std::flush;
+            send << R"("],"totalEvents":")" << data.Total
+                 << R"(","beforeROI":")" << data.BeforeRoi
+                 << R"(","afterROI":")" << data.AfterRoi
+                 << R"("})" << std::flush;
         }
 
         inline void start(const Detector& detector) override
         {
             Poco::Net::SocketStream send{dataReceiver};
 
-            send << "{\"type\":\"StartFrame\",\"Mode\":" << (detector.TOAMode ? "\"TOA\"" : "\"TOT\"")
-                 << ",\"TRoiStart\":" << detector.TRoiStart
-                 << ",\"TRoiStep\":" << detector.TRoiStep
-                 << ",\"TRoiN\":" << detector.TRoiN
-                 << ",\"save_interval\":" << global::instance->save_interval
-                 << '}' << std::flush;
+            send << R"({"type":"StartFrame","Mode":")" << (detector.TOAMode ? "TOA" : "TOT")
+                 << R"(","TRoiStart":")" << detector.TRoiStart
+                 << R"(","TRoiStep":")" << detector.TRoiStep
+                 << R"(","TRoiN":")" << detector.TRoiN
+                 << R"(","save_interval":")" << global::instance->save_interval
+                 << R"("})" << std::flush;
         }
 
         inline void stop(const std::string& error_message) override
