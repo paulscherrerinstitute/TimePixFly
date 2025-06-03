@@ -11,6 +11,7 @@ Provide XES data writer implementations
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/SocketStream.h"
+#include "Poco/JSON/PrintHandler.h"
 
 #include "global.h"
 #include "pixel_index.h"
@@ -95,33 +96,44 @@ namespace {
             const auto elements = TDSpectra.size();
             Poco::Net::SocketStream send{dataReceiver};
 
-            send << R"({"type":"XesData","period":")" << period
-                 << R"(","TDSpectra":[")" << TDSpectra[0];
+            send << R"({"type":"XesData","period":)" << period
+                 << R"(,"TDSpectra":[)" << TDSpectra[0];
             for (std::remove_cv_t<decltype(elements)> i=1; i<elements; i++)
                 send << ',' << TDSpectra[i];
-            send << R"("],"totalEvents":")" << data.Total
-                 << R"(","beforeROI":")" << data.BeforeRoi
-                 << R"(","afterROI":")" << data.AfterRoi
-                 << R"("})" << std::flush;
+            send << R"(],"totalEvents":)" << data.Total
+                 << R"(,"beforeROI":)" << data.BeforeRoi
+                 << R"(,"afterROI":)" << data.AfterRoi
+                 << '}' << std::flush;
         }
 
         inline void start(const Detector& detector) override
         {
             Poco::Net::SocketStream send{dataReceiver};
-
-            send << R"({"type":"StartFrame","Mode":")" << (detector.TOAMode ? "TOA" : "TOT")
-                 << R"(","TRoiStart":")" << detector.TRoiStart
-                 << R"(","TRoiStep":")" << detector.TRoiStep
-                 << R"(","TRoiN":")" << detector.TRoiN
-                 << R"(","save_interval":")" << global::instance->save_interval
-                 << R"("})" << std::flush;
+            {
+                Poco::JSON::PrintHandler json{send};
+                json.startObject();
+                json.key("type"); json.value(std::string{"StartFrame"});
+                json.key("Mode"); json.value(std::string{detector.TOAMode ? "TOA" : "TOT"});
+                json.key("TRoiStart"); json.value(detector.TRoiStart);
+                json.key("TRoiStep"); json.value(detector.TRoiStep);
+                json.key("TRoiN"); json.value(detector.TRoiN);
+                json.key("save_interval"); json.value(global::instance->save_interval);
+                json.endObject();
+            }
+            send << std::flush;
         }
 
         inline void stop(const std::string& error_message) override
         {
             Poco::Net::SocketStream send{dataReceiver};
-
-            send << "{\"type\":\"EndFrame\",\"error\":\"" << error_message << "\"}" << std::flush;
+            {
+                Poco::JSON::PrintHandler json{send};
+                json.startObject();
+                json.key("type"); json.value(std::string{"EndFrame"});
+                json.key("error"); json.value(error_message.empty() ? std::string{global::no_error} : error_message);
+                json.endObject();
+            }
+            send << std::flush;
         }
 
         inline std::string dest() override

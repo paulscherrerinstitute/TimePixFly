@@ -9,6 +9,7 @@ Provide pixel map parsing function
 #include "Poco/Exception.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
+#include "Poco/JSON/PrintHandler.h"
 
 #include "shared_types.h"
 #include "pixel_index.h"
@@ -44,7 +45,7 @@ namespace {
         "chips": [                          // per chip mapping
             [                               // chip 0: pixel mapping
                 {                           // chip 0, flat pixel 0: mapping
-                    "i":0                   // flat pixel index
+                    "i":0,                  // flat pixel index
                     "p":[0,1,2],            // energy points
                     "f":[0.33,0.33,0.33]    // energy fractions
                 },
@@ -188,33 +189,34 @@ void PixelIndexToEp::from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
 
 std::ostream& operator<<(std::ostream& out, const PixelIndexToEp& pmap)
 {
-    out << "{\"type\":\"PixelMap\",\"chips\":[";
-    char sep = ' ';
+    Poco::JSON::PrintHandler json{out};
+    json.startObject();
+    json.key("type"); json.value(std::string{"PixelMap"});
+    json.key("chips"); json.startArray();
     for (const auto& chip : pmap.chip) {
-        out << sep << '[';
+        json.startArray();
         const auto& flat = chip.flat_pixel;
-        sep = ' ';
         for (unsigned i=0; i<flat.size(); i++) {
             const auto& parts = flat[i].part;
             if (! parts.empty()) {
-                out << sep << "{\"i\":" << i << "\"p\":[";
+                json.startObject();
+                json.key("i"); json.value(i);
+                json.key("p"); json.startArray();
                 std::for_each(std::cbegin(parts), std::cend(parts), [&](const auto& part) {
-                    out << sep << part.energy_point;
-                    sep = ',';
+                    json.value(part.energy_point);
                 });
-                out << "],\"f\":[";
-                sep = ' ';
+                json.endArray();
+                json.key("f"); json.startArray();
                 std::for_each(std::cbegin(parts), std::cend(parts), [&](const auto& part) {
-                    out << sep << part.weight;
-                    sep = ',';
+                    json.value(part.weight);
                 });
-                out << "]}";
-                sep = ',';
+                json.endArray();
+                json.endObject();
             }
         }
-        out << ']';
-        sep = ',';
+        json.endArray();
     }
-    out << "]}";
+    json.endArray();
+    json.endObject();
     return out;
 }

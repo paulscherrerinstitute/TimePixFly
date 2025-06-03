@@ -955,9 +955,19 @@ namespace {
                     std::swap(err, global::instance->last_error);
                     json.startObject();
                     json.key("type"); json.value(std::string{"LastError"});
-                    json.key("message"); json.value(err.empty() ? "none" : err);
+                    json.key("message"); json.value(err.empty() ? std::string{global::no_error} : err);
                     json.endObject();
                 }
+                return oss.str();
+            };
+
+            // /state GET program state
+            // return:
+            // - status 200
+            // - data {"type":"ProgramState","state":"config"} see global.h
+            global::instance->get_callbacks["/state"] = []([[maybe_unused]] const std::string& val) -> std::string {
+                std::ostringstream oss;
+                oss << R"({"type":"ProgramState","state":")" << global::instance->state << R"("})";
                 return oss.str();
             };
 
@@ -1005,6 +1015,23 @@ namespace {
                 global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, in, PixelIndexToEp::JSON_STREAM);
+                    auto& pmap_p = global::instance->pixel_map;
+                    pmap_p = std::move(pmap);
+                    return "OK";
+                };
+
+                // /pixel-map-from-file  PUT pixel mapping to energy points, see PixelIndexToEp::from_file
+                // returns:
+                // - status 200
+                // - data OK
+                // {
+                //  "type": "PixelMapFromFile",
+                //  "file": "path/to/file"
+                // }
+                global::instance->put_callbacks["/pixel-map-from-file"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                    std::ifstream ifs{obj->getValue<std::string>("file")};
+                    std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
+                    PixelIndexToEp::from(*pmap, ifs);
                     auto& pmap_p = global::instance->pixel_map;
                     pmap_p = std::move(pmap);
                     return "OK";
@@ -1067,6 +1094,7 @@ namespace {
             do { // server mode loop
                 if (global::instance->server_mode) { // wait for start signal
                     using namespace std::chrono_literals;
+                    global::instance->state = global::config;
                     while (!global::instance->stop && !global::instance->start) {
                         std::this_thread::sleep_for(1ms);
                     }
@@ -1074,6 +1102,8 @@ namespace {
                         break; // exit server mode loop
                     global::instance->start = false;
                 }
+
+                global::instance->state = global::setup;
 
                 try {
                     processing::init(layout);
@@ -1097,6 +1127,7 @@ namespace {
                             copyHandler.stopNow();
                         });
 
+                        global::instance->state = global::collect;
                         copyHandler.run_async();
                         copyHandler.await();
 
@@ -1114,6 +1145,7 @@ namespace {
                             dataHandler.stopNow();
                         });
 
+                        global::instance->state = global::collect;
                         dataHandler.run_async();
                         dataHandler.await();
 
@@ -1142,6 +1174,7 @@ namespace {
                 }
             } while (global::instance->server_mode && !global::instance->stop);
 
+            global::instance->state = global::shutdown;
             restService.stop();
 
             if (global::instance->last_error.empty())
