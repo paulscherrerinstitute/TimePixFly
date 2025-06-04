@@ -50,6 +50,11 @@ namespace processing {
     // */
     // void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event);
 
+    /*!
+    \brief Cleanup after processing
+    */
+    void stop();
+
 } // namespace processing
 
 #endif

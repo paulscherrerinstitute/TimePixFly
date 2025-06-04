@@ -365,4 +365,9 @@ namespace processing {
                 analysis->ProcessEvent(chipIndex, period, relative_toaclk, event);
         }
 
+        void stop()
+        {
+                analysis.reset(nullptr);
+        }
+
 } // namespace processing

@@ -509,6 +509,7 @@ public:
         readerThread.join();
         for (auto& thread : analyserThreads)
             thread.join();
+        processing::stop();
     }
 
     uint64_t hitCount = 0;      //!< Number of TOA events encountered

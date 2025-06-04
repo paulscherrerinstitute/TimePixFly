@@ -16,6 +16,7 @@ Provide functionality to manage partial XES data per thread
 #include <chrono>
 #include <stdexcept>
 #include "shared_types.h"
+#include "global.h"
 #include "logging.h"
 #include "timing.h"
 #include "xes_data_writer.h"
@@ -173,6 +174,8 @@ namespace xes {
 
                         t_write += clock.elapsed();
                     }
+
+                    writer->stop(std::string(global::no_error));
                 } catch (std::exception& ex) {
                     writer->stop(ex.what());
                     logger << "writer thread exception: " << ex.what() << log_fatal;
