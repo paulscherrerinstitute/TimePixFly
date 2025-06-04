@@ -324,7 +324,7 @@ namespace processing {
         {
                 const auto& gvars = *global::instance;
                 std::string output_uri = gvars.output_uri;
-                detptr.reset(new Detector{layout});
+                detptr.reset(new Detector{layout, *gvars.pixel_map});
 
                 if (!gvars.server_mode) {
                         ConfigFile config{"Processing.ini"};
@@ -338,7 +338,7 @@ namespace processing {
                                << ", Output=" << output_uri << log_info;
 
                         auto in = std::ifstream("XESPoints.inp");
-                        PixelIndexToEp::from(detptr->energy_points, in);
+                        PixelIndexToEp::from(*gvars.pixel_map, in);
 
                         detptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {

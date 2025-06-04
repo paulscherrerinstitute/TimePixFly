@@ -34,7 +34,7 @@ struct Detector final {
         u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
         u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
 
-        PixelIndexToEp energy_points;   //!< Abstract pixel index to energy point mapping
+        const PixelIndexToEp& energy_points;            //!< Abstract pixel index to energy point mapping
 
         /*!
         \brief Set region of interest within period interval
@@ -70,8 +70,8 @@ struct Detector final {
         \brief Constructor
         \param layout_ Detector layout reference
         */
-        inline Detector(const detector_layout& layout_)
-            : layout{layout_}
+        inline Detector(const detector_layout& layout_, const PixelIndexToEp& ep)
+            : layout{layout_}, energy_points{ep}
         {}
 
         ~Detector() = default;
