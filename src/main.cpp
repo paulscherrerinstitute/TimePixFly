@@ -186,8 +186,7 @@ namespace {
                         key += keyval.first;
                         val = keyval.second;
                     } else if (params.size() > 1) {
-                        ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Only one key is allowed per request";
-                        return;
+                        throw Poco::DataFormatException("Only one key is allowed per request");
                     }
                     const auto& callbacks = global::instance->get_callbacks;
                     try {
@@ -197,13 +196,17 @@ namespace {
                         throw Poco::DataFormatException(std::string("illegal path/key - ") + key);
                     }
                 } else {
-                    ResponseText(response) << HTTPResponse::HTTP_METHOD_NOT_ALLOWED << "Unsupported method: " << request.getMethod();
+                    throw Poco::DataFormatException(std::string("Unsupported method: ") + request.getMethod());
                 }
             } catch (Poco::Exception& ex) {
-                ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Unable to handle request: " << ex.displayText();
+                ResponseText(response) << ex.displayText();
+                response.setStatusAndReason(HTTPResponse::HTTP_BAD_REQUEST, ex.displayText());
             } catch (const std::exception& ex) {
-                ResponseText(response) << HTTPResponse::HTTP_BAD_REQUEST << "Unable to handle request: " << ex.what();
+                ResponseText(response) << ex.what();
+                response.setStatusAndReason(HTTPResponse::HTTP_BAD_REQUEST, ex.what());
             }
+
+            logger << "Response status: " << response.getStatus() << log_debug;
         }
     };
 
