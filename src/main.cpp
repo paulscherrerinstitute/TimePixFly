@@ -89,48 +89,6 @@ namespace {
     //=========================
 
     /*!
-    \brief Server response proxy object for text/plain response
-    */
-    class ResponseText final {
-        HTTPServerResponse& response;   //!< Server response
-        std::ostream& out;              //!< Stream for response text
-
-    public:
-        /*!
-        \brief Construct proxy
-        \param response_ Server response
-        */
-        inline ResponseText(HTTPServerResponse& response_)
-            : response(response_), out(response_.send())
-        {
-            response.setContentType("text/plain");
-        }
-
-        /*!
-        \brief Text output
-        \param val Value to print as text/plain in the response
-        \return this
-        */
-        template<typename T>
-        inline ResponseText& operator<<(const T& val)
-        {
-            out << val;
-            return *this;
-        }
-
-        /*!
-        \brief Set response status code
-        \param status Status code
-        \return this
-        */
-        inline ResponseText& operator<<(const HTTPResponse::HTTPStatus status)
-        {
-            response.setStatus(status);
-            return *this;
-        }
-    };
-
-    /*!
     \brief Handle control commands with a rest interface
     */
     class RestHandler final : public HTTPRequestHandler {
@@ -152,6 +110,7 @@ namespace {
         \param response Rest response
         */
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override {
+            std::string response_text;
             try {
                 URI uri{request.getURI()};
                 logger << request.getMethod() << " Request: " << uri.toString() << log_notice;
@@ -167,11 +126,9 @@ namespace {
                             Poco::JSON::Object::Ptr result = jsonParser
                                 .parse(request.stream())
                                 .extract<Poco::JSON::Object::Ptr>();
-                            std::string res = std::get<0>(handle)(result);
-                            ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                            response_text = std::get<0>(handle)(result);
                         } else if (handle.index() == 1) {
-                            std::string res = std::get<1>(handle)(request.stream());
-                            ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                            response_text = std::get<1>(handle)(request.stream());
                         } else
                             throw Poco::LogicException{"Unknown put handler variant"};
                     } catch (std::out_of_range&) {
@@ -190,8 +147,7 @@ namespace {
                     }
                     const auto& callbacks = global::instance->get_callbacks;
                     try {
-                        std::string res = callbacks.at(key)(val);
-                        ResponseText(response) << HTTPResponse::HTTP_OK << res;
+                        response_text = callbacks.at(key)(val);
                     } catch (std::out_of_range&) {
                         throw Poco::DataFormatException(std::string("illegal path/key - ") + key);
                     }
@@ -199,14 +155,15 @@ namespace {
                     throw Poco::DataFormatException(std::string("Unsupported method: ") + request.getMethod());
                 }
             } catch (Poco::Exception& ex) {
-                ResponseText(response) << ex.displayText();
+                response_text = ex.displayText();
                 response.setStatusAndReason(HTTPResponse::HTTP_BAD_REQUEST, ex.displayText());
             } catch (const std::exception& ex) {
-                ResponseText(response) << ex.what();
+                response_text = ex.what();
                 response.setStatusAndReason(HTTPResponse::HTTP_BAD_REQUEST, ex.what());
             }
 
-            logger << "Response status: " << response.getStatus() << log_debug;
+            response.send() << response_text;
+            logger << "Response status: " << response.getStatus() << ", Reson: " << response.getReason() << log_debug;
         }
     };
 
