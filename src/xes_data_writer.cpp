@@ -103,7 +103,7 @@ namespace {
             send << R"(],"totalEvents":)" << data.Total
                  << R"(,"beforeROI":)" << data.BeforeRoi
                  << R"(,"afterROI":)" << data.AfterRoi
-                 << '}' << std::flush;
+                 << "}\n" << std::flush;
         }
 
         inline void start(const Detector& detector) override
@@ -120,7 +120,7 @@ namespace {
                 json.key("save_interval"); json.value(global::instance->save_interval);
                 json.endObject();
             }
-            send << std::flush;
+            send << '\n' << std::flush;
         }
 
         inline void stop(const std::string& error_message) override
@@ -133,7 +133,7 @@ namespace {
                 json.key("error"); json.value(error_message.empty() ? std::string{global::no_error} : error_message);
                 json.endObject();
             }
-            send << std::flush;
+            send <<'\n' << std::flush;
         }
 
         inline std::string dest() override
