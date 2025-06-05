@@ -117,6 +117,7 @@ namespace {
                 json.key("TRoiStart"); json.value(detector.TRoiStart);
                 json.key("TRoiStep"); json.value(detector.TRoiStep);
                 json.key("TRoiN"); json.value(detector.TRoiN);
+                json.key("NumEnergyPoints"); json.value(detector.energy_points.npoints);
                 json.key("save_interval"); json.value(global::instance->save_interval);
                 json.endObject();
             }
