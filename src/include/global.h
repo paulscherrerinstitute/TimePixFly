@@ -62,12 +62,14 @@ struct global final {
     std::string last_error;                                                             //!< Last known error
 
     // program state: init -> config -> setup -> collect (-> config..) -> shutdown
-    static constexpr std::string_view init{"init"};
-    static constexpr std::string_view config{"config"};
-    static constexpr std::string_view setup{"setup"};
-    static constexpr std::string_view collect{"collect"};
-    static constexpr std::string_view shutdown{"shutdown"};
-    std::string_view state{init};
+    static constexpr std::string_view init{"init"};                                     //!< initial state
+    static constexpr std::string_view config{"config"};                                 //!< ready for configuration, from init
+    static constexpr std::string_view setup{"setup"};                                   //!< config done, setup data collection, from config
+    static constexpr std::string_view collect{"collect"};                               //!< collect data, from setup
+    static constexpr std::string_view except{"except"};                                 //!< exception happened, from config, setup, collect
+    static constexpr std::string_view shutdown{"shutdown"};                             //!< program shutdown, from config, setup, collect
+
+    std::string_view state{init};                                                       //!< program state (TODOD: protect with lock, if necessary)
 
     // Singleton
     static std::unique_ptr<global> instance;                                            //!< unique instance

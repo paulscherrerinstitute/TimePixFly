@@ -39,9 +39,11 @@ TODO:
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/MediaType.h"
+#include "Poco/Net/WebSocket.h"
 #include "Poco/URI.h"
 #include "Poco/Process.h"
 #include "Poco/Exception.h"
+#include "Poco/Timespan.h"
 
 #include "Poco/StreamCopier.h"
 
@@ -75,6 +77,7 @@ namespace {
     using Poco::Net::HTTPRequestHandlerFactory;
     using Poco::Net::HTTPServer;
     using Poco::Net::MediaType;
+    using Poco::Net::WebSocket;
     using Poco::URI;
     using Poco::LogicException;
     using Poco::InvalidArgumentException;
@@ -100,7 +103,7 @@ namespace {
         \brief Construct request handler
         \param logger_ Logger
         */
-        RestHandler(Logger& logger_)
+        RestHandler(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -168,6 +171,93 @@ namespace {
     };
 
     /*!
+    \brief Handle WebsSocket
+    */
+    class StateHandler final : public HTTPRequestHandler
+    {
+        Logger& logger;                             //!< Logger
+        static inline std::unique_ptr<WebSocket> ws;//!< single WebSocket
+        static inline std::mutex ws_mutex;          //!< Protect WebSocket
+        static inline std::atomic_bool stop_sig;    //!< Stop signal
+
+    public:
+        StateHandler(Logger& _logger) noexcept
+            : logger(_logger)
+        {}
+
+        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
+        {
+            try {
+                {
+                    std::lock_guard lock(ws_mutex);
+                    ws.reset(new WebSocket(request, response));
+                    logger << "websocket: created" << log_debug;
+                    std::string_view state{global::instance->state};
+                    ws->setReceiveTimeout(Poco::Timespan(1,0));
+                    ws->sendFrame(state.data(), state.size(), WebSocket::FRAME_TEXT);
+                }
+
+                static constexpr int buf_sz = 1024;
+                char buffer[buf_sz];
+                int flags, n;
+
+                while ((ws != nullptr) && !stop_sig) {
+                    try {
+                        n = ws->receiveFrame(buffer, sizeof(buffer), flags);
+                    } catch (Poco::TimeoutException&) {
+                        continue;
+                    }
+                    logger << "websocket: frame n=" << n << ", flags=" << flags << log_debug;
+
+                    if (flags & WebSocket::FRAME_OP_PING) {
+                        // Respond to PING with PONG
+                        ws->sendFrame(buffer, n, WebSocket::FRAME_FLAG_FIN | WebSocket::FRAME_OP_PONG);
+                        logger << "websocket: ping->pong" << log_debug;
+                    } else if (n == 0 || (flags & WebSocket::FRAME_OP_CLOSE)) {
+                        logger << "websocket: closed" << log_debug;
+                        break; // client closed connection
+                    } else if ((n > 0) && (n < buf_sz)) { // echo message for tests
+                        ws->sendFrame(buffer, n, WebSocket::FRAME_TEXT);
+                        buffer[n] = 0;
+                        logger << "websocket: echo \"" << buffer << '"' << log_info;
+                    }
+                }
+
+            } catch (std::exception& exc) {
+                logger << "websocket: error - " << exc.what() << log_warn;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(ws_mutex);
+                if (ws != nullptr) {
+                    ws->shutdown();
+                    ws.reset(nullptr);
+                }
+            }
+
+            logger << "websocket: gone" << log_debug;
+        }
+
+        static void set_state(const std::string_view& state)
+        {
+            if (global::instance->server_mode) {
+                std::lock_guard<std::mutex> lock(ws_mutex);
+                global::instance->state = state;
+                if (ws == nullptr)
+                    return;
+                ws->sendFrame(state.data(), state.size(), WebSocket::FRAME_TEXT);
+            } else {
+                global::instance->state = state;
+            }
+        }
+
+        static void stop() noexcept
+        {
+            stop_sig = true;
+        }
+    };
+
+    /*!
     \brief Factory for creating rest handlers
     */
     class RestHandlerFactory final : public HTTPRequestHandlerFactory {
@@ -178,7 +268,7 @@ namespace {
         \brief Create factory
         \param logger_ Logger
         */
-        RestHandlerFactory(Logger& logger_)
+        RestHandlerFactory(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -187,7 +277,9 @@ namespace {
         \param request Rest request
         \return Handler for rest requests
         */
-        HTTPRequestHandler* createRequestHandler([[maybe_unused]] const HTTPServerRequest& request) override {
+        HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override {
+            if (request.getURI() == "/ws")
+                return new StateHandler(logger);
             return new RestHandler(logger);
         }
     };
@@ -786,6 +878,12 @@ namespace {
             checkSession(in);
         }
 
+        inline void set_state(const std::string_view& state)
+        {
+            logger << "new state: " << state << log_debug;
+            StateHandler::set_state(state);
+        }
+
         /*!
         \brief Poco application main function
         \param args Positional commandline args
@@ -1052,9 +1150,12 @@ namespace {
             restService.start();
 
             do { // server mode loop
+                if (! global::instance->last_error.empty())
+                    set_state(global::except);
+
                 if (global::instance->server_mode) { // wait for start signal
                     using namespace std::chrono_literals;
-                    global::instance->state = global::config;
+                    set_state(global::config);
                     while (!global::instance->stop && !global::instance->start) {
                         std::this_thread::sleep_for(1ms);
                     }
@@ -1063,7 +1164,7 @@ namespace {
                     global::instance->start = false;
                 }
 
-                global::instance->state = global::setup;
+                set_state(global::setup);
 
                 try {
                     processing::init(layout);
@@ -1077,6 +1178,7 @@ namespace {
                         acquisitionStart();
 
                     SocketAddress senderAddress;
+                    set_state(global::collect);
                     StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
 
                     if (! streamFilePath.empty()) {
@@ -1087,7 +1189,7 @@ namespace {
                             copyHandler.stopNow();
                         });
 
-                        global::instance->state = global::collect;
+                        set_state(global::collect);
                         copyHandler.run_async();
                         copyHandler.await();
 
@@ -1105,7 +1207,6 @@ namespace {
                             dataHandler.stopNow();
                         });
 
-                        global::instance->state = global::collect;
                         dataHandler.run_async();
                         dataHandler.await();
 
@@ -1121,6 +1222,7 @@ namespace {
                     }
                 } catch (Poco::Exception& ex) {
                     global::instance->last_error = ex.displayText();
+                    set_state(global::except);
                     LogProxy log(logger);
                     log << ex.displayText() << '\n';
                     const Poco::Exception* pEx = & ex;
@@ -1130,11 +1232,13 @@ namespace {
                     log << log_critical;
                 } catch (std::exception& ex) {
                     global::instance->last_error = ex.what();
+                    set_state(global::except);
                     logger << "Exception: " << ex.what() << log_critical;
                 }
             } while (global::instance->server_mode && !global::instance->stop);
 
-            global::instance->state = global::shutdown;
+            set_state(global::shutdown);
+            StateHandler::stop();
             restService.stop();
 
             if (global::instance->last_error.empty())
