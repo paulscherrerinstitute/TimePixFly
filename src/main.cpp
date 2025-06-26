@@ -44,6 +44,7 @@ TODO:
 #include "Poco/Process.h"
 #include "Poco/Exception.h"
 #include "Poco/Timespan.h"
+#include "Poco/SyslogChannel.h"
 
 #include "Poco/StreamCopier.h"
 
@@ -467,6 +468,12 @@ namespace {
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
 
+            options.addOption(Option("use-syslog", "L")
+                .description("use syslog for logging")
+                .required(false)
+                .repeatable(false)
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
+
             options.addOption(Option("version", "v")
                 .description("show version")
                 .required(false)
@@ -523,6 +530,14 @@ namespace {
             }
             if (name == "server-mode") {
                 global::instance->server_mode = val;
+            } else if (name == "use-syslog") {
+                if (val) {
+                    using Poco::SyslogChannel;
+                    SyslogChannel::Ptr schan{new SyslogChannel};
+                    schan->setProperty("name", logger.name());
+                    logger << "set loggin channel to syslog" << log_debug;
+                    logger.setChannel(schan);
+                }
             } else {
                 throw LogicException{std::string{"unknown bool argument name: "} + name};
             }
