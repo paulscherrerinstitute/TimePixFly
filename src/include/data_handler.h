@@ -17,6 +17,7 @@ Code for processing raw data stream
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 #include "logging.h"
+#include "global.h"
 #include "io_buffers.h"
 #include "period_predictor.h"
 #include "period_queues.h"
@@ -216,9 +217,11 @@ class DataHandler final {
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << "reader exception: " << ex.displayText() << log_critical;
+            global::set_error(std::string{"reader: "} + ex.displayText());
         } catch (std::exception& ex) {
             stopNow();
             logger << "reader exception: " << ex.what() << log_critical;
+            global::set_error(std::string{"reader: "} + ex.what());
         }
 
     reader_stopped:
@@ -453,9 +456,11 @@ class DataHandler final {
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << threadId << ": analyser exception: " << ex.displayText() << log_critical;
+            global::set_error(ex.displayText());
         } catch (std::exception& ex) {
             stopNow();
             logger << threadId << ": analyser exception: " << ex.what() << log_critical;
+            global::set_error(ex.what());
         }
     }
 

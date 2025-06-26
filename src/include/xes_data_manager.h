@@ -15,6 +15,9 @@ Provide functionality to manage partial XES data per thread
 #include <limits>
 #include <chrono>
 #include <stdexcept>
+
+#include "Poco/Exception.h"
+
 #include "shared_types.h"
 #include "global.h"
 #include "logging.h"
@@ -139,7 +142,7 @@ namespace xes {
                             std::unique_lock lock(thread_lock);
                             while (true) {
                                 if (stopWriter) {
-                                    writer->stop("");
+                                    writer->stop(std::string(global::no_error));
                                     goto stop;
                                 }
                                 if (periodQueue.size() > 0)
@@ -173,17 +176,21 @@ namespace xes {
                         period->period.store(none);
 
                         t_write += clock.elapsed();
-                    }
-
-                    writer->stop(std::string(global::no_error));
+                    } // while (true)
                 } catch (std::exception& ex) {
-                    writer->stop(ex.what());
+                    writer->stop(std::string("writer: ") + ex.what());
                     logger << "writer thread exception: " << ex.what() << log_fatal;
+                    global::set_error(std::string("writer: ") + ex.what());
+                    stopWriter = true;
+                    return;
                 } catch (...) {
-                    writer->stop("unknown exception");
+                    writer->stop("writer: unknown exception");
                     logger << "writer thread: unknown exception" << log_fatal;
+                    global::set_error("writer: unknown exception");
+                    stopWriter = true;
+                    return;
                 }
-                std::exit((EXIT_FAILURE));
+                std::exit((EXIT_FAILURE));  // unreachable
 
             stop:
                 logger << "output wait: " << t_wait << "s, aggregate: " << t_aggregate << "s, write: " << t_write << 's' << log_notice;
@@ -258,6 +265,9 @@ namespace xes {
         */
         void ReturnData(unsigned threadNo, period_type period)
         {
+            if (stopWriter)
+                throw Poco::RuntimeException(global::instance->last_error);
+
             dataCache[threadNo].period = none;
             Period* periodPtr = nullptr;
             for (auto& pd : periodData) {

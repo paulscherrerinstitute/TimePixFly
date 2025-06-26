@@ -58,7 +58,7 @@ struct global final {
     detector_layout layout;                                                             //!< Detector layout (retrieved from ASI server)
 
     // From code
-    // TODO: Protect this with a lock
+    static void set_error(const std::string& error);                                    //!< set error mutually exclusively
     std::string last_error;                                                             //!< Last known error
 
     // program state: init -> config -> setup -> collect (-> config..) -> shutdown
