@@ -533,7 +533,7 @@ namespace {
             } else if (name == "use-syslog") {
                 if (val) {
                     using Poco::SyslogChannel;
-                    SyslogChannel::Ptr schan{new SyslogChannel};
+                    Poco::AutoPtr<SyslogChannel> schan{new SyslogChannel};
                     schan->setProperty("name", logger.name());
                     logger << "set loggin channel to syslog" << log_debug;
                     logger.setChannel(schan);
