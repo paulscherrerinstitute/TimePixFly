@@ -92,7 +92,7 @@ namespace {
                 /*!
                 \brief Constructor
                 \param det Constant detector data
-                \param uri Output file://name (without period and .xes), or tcp://host:port
+                \param uri Output file:name (without period and .xes), or tcp:host:port
                 */
                 inline Analysis(const Detector& det, const std::string& uri)
                         : dataManager{det, uri, 3},

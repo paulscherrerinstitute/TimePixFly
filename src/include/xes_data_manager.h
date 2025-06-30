@@ -110,7 +110,7 @@ namespace xes {
         /*!
         \brief Constructor
         \param detector_ Detector data reference
-        \param uri Output file://name (without period and .xes), or tcp://host:port
+        \param uri Output file:name (without period and .xes), or tcp:host:port
         \param nPeriods How many periods receive/emit data in parallel (see periodData member)
         */
         inline Manager(const Detector& detector_, const std::string& uri, unsigned nPeriods)

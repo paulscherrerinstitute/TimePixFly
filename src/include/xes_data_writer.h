@@ -45,7 +45,7 @@ namespace xes {
 
         /*!
         \brief Create writer from uri
-        \param uri Output file://name (without period and .xes), or tcp://host:port
+        \param uri Output file:name (without period and .xes), or tcp:host:port
         \return FileWriter or TcpWriter
         */
         static std::unique_ptr<Writer> from_uri(const std::string& uri);

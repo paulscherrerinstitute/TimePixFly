@@ -1131,7 +1131,7 @@ namespace {
                 // - data
                 // {
                 //  "type": "OtherConfig",
-                //  "output_uri": "tcp://localhost:3015",
+                //  "output_uri": "tcp:localhost:3015", or "file:./dump"
                 //  "save_interval": 131000,
                 //  "TRoiStart": 0,
                 //  "TRoiStep: 1,
