@@ -28,6 +28,7 @@ Global configuration and control data
 struct global final {
     // Constants
     static constexpr std::string_view no_error{"none"};                                 //!< json error string for no error
+    static constexpr unsigned collect_timeout{30000};                                   //!< 30ms receive timeout for detector data
 
     // Callbacks
     using key_type = std::string;                                                       //!< key = path (for PUT and GET) or path?key (for GET with key)
@@ -42,8 +43,9 @@ struct global final {
     std::vector<stop_handler> stop_handlers;                                            //!< Called by REST /?stop
 
     // Accessible by REST interface
-    std::atomic_bool stop{false};                                                       //!< Stop processing
-    std::atomic_bool start{false};                                                      //!< Start processing
+    std::atomic_bool stop_collect{false};                                               //!< Stop collecting data
+    std::atomic_bool stop{false};                                                       //!< Stop server
+    std::atomic_bool start{false};                                                      //!< Start collecting data
     std::atomic<period_type> save_interval{131000};                                     //!< Histogram saving period: ~1s for TDC frequency 131kHz
     std::atomic<u64> TRoiStart{0};                                                      //!< Time ROI start (server mode)
     std::atomic<u64> TRoiStep{1};                                                       //!< Time ROI step (server mode)

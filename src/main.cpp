@@ -1006,6 +1006,21 @@ namespace {
                 throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
             };
 
+            // /?stop_collect=true  GET stop collecting data
+            // returns:
+            // - status 200
+            // - data OK
+            global::instance->get_callbacks["/?stop_collect"] = [](const std::string& val) -> std::string {
+                auto& gvars = *global::instance;
+                if (val == "true") {
+                    gvars.stop_collect.store(true);
+                    for (const auto& handler : gvars.stop_handlers)
+                        handler();
+                    return "OK";
+                }
+                throw Poco::DataFormatException("only 'true' is accepted as 'stop_collect' value");
+            };
+
             // /?kill=true  GET process killed
             // no return
             global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
@@ -1195,6 +1210,8 @@ namespace {
                     SocketAddress senderAddress;
                     set_state(global::collect);
                     StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
+                    dataStream.setReceiveTimeout(global::instance->collect_timeout);
+                    global::instance->stop_collect = false;
 
                     if (! streamFilePath.empty()) {
                         const auto t1 = wall_clock::now();

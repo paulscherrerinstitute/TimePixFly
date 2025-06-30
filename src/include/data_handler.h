@@ -82,11 +82,16 @@ class DataHandler final {
         int numBytes = 0;
 
         do {
-            int numRead = dataStream.receiveBytes(&static_cast<char*>(buf)[numBytes], size - numBytes);
-            if (numRead == 0)
-                break;
+            int numRead = 0;
+            try {
+                numRead = dataStream.receiveBytes(&static_cast<char*>(buf)[numBytes], size - numBytes);
+                if (numRead == 0)
+                    break;
+            } catch (Poco::TimeoutException&) {
+                ;
+            }
             numBytes += numRead;
-        } while (numBytes < size);
+        } while ((numBytes < size) && !global::instance->stop_collect);
 
         return numBytes;
     }
@@ -414,6 +419,9 @@ class DataHandler final {
                                 processTdc(chipIndex, index, tdcclk); //, d);
                             }
                         } else {
+                            // if (__builtin_expect(Decode::matchesByte(d, 0x71), 0)) { // end readout
+                            //     stopNow();
+                            // }
                             if (__builtin_expect(Decode::matchesByte(d, 0x50), 0)) {
                                 throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
                             }
