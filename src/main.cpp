@@ -1208,8 +1208,9 @@ namespace {
                         acquisitionStart();
 
                     SocketAddress senderAddress;
-                    set_state(global::collect);
+                    set_state(global::await_connection);
                     StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
+                    set_state(global::collect);
                     dataStream.setReceiveTimeout(global::instance->collect_timeout);
                     global::instance->stop_collect = false;
 
@@ -1221,7 +1222,6 @@ namespace {
                             copyHandler.stopNow();
                         });
 
-                        set_state(global::collect);
                         copyHandler.run_async();
                         copyHandler.await();
 

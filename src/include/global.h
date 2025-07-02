@@ -68,7 +68,8 @@ struct global final {
     static constexpr std::string_view init{"init"};                                     //!< initial state
     static constexpr std::string_view config{"config"};                                 //!< ready for configuration, from init
     static constexpr std::string_view setup{"setup"};                                   //!< config done, setup data collection, from config
-    static constexpr std::string_view collect{"collect"};                               //!< collect data, from setup
+    static constexpr std::string_view await_connection{"await_connection"};             //!< wait for ASI server to connect, from setup
+    static constexpr std::string_view collect{"collect"};                               //!< collect data, from await_connection
     static constexpr std::string_view except{"except"};                                 //!< exception happened, from config, setup, collect
     static constexpr std::string_view shutdown{"shutdown"};                             //!< program shutdown, from config, setup, collect
 
