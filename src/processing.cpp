@@ -324,7 +324,6 @@ namespace processing {
         {
                 const auto& gvars = *global::instance;
                 std::string output_uri = gvars.output_uri;
-                detptr.reset(new Detector{layout, *gvars.pixel_map});
 
                 if (!gvars.server_mode) {
                         ConfigFile config{"Processing.ini"};
@@ -338,8 +337,12 @@ namespace processing {
                                << ", Output=" << output_uri << log_info;
 
                         auto in = std::ifstream("XESPoints.inp");
-                        PixelIndexToEp::from(*gvars.pixel_map, in);
+                        std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
+                        PixelIndexToEp::from(*pmap, in);
+                        auto& pmap_p = global::instance->pixel_map;
+                        pmap_p = std::move(pmap);
 
+                        detptr.reset(new Detector{layout, *gvars.pixel_map});
                         detptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
                         auto TRoiStart = gvars.TRoiStart.load();
@@ -347,6 +350,8 @@ namespace processing {
                         auto TRoiN = gvars.TRoiN.load();
                         logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
                                << ", Output=" << output_uri << log_info;
+
+                        detptr.reset(new Detector{layout, *gvars.pixel_map});
                         detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
