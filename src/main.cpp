@@ -19,6 +19,8 @@ TODO:
 #include <fstream>
 #include <chrono>
 
+#include "poll.h"
+
 #include "Poco/Dynamic/Var.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
@@ -1209,7 +1211,38 @@ namespace {
 
                     SocketAddress senderAddress;
                     set_state(global::await_connection);
+                    //------------------------------------------------
+                    // accept connection from ASI server using poll with a timeout
+                    {
+                        int fd = serverSocket->impl()->sockfd();
+
+                        // pollfd structure
+                        struct pollfd fds[1];
+                        fds[0].fd = fd;
+                        fds[0].events = POLLIN; // Check for incoming data (connection)
+
+                        // timeout in ms for the poll call
+                        int timeout = std::max(global::instance->collect_timeout / 1000u, 10u);
+                        int ret = 0;
+
+                        do {
+                            ret = poll(fds, 1, timeout);
+
+                            if (ret == -1) {
+                                throw Poco::RuntimeException(std::string{"poll failed - "} + std::strerror(errno));
+                            } else if (ret == 0) {  // timeout
+                                if (global::instance->stop_collect)
+                                    break;
+                            } else if (fds[0].revents & POLLIN) {
+                                break;
+                            }
+                        } while (true);
+
+                        if (ret == 0)               // stop_collect == true
+                            continue;
+                    }
                     StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
+                    //------------------------------------------------
                     set_state(global::collect);
                     dataStream.setReceiveTimeout(global::instance->collect_timeout);
                     global::instance->stop_collect = false;
