@@ -132,7 +132,7 @@ class DataHandler final {
             if (!Decode::matchesByte(header[1], 0x50))
                 throw DataFormatException("packet id expected");
             packetId = Decode::getBits(header[1], 47, 0);
-            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_info;
+            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_debug;
         #else
             packetId = 0;
             // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << log_info;
@@ -162,8 +162,10 @@ class DataHandler final {
                     bytesRead = readPacketHeader(chipIndex, chunkSize, packetId);
                     const auto t2 = wall_clock::now();
                     workTime += std::chrono::duration<double>(t2 - t1).count();
-                    if (bytesRead == 0)
+                    if (bytesRead == 0) {
+                        logger << "reader: graceful connection shutdown detected" << log_debug;
                         break;
+                    }
                 }
 
                 while (totalBytes < chunkSize) {
