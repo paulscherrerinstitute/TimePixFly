@@ -28,7 +28,7 @@ Global configuration and control data
 struct global final {
     // Constants
     static constexpr std::string_view no_error{"none"};                                 //!< json error string for no error
-    static constexpr unsigned collect_timeout{30000};                                   //!< 30ms receive timeout for detector data
+    static constexpr unsigned collect_timeout{300000};                                  //!< 300ms receive timeout for detector data
 
     // Callbacks
     using key_type = std::string;                                                       //!< key = path (for PUT and GET) or path?key (for GET with key)
