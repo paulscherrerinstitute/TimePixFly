@@ -77,7 +77,7 @@ namespace {
     OptionSet args;                             //!< Commandline arguments OptionSet
     std::thread data_sender;                    //!< Data sender thread
     std::string file_name;                      //!< Raw data stream file name
-    bool premature_stall;                       //!< Stall data sending before sending everything
+    int premature_stall;                        //!< Stall data sending before sending everything
     unsigned number_of_chips = 4;               //!< Default value for number of detector chips
 
     /*!
@@ -102,12 +102,21 @@ namespace {
             : val{value}
         {}
 
+        /*!
+        \brief Convert to bool
+        \return Signal value
+        */
         operator bool()
         {
             std::lock_guard lock{lck};
             return val;
         }
 
+        /*!
+        \brief Assignment
+        \param value New value
+        \return self
+        */
         signal& operator=(bool value)
         {
             std::lock_guard lock{lck};
@@ -115,13 +124,33 @@ namespace {
             return *this;
         }
 
-        void wait()
+        /*!
+        \brief Wait for signal value
+        \param value Value to wait for
+        */
+        void await(bool value)
         {
             std::unique_lock lock{lck};
-            while (! val)
+            while (val != value)
                 cond.wait(lock);
         }
 
+        /*!
+        \brief Wait for signal value and reset it
+        \param value Value to wait for
+        */
+        void await_reset(bool value)
+        {
+            std::unique_lock lock{lck};
+            while (val != value)
+                cond.wait(lock);
+            val = !val;
+        }
+
+        /*!
+        \brief Set value and notify one waiter
+        \param value New signal value
+        */
         void set_notify(bool value)
         {
             std::lock_guard lock{lck};
@@ -129,24 +158,61 @@ namespace {
             cond.notify_one();
         }
 
-        struct lock final {
-            signal* sig;
-            std::unique_lock<std::mutex> lck;
+        /*!
+        \brief Return current signal value and reset it
+        \param value New signal value
+        \return Signal value
+        */
+        bool reset(bool value)
+        {
+            std::lock_guard lock{lck};
+            bool rval = val;
+            val = value;
+            return rval;
+        }
 
-            lock(signal& s)
+        /*!
+        \brief Proxy to a locked signal
+        */
+        struct lock final {
+            signal* sig;                        //!< Underlying signal
+            std::unique_lock<std::mutex> lck;   //!< Lock on signal
+
+            /*!
+            \brief Constructor
+            \param s Signal
+            */
+            explicit lock(signal& s)
                 : sig{&s}, lck{s.lck}
             {}
 
             lock(const lock&) = delete;
             lock& operator=(const lock&) = delete;
+
+            /*!
+            \brief Move constructor
+            */
             lock(lock&&) = default;
+
+            /*!
+            \brief Moving assignment
+            */
             lock& operator=(lock&&) = default;
 
+            /*!
+            \brief Conversion to bool
+            \return Underlying signal value
+            */
             operator bool()
             {
                 return sig->val;
             }
 
+            /*!
+            \brief Assignment
+            \param value New underlying signal value
+            \return this
+            */
             lock& operator=(bool value)
             {
                 sig->val = value;
@@ -154,6 +220,10 @@ namespace {
             }
         };
 
+        /*!
+        \brief Get locked proxy
+        \return Proxy to locked signal
+        */
         lock sig()
         {
             return lock(*this);
@@ -161,10 +231,11 @@ namespace {
     };
 
 
-    signal stop_server;
-    signal sender_ready;
-    signal start_collect;
-    signal stop_collect;
+    signal stop_server;     //!< Stop server signal
+    signal sender_ready;    //!< Sender is ready signal
+    signal start_collect;   //!< Start data collection signal
+    signal stop_collect;    //!< Stop data collection signal
+    signal break_stall;     //!< Break premature stall
 
     /*!
     \brief Wrap file descriptor
@@ -229,31 +300,43 @@ namespace {
     */
     void send_data()
     {
+        constexpr static int header_size = 16;  // for premature stall
         try {
             std::cout << "send data thread started ...\n";
             sender_ready.set_notify(true);
             file_data fd{file_desc{file_name}};
+            if (fd.len < header_size)
+                throw Poco::RuntimeException(std::string("input file is not large enough - ") + file_name);
+
             do {
                 std::cout << "data sender: waiting for start signal...\n";
                 do {
                     if (stop_server)
                         goto stop_reader;
-                    {
-                        signal::lock sc = start_collect.sig();
-                        if (sc) {
-                            sc = false;
-                            break;
-                        }
-                    }
+                    if (start_collect.reset(false))
+                        break;
 
                     std::this_thread::sleep_for(50ms);
                 } while (true);
                 {
                     std::cout << "data sender: received start\n";
+                    if (premature_stall == 0) {
+                        std::cout << "premature stall before connect\n";
+                        break_stall.await_reset(true);
+                    }
                     StreamSocket con{destination};
+                    if (premature_stall == 1) {
+                        std::cout << "premature stall after connect\n";
+                        break_stall.await_reset(true);
+                    }
                     std::cout << "start sending data to " << destination.toString() << '\n';
-                    sender_ready.set_notify(true);
                     size_t sent{0};
+                    if (premature_stall == 2) {
+                        int sz = con.sendBytes(&fd.data[sent], header_size);
+                        sent += sz;
+                        std::cout << "premature stall after sending " << sz << " bytes\n";
+                        break_stall.await_reset(true);
+                    }
                     while (sent < fd.len) {
                         std::cout << "data sender: trying to send " << (fd.len - sent) << " after " << sent << " bytes\n";
                         int sz = con.sendBytes(&fd.data[sent], fd.len - sent);
@@ -262,7 +345,7 @@ namespace {
 
                         if (stop_server)
                             goto stop_reader;
-                        if (stop_collect)
+                        if (stop_collect.reset(false))
                             break;
                     }
                 }
@@ -531,6 +614,19 @@ namespace {
     }
 
     /*!
+    \brief GET /break-stall - break premature stall
+    \param request Poco HTTP request object
+    \param response Poco HTTP response object
+    */
+    void get_break_stall([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
+    {
+        std::cout << "break stall\n";
+        break_stall.set_notify(true);
+        response.setContentType("text/plain");
+        response.send() << "break stall\n";
+    }
+
+    /*!
     \brief PUT /server/destination response
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
@@ -572,6 +668,7 @@ namespace {
         path_handler.emplace("/detector/layout", get_detector_layout);
         path_handler.emplace("/stop", get_stop);
         path_handler.emplace("/kill", get_kill);
+        path_handler.emplace("/break-stall", get_break_stall);
 
         path_handler.emplace("/server/destination", put_server_destination);
     }
@@ -618,27 +715,32 @@ namespace {
             long num = stol(value);
             if (name == "nchips")
                 number_of_chips = static_cast<unsigned>(num);
+            if (name == "premature-stall") {
+                if ((num < 0) || (num > 2))
+                    throw InvalidArgumentException("invalid premature stall value");
+                premature_stall = num;
+            }
         }
 
-        /*!
-        \brief Boolean value option handler
-        \param name Option name
-        \param value Option value {"", "1", "true"}
-        */
-        inline void handle_bool(const std::string& name, const std::string& value)
-        {
-            constexpr static int nvals = 5;
-            constexpr static const char* vals[nvals] = {"", "1", "true", "0", "false"};
-            constexpr static int last_true = 2;
-            bool val;
-            int i;
-            for (i=0; (i<nvals) && (vals[i] != value); i++);
-            if (i >= nvals)
-                throw Poco::InvalidArgumentException(std::string("illegal value for boolean option ") + name);
-            val = (i <= last_true);
-            if (name == "premature-stall")
-                premature_stall = val;
-        }
+        // /*!
+        // \brief Boolean value option handler
+        // \param name Option name
+        // \param value Option value {"", "1", "true"}
+        // */
+        // inline void handle_bool(const std::string& name, const std::string& value)
+        // {
+        //     constexpr static int nvals = 5;
+        //     constexpr static const char* vals[nvals] = {"", "1", "true", "0", "false"};
+        //     constexpr static int last_true = 2;
+        //     bool val;
+        //     int i;
+        //     for (i=0; (i<nvals) && (vals[i] != value); i++);
+        //     if (i >= nvals)
+        //         throw Poco::InvalidArgumentException(std::string("illegal value for boolean option ") + name);
+        //     val = (i <= last_true);
+        //     if (name == "some-name")
+        //         variable = val;
+        // }
     } option_handler;   //!< Commandline options handler object
 
     /*!
@@ -664,9 +766,10 @@ namespace {
             .argument("N")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
         args.addOption(Option{"premature-stall", "s"}
-            .description("premature stall of data sending")
+            .description("premature stall of data sending, 0-before connect/1-after connect/2-after header")
             .repeatable(false)
-            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
+            .argument("S")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
         args.addOption(Option{"help", "h"}
             .description("show this help")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_help}));
@@ -705,9 +808,9 @@ int main(int argc, char *argv[])
             HTTPServer server{new TestServerRequestHandlerFactory{}, bind_to, server_params.release()};
             std::cout << "starting server on " << bind_to.address().toString() << " ...\n";
             data_sender = std::thread(send_data);
-            sender_ready.wait();
+            sender_ready.await(true);
             server.start();
-            stop_server.wait();
+            stop_server.await(true);
             if (data_sender.joinable()) {
                 std::cout << "joining sender thread ...\n";
                 data_sender.join();
