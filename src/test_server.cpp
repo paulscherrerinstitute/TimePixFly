@@ -1,8 +1,19 @@
 /*!
 \file
 Test server code for replaying an ASI raw event stream
+
+TODO:
+- don't end server loop after start
+- make stop stop data sending
 */
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -13,6 +24,7 @@ Test server code for replaying an ASI raw event stream
 #include <thread>
 #include <cmath>
 #include <condition_variable>
+
 #include <Poco/Net/HTTPServerResponse.h>
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServer.h>
@@ -63,15 +75,154 @@ namespace {
     ServerSocket bind_to{SocketAddress{"localhost:8080"}}; //!< Server binding address
     SocketAddress destination;                  //!< Destination address
     OptionSet args;                             //!< Commandline arguments OptionSet
-    bool stop_server = false;                   //!< Signal for stop server
-    std::mutex stop_mutex;                      //!< Protection for stop signal
-    std::condition_variable stop_condition;     //!< Condition variable for stop signal
-    bool sender_ready = false;                  //!< Sender thread ready signal
-    std::mutex ready_mutex;                     //!< Protection for sender ready signal
-    std::condition_variable ready_condition;    //!< Condition variable for ready signal
     std::thread data_sender;                    //!< Data sender thread
     std::string file_name;                      //!< Raw data stream file name
+    bool premature_stall;                       //!< Stall data sending before sending everything
     unsigned number_of_chips = 4;               //!< Default value for number of detector chips
+
+    /*!
+    \brief Wrap a boolean signal with extra ops
+    */
+    struct signal final {
+        bool val;                       //!< Signal value
+        std::mutex lck;                 //!< Protection lock
+        std::condition_variable cond;   //!< Signal condition
+
+        /*!
+        \brief Default constructor
+        */
+        signal() noexcept
+            : val{false}
+        {}
+
+        /*!
+        \brief Construct from bool
+        */
+        signal(bool value) noexcept
+            : val{value}
+        {}
+
+        operator bool()
+        {
+            std::lock_guard lock{lck};
+            return val;
+        }
+
+        signal& operator=(bool value)
+        {
+            std::lock_guard lock{lck};
+            val = value;
+            return *this;
+        }
+
+        void wait()
+        {
+            std::unique_lock lock{lck};
+            while (! val)
+                cond.wait(lock);
+        }
+
+        void set_notify(bool value)
+        {
+            std::lock_guard lock{lck};
+            val = value;
+            cond.notify_one();
+        }
+
+        struct lock final {
+            signal* sig;
+            std::unique_lock<std::mutex> lck;
+
+            lock(signal& s)
+                : sig{&s}, lck{s.lck}
+            {}
+
+            lock(const lock&) = delete;
+            lock& operator=(const lock&) = delete;
+            lock(lock&&) = default;
+            lock& operator=(lock&&) = default;
+
+            operator bool()
+            {
+                return sig->val;
+            }
+
+            lock& operator=(bool value)
+            {
+                sig->val = value;
+                return *this;
+            }
+        };
+
+        lock sig()
+        {
+            return lock(*this);
+        }
+    };
+
+
+    signal stop_server;
+    signal sender_ready;
+    signal start_collect;
+    signal stop_collect;
+
+    /*!
+    \brief Wrap file descriptor
+    */
+    struct file_desc final {
+        int fd = -1;    //!< File descriptor
+
+        file_desc(const std::string& name)
+        {
+            fd = open(name.c_str(), O_RDONLY | O_NOATIME);
+            if (fd < 0)
+                throw Poco::RuntimeException(std::string("unable to open file ") + name + ": " + std::strerror(fd));
+        }
+
+        file_desc(const file_desc&) = delete;
+        file_desc& operator=(const file_desc&) = delete;
+
+        file_desc(file_desc&& other) noexcept
+        {
+            std::swap(fd, other.fd);
+        }
+
+        file_desc& operator=(file_desc&& other) noexcept
+        {
+            std::swap(fd, other.fd);
+            return *this;
+        }
+
+        ~file_desc() noexcept
+        {
+            close(fd);
+        }
+    };
+
+    /*!
+    \brief Wrap mmapped file data
+    */
+    struct file_data final {
+        char* data;     //!< File data pointer
+        size_t len;     //!< Data length
+        file_desc fd;   //!< File descriptor
+
+        file_data(file_desc&& fdesc)
+            : fd{std::move(fdesc)}
+        {
+            struct stat file_status{};
+            if (fstat(fd.fd, &file_status) < 0)
+                throw Poco::RuntimeException(std::string("stat failed: ") + std::strerror(errno));
+            len = file_status.st_size;
+            if (! (data = (char *)mmap(nullptr, len, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd.fd, 0)))
+                throw Poco::RuntimeException(std::string("mmap failed: ") + std::strerror(errno));
+        }
+
+        ~file_data() noexcept
+        {
+            munmap(data, len);
+        }
+    };
 
     /*!
     \brief Code for send data thread
@@ -80,29 +231,52 @@ namespace {
     {
         try {
             std::cout << "send data thread started ...\n";
-            {
-                StreamSocket con(destination);
-                SocketOutputStream output_stream(con);
-                FileInputStream data_file{file_name};
+            sender_ready.set_notify(true);
+            file_data fd{file_desc{file_name}};
+            do {
+                std::cout << "data sender: waiting for start signal...\n";
+                do {
+                    if (stop_server)
+                        goto stop_reader;
+                    {
+                        signal::lock sc = start_collect.sig();
+                        if (sc) {
+                            sc = false;
+                            break;
+                        }
+                    }
+
+                    std::this_thread::sleep_for(50ms);
+                } while (true);
                 {
-                    std::lock_guard lock(ready_mutex);
-                    sender_ready = true;
-                    ready_condition.notify_one();
+                    std::cout << "data sender: received start\n";
+                    StreamSocket con{destination};
+                    std::cout << "start sending data to " << destination.toString() << '\n';
+                    sender_ready.set_notify(true);
+                    size_t sent{0};
+                    while (sent < fd.len) {
+                        std::cout << "data sender: trying to send " << (fd.len - sent) << " after " << sent << " bytes\n";
+                        int sz = con.sendBytes(&fd.data[sent], fd.len - sent);
+                        std::cout << "data sender: sent " << sz << " bytes\n";
+                        sent += sz;
+
+                        if (stop_server)
+                            goto stop_reader;
+                        if (stop_collect)
+                            break;
+                    }
                 }
-                StreamCopier::copyStream(data_file, output_stream);
-                //std::this_thread::sleep_for(5s);
-            }
+            } while (true);
+        stop_reader:
             std::cout << "send data thread stopped.\n";
+        } catch (Poco::Exception& ex) {
+            std::cerr << "data sender exception: " << ex.displayText() << '\n';
         } catch (std::exception& ex) {
-            std::cerr << "data sender: " << ex.what() << '\n';
+            std::cerr << "data sender exception : " << ex.what() << '\n';
         } catch (...) {
-            std::cerr << "data sender: undefined error\n";
+            std::cerr << "data sender undefined error\n";
         }
-        {
-            std::lock_guard lock(stop_mutex);
-            stop_server = true;
-            stop_condition.notify_one();
-        }
+        stop_server.set_notify(true);
     }
 
     /*!
@@ -176,7 +350,7 @@ namespace {
                 handler->second(request, response);
         }
     };
-    
+
     /*!
     \brief HTTP unknown request type handler
     */
@@ -259,7 +433,7 @@ namespace {
             error_response(response, ex.what());
         }
     }
-    
+
     /*!
     \brief GET /mesurement/start response
     \param request  Poco HTTP request object
@@ -267,12 +441,7 @@ namespace {
     */
     void get_measurement_start([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
-        data_sender = std::thread(send_data);
-        {
-            std::unique_lock lock(ready_mutex);
-            while (! sender_ready)
-                ready_condition.wait(lock);
-        }
+        start_collect = true;
         response.setContentType("text/plain");
         response.send() << "measurement started\n";
     }
@@ -321,7 +490,7 @@ namespace {
         std::ostringstream oss;
         oss << R"({"Original":{"Width":)" << width * 256
             << R"(,"Height":)" << height * 256 << R"(,"Chips":[)";
-        
+
         unsigned i=1;
         for (unsigned h=0; h<height; h++) {
             auto posX = h * 256;
@@ -333,7 +502,7 @@ namespace {
             }
         }
         oss << "]}}\n";
-        
+
         response.setContentType("application/json");
         response.send() << oss.str();
     }
@@ -345,13 +514,20 @@ namespace {
     */
     void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
-        {
-            std::lock_guard lock(stop_mutex);
-            stop_server = true;
-            stop_condition.notify_one();
-        }
+        stop_server.set_notify(true);
         response.setContentType("text/plain");
         response.send() << "server stop\n";
+    }
+
+    /*!
+    \brief GET /kill - kill the server immediately
+    \param request Poco HTTP request object
+    \param response Poco HTTP response object
+    */
+    void get_kill([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
+    {
+        std::cout << "kill server\n";
+        std::exit(EXIT_SUCCESS);
     }
 
     /*!
@@ -395,6 +571,7 @@ namespace {
         path_handler.emplace("/detector/info", get_detector_info);
         path_handler.emplace("/detector/layout", get_detector_layout);
         path_handler.emplace("/stop", get_stop);
+        path_handler.emplace("/kill", get_kill);
 
         path_handler.emplace("/server/destination", put_server_destination);
     }
@@ -442,6 +619,26 @@ namespace {
             if (name == "nchips")
                 number_of_chips = static_cast<unsigned>(num);
         }
+
+        /*!
+        \brief Boolean value option handler
+        \param name Option name
+        \param value Option value {"", "1", "true"}
+        */
+        inline void handle_bool(const std::string& name, const std::string& value)
+        {
+            constexpr static int nvals = 5;
+            constexpr static const char* vals[nvals] = {"", "1", "true", "0", "false"};
+            constexpr static int last_true = 2;
+            bool val;
+            int i;
+            for (i=0; (i<nvals) && (vals[i] != value); i++);
+            if (i >= nvals)
+                throw Poco::InvalidArgumentException(std::string("illegal value for boolean option ") + name);
+            val = (i <= last_true);
+            if (name == "premature-stall")
+                premature_stall = val;
+        }
     } option_handler;   //!< Commandline options handler object
 
     /*!
@@ -466,6 +663,10 @@ namespace {
             .repeatable(false)
             .argument("N")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
+        args.addOption(Option{"premature-stall", "s"}
+            .description("premature stall of data sending")
+            .repeatable(false)
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
         args.addOption(Option{"help", "h"}
             .description("show this help")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_help}));
@@ -503,12 +704,10 @@ int main(int argc, char *argv[])
             server_params->setMaxThreads(1);
             HTTPServer server{new TestServerRequestHandlerFactory{}, bind_to, server_params.release()};
             std::cout << "starting server on " << bind_to.address().toString() << " ...\n";
+            data_sender = std::thread(send_data);
+            sender_ready.wait();
             server.start();
-            {
-                std::unique_lock lock(stop_mutex);
-                while (! stop_server)
-                    stop_condition.wait(lock);
-            }
+            stop_server.wait();
             if (data_sender.joinable()) {
                 std::cout << "joining sender thread ...\n";
                 data_sender.join();
