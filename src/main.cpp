@@ -1078,7 +1078,10 @@ namespace {
                 // - data OK
                 global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
                     if (val == "true") {
-                        global::instance->start = true;
+                        auto& gvars = *global::instance;
+                        if (gvars.state != "config")
+                            throw Poco::RuntimeException("not in config state");
+                        gvars.start = true;
                         return "OK";
                     }
                     throw Poco::DataFormatException("only 'true' is accepted as 'start' value");
@@ -1103,9 +1106,12 @@ namespace {
                 // - status 200
                 // - data OK
                 global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
+                    auto& gvars = *global::instance;
+                    if (gvars.state != "config")
+                        throw Poco::RuntimeException("not in config state");
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, in, PixelIndexToEp::JSON_STREAM);
-                    auto& pmap_p = global::instance->pixel_map;
+                    auto& pmap_p = gvars.pixel_map;
                     pmap_p = std::move(pmap);
                     return "OK";
                 };
@@ -1119,10 +1125,13 @@ namespace {
                 //  "file": "path/to/file"
                 // }
                 global::instance->put_callbacks["/pixel-map-from-file"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                    auto& gvars = *global::instance;
+                    if (gvars.state != "config")
+                        throw Poco::RuntimeException("not in config state");
                     std::ifstream ifs{obj->getValue<std::string>("file")};
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, ifs);
-                    auto& pmap_p = global::instance->pixel_map;
+                    auto& pmap_p = gvars.pixel_map;
                     pmap_p = std::move(pmap);
                     return "OK";
                 };
@@ -1158,6 +1167,8 @@ namespace {
                 // - data OK
                 global::instance->put_callbacks[rest_config] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                     auto& gvars = *global::instance;
+                    if (gvars.state != "config")
+                        throw Poco::RuntimeException("not in config state");
                     gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
                     gvars.save_interval = obj->getValue<decltype(gvars.save_interval)::value_type>("save_interval");
                     gvars.TRoiStart = obj->getValue<decltype(gvars.TRoiStart)::value_type>("TRoiStart");
