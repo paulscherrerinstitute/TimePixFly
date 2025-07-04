@@ -77,7 +77,7 @@ namespace {
     OptionSet args;                             //!< Commandline arguments OptionSet
     std::thread data_sender;                    //!< Data sender thread
     std::string file_name;                      //!< Raw data stream file name
-    int premature_stall;                        //!< Stall data sending before sending everything
+    int premature_stall = -1;                   //!< Stall data sending before sending everything
     unsigned number_of_chips = 4;               //!< Default value for number of detector chips
 
     /*!
