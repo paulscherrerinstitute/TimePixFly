@@ -1176,6 +1176,24 @@ namespace {
                     gvars.TRoiN = obj->getValue<decltype(gvars.TRoiN)::value_type>("TRoiN");
                     return "OK";
                 };
+
+                // /net-addresses  GET applicable net addresses
+                // GET return:
+                // - status 200
+                // - data
+                // {
+                //  "type":"NetAddresses",
+                //  "control":"127.0.0.1:8452",     // own rest interface
+                //  "address":"127.0.0.1:8451",     // own address, the destination of ASI server raw data
+                //  "server":"127.0.0.1:8080"       // ASI server rest interface address
+                // }
+                global::instance->get_callbacks["/net-addresses"] = [this]([[maybe_unused]] const std::string& val) -> std::string {
+                    std::ostringstream oss;
+                    oss << R"({"type":"NetAddresses","control":")" << controlAddress.toString() << '"'
+                        << R"(,"address":")" << clientAddress.toString() << '"'
+                        << R"(,"server":")" << serverAddress.toString() << R"("})";
+                    return oss.str();
+                };
             }
 
             // /echo  PUT json data that is echoed (for testing)
