@@ -1232,6 +1232,8 @@ namespace {
 
                     logger << "listening at " << clientAddress.toString() << log_notice;
                     serverSocket.reset(new ServerSocket{clientAddress});
+                    serverSocket->setReuseAddress(true);
+                    serverSocket->setReusePort(true);
 
                     serverRawDestination(clientAddress);
 
