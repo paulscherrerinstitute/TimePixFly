@@ -40,7 +40,7 @@ namespace processing {
     */
     void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event);
 
-    // /*!
+    // /*
     // \brief Process a TOA event
     // \param chipIndex        Event was on this chip
     // \param period           Period of the event

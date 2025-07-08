@@ -69,6 +69,7 @@ struct Detector final {
         /*!
         \brief Constructor
         \param layout_ Detector layout reference
+        \param ep Pixel index to energy point mapping
         */
         inline Detector(const detector_layout& layout_, const PixelIndexToEp& ep)
             : layout{layout_}, energy_points{ep}

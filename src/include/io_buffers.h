@@ -84,7 +84,7 @@ struct io_buffer_pool final {
                 return {node.key(), std::move(node.mapped())};
         } while (! stop);
         return {0, nullptr};
-    }   
+    }
 
     /*!
     \brief Put a used buffer back to the `free_list`
@@ -128,7 +128,7 @@ struct io_buffer_pool final {
     }
 
     /*!
-    \param Signal that no more data is coming
+    \brief Signal that no more data is coming
     */
     inline void finish_writing()
     {

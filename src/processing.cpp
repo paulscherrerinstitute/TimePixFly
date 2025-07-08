@@ -111,7 +111,7 @@ namespace {
                         data.Reset();
                 }
 
-                // /*!
+                // /*
                 // \brief Save histogram to .xes file
 
                 // The extension .xes will be appended to the output file path.
@@ -169,7 +169,7 @@ namespace {
 
                 }
 
-                // /*!
+                // /*
                 // \brief Add one event to histogram
                 // \param data             Histogram
                 // \param index            Abstract pixel index of event
@@ -266,7 +266,6 @@ namespace {
                 \brief Process event
                 \param chipIndex        Chip that detected the event
                 \param period           Period number of the event
-                \param toaclk           Event TOA in clock ticks
                 \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
                 \param event            Raw event
                 */

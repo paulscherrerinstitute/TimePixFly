@@ -296,7 +296,6 @@ class DataHandler final {
     \param chipIndex    Chip number
     \param index        Abstract period index
     \param tdcclk       TDC clock
-    \param event        Raw event
     */
     inline void processTdc(unsigned chipIndex, period_index& index, int64_t tdcclk) //, uint64_t event)
     {

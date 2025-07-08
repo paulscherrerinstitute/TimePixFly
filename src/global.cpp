@@ -7,7 +7,7 @@ Provide static instance for global configuration and control data
 #include "global.h"
 
 namespace {
-    std::mutex error_lock;  // protect last_error
+    std::mutex error_lock;  //!< protect last_error
 }
 
 std::unique_ptr<global> global::instance{new global};

@@ -174,7 +174,8 @@ namespace {
     };
 
     /*!
-    \brief Handle WebsSocket
+    \brief Handle WebsSocket for the program state
+    \see global
     */
     class StateHandler final : public HTTPRequestHandler
     {
@@ -184,10 +185,19 @@ namespace {
         static inline std::atomic_bool stop_sig;    //!< Stop signal
 
     public:
-        StateHandler(Logger& _logger) noexcept
+        /*!
+        \brief Constructor
+        \param _logger Logging proxy
+        */
+        explicit StateHandler(Logger& _logger) noexcept
             : logger(_logger)
         {}
 
+        /*!
+        \brief Request handler
+        \param request Poco server request
+        \param response Pocoe server response
+        */
         void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             try {
@@ -241,6 +251,10 @@ namespace {
             logger << "websocket: gone" << log_debug;
         }
 
+        /*!
+        \brief Set program state
+        \param state New program state
+        */
         static void set_state(const std::string_view& state)
         {
             if (global::instance->server_mode) {
@@ -254,6 +268,9 @@ namespace {
             }
         }
 
+        /*!
+        \brief Stop websocket
+        */
         static void stop() noexcept
         {
             stop_sig = true;
@@ -297,6 +314,7 @@ namespace {
     public:
         /*!
         \brief Create HTTP server
+        \param logger Logger proxy
         \param listen_to Server address
         */
         RestService(Logger& logger, const SocketAddress& listen_to)
@@ -895,6 +913,10 @@ namespace {
             checkSession(in);
         }
 
+        /*!
+        \brief Set program state with log message
+        \param state New program state
+        */
         inline void set_state(const std::string_view& state)
         {
             logger << "new state: " << state << log_debug;

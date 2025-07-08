@@ -40,6 +40,7 @@ namespace xes {
 
         /*!
         \brief Destination string
+        \return Destination string
         */
         virtual std::string dest() = 0;
 

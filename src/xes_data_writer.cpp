@@ -24,12 +24,12 @@ namespace {
     \brief Write XES data to file
     */
     class FileWriter : public xes::Writer {
-        std::string basePath;   //!< Base file path (withouth -<period>.xes)
+        std::string basePath;   //!< Base file path (withouth -{period}.xes)
 
     public:
         /*!
         \brief Constructor
-        \param path Base file path (withouth -<period>.xes)
+        \param path Base file path (withouth -{period}.xes)
         */
         inline FileWriter(const std::string& path)
             : basePath{path}
@@ -39,7 +39,7 @@ namespace {
 
         /*!
         \brief Write XES data to file
-        The data is written to file <basePath>-<period>.xes
+        The data is written to file {basePath}-{period}.xes
         \param data XES Data
         \param period Which period
         */
@@ -76,7 +76,7 @@ namespace {
     public:
         /*!
         \brief Constructor
-        \param address Hostname and port in the form <host>:<port>
+        \param address Hostname and port in the form {host}:{port}
         */
         inline TcpWriter(const std::string& address)
             : dataReceiver{Poco::Net::SocketAddress{address}}
@@ -86,7 +86,7 @@ namespace {
 
         /*!
         \brief Write XES data to TCP address
-        Send: { "type":"XesData", "Period":<period>, "TDSpectra":[<ep0>, <ep1>, ..., <epNxM>] }
+        Send: { "type":"XesData", "Period":{period}, "TDSpectra":[{ep0}, {ep1}, ..., {epNxM}] }
         \param data XES Data
         \param period Which period
         */

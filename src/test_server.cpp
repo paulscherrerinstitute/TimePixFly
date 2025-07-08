@@ -97,6 +97,7 @@ namespace {
 
         /*!
         \brief Construct from bool
+        \param value New signal value
         */
         signal(bool value) noexcept
             : val{value}
@@ -196,6 +197,7 @@ namespace {
 
             /*!
             \brief Moving assignment
+            \return this
             */
             lock& operator=(lock&&) = default;
 
@@ -243,6 +245,10 @@ namespace {
     struct file_desc final {
         int fd = -1;    //!< File descriptor
 
+        /*!
+        \brief Constructor
+        \param name File name
+        */
         file_desc(const std::string& name)
         {
             fd = open(name.c_str(), O_RDONLY | O_NOATIME);
@@ -253,11 +259,20 @@ namespace {
         file_desc(const file_desc&) = delete;
         file_desc& operator=(const file_desc&) = delete;
 
+        /*!
+        \brief Move constructor
+        \param other Moved file descriptor wrapper
+        */
         file_desc(file_desc&& other) noexcept
         {
             std::swap(fd, other.fd);
         }
 
+        /*!
+        \brief Move assignment
+        \param other Moved file descriptor wrapper
+        \return this
+        */
         file_desc& operator=(file_desc&& other) noexcept
         {
             std::swap(fd, other.fd);
@@ -278,6 +293,10 @@ namespace {
         size_t len;     //!< Data length
         file_desc fd;   //!< File descriptor
 
+        /*!
+        \brief Copy constructor
+        \param fdesc File descriptor wrapper
+        */
         file_data(file_desc&& fdesc)
             : fd{std::move(fdesc)}
         {
@@ -289,6 +308,9 @@ namespace {
                 throw Poco::RuntimeException(std::string("mmap failed: ") + std::strerror(errno));
         }
 
+        /*!
+        \brief Destructor
+        */
         ~file_data() noexcept
         {
             munmap(data, len);
