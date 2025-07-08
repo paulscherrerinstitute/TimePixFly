@@ -4,7 +4,6 @@ Provide XES data writer implementations
 */
 
 #include <cstdint>
-#include <cassert>
 
 #include "Poco/Exception.h"
 #include "Poco/URI.h"
@@ -14,8 +13,6 @@ Provide XES data writer implementations
 #include "Poco/JSON/PrintHandler.h"
 
 #include "global.h"
-#include "pixel_index.h"
-#include "energy_points.h"
 #include "xes_data_writer.h"
 
 namespace {

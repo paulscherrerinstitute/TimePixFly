@@ -8,7 +8,6 @@
 Provide data container for XES data
 */
 
-#include <vector>
 #include <string>
 #include <fstream>
 #include "detector.h"

@@ -3,28 +3,16 @@
 Event analysis code
 */
 
-#include <chrono>
-#include <fstream>
 #include <iostream>
-#include <vector>
 #include <array>
 #include <numeric>
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
-#include <memory>
 
-#include "shared_types.h"
-#include "logging.h"
-#include "decoder.h"
-#include "pixel_index.h"
-#include "energy_points.h"
-#include "shared_types.h"
-#include "processing.h"
-#include "detector.h"
-#include "xes_data.h"
 #include "xes_data_manager.h"
-#include "global.h"
+#include "decoder.h"
+#include "processing.h"
 
 #include "Poco/Util/IniFileConfiguration.h"
 

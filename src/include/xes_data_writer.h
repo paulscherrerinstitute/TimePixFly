@@ -8,7 +8,6 @@
 Provide writers for XES data
 */
 
-#include "shared_types.h"
 #include "xes_data.h"
 
 namespace xes {

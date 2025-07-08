@@ -7,7 +7,6 @@
 Provide means to measure elapsed time
 */
 
-#include <chrono>
 #include "spin_lock.h"
 
 /*!
@@ -38,13 +37,13 @@ class Timer final {
     \return this
     */
     Timer& operator=(const Timer&) = default;
-    
+
     /*!
     \brief Move assignment
     \return this
     */
     Timer& operator=(Timer&&) = default;
-    
+
     ~Timer() = default;                         //!< Destructor
 
     /*!

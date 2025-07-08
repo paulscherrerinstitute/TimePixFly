@@ -10,10 +10,6 @@ Code for processing raw data stream
     #define SERVER_VERSION 320  //!< Default ASI server version
 #endif
 
-#include <vector>
-#include <atomic>
-#include <thread>
-#include <chrono>
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 #include "logging.h"
@@ -22,7 +18,6 @@ Code for processing raw data stream
 #include "period_predictor.h"
 #include "period_queues.h"
 #include "processing.h"
-#include "spin_lock.h"
 
 namespace {
     using Poco::Net::StreamSocket;

@@ -12,24 +12,18 @@ TODO:
 */
 
 // #include <filesystem>
-#include <string>
 #include <iostream>
-#include <sstream>
-#include <vector>
 #include <fstream>
-#include <chrono>
 
 #include "poll.h"
 
 #include "Poco/Dynamic/Var.h"
-#include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/PrintHandler.h"
 #include "Poco/Util/Application.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
 #include "Poco/Net/SocketAddress.h"
-#include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/ServerSocket.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
@@ -44,19 +38,14 @@ TODO:
 #include "Poco/Net/WebSocket.h"
 #include "Poco/URI.h"
 #include "Poco/Process.h"
-#include "Poco/Exception.h"
 #include "Poco/Timespan.h"
 #include "Poco/SyslogChannel.h"
 
 #include "Poco/StreamCopier.h"
 
-#include "logging.h"
 #include "decoder.h"
 #include "data_handler.h"
 #include "copy_handler.h"
-#include "layout.h"
-#include "processing.h"
-#include "global.h"
 #include "json_ops.h"
 
 namespace {

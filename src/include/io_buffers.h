@@ -6,7 +6,6 @@
 Code for buffering incoming IO
 */
 
-#include <atomic>
 #include <vector>
 #include <map>
 #include "spin_lock.h"

@@ -11,12 +11,9 @@ Provide pixel map parsing function
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/PrintHandler.h"
 
-#include "shared_types.h"
-#include "pixel_index.h"
-#include "energy_points.h"
-#include "json_ops.h"
-#include "layout.h"
 #include "global.h"
+#include "shared_types.h"
+#include "json_ops.h"
 
 namespace {
 

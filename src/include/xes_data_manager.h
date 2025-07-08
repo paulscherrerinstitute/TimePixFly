@@ -8,9 +8,7 @@
 Provide functionality to manage partial XES data per thread
 */
 
-#include <atomic>
 #include <mutex>
-#include <thread>
 #include <condition_variable>
 #include <limits>
 #include <chrono>
@@ -18,9 +16,7 @@ Provide functionality to manage partial XES data per thread
 
 #include "Poco/Exception.h"
 
-#include "shared_types.h"
 #include "global.h"
-#include "logging.h"
 #include "timing.h"
 #include "xes_data_writer.h"
 

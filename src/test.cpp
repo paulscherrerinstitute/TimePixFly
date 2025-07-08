@@ -10,7 +10,6 @@ Unit tests
 #include <cstring>
 #include <regex>
 #include "period_predictor.h"
-#include "event_reordering.h"
 #include "period_queues.h"
 
 namespace {
@@ -90,7 +89,7 @@ namespace {
         verbose_type& operator=(const verbose_type&) = delete;
         inline verbose_type& operator=(verbose_type&&) = default;   //!< Move assignment \return `this`
     };
-    
+
     verbose_type<decltype(std::cout)> verbose{std::cout, false};    //!< verbose_type stream object
 
     /*!
@@ -164,7 +163,7 @@ namespace {
     \param t    Test position counter reference
     \param a    First value
     \param b    Second value
-    */    
+    */
     template<>
     void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)
     {
@@ -193,7 +192,7 @@ namespace {
             check_eq(unit, t, p.interval_prediction(), 2.0);
             check_eq(unit, t, p.period_prediction(5), 2.0);
         }
-        
+
         /*!
         \brief Period predictor update() unit test
         \param unit Test unit
