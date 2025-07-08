@@ -913,6 +913,20 @@ namespace {
         }
 
         /*!
+        \brief Check parameter consistency
+        \throw InvalidArgumentException on detected inconsistencies
+        */
+        void checkParameterConsistency()
+        {
+            if (clientAddress == controlAddress)
+                throw InvalidArgumentException("--address and --control parameters must be different");
+            if (clientAddress == serverAddress)
+                throw InvalidArgumentException("--address and --server parameters must be different");
+            if (controlAddress == serverAddress)
+                throw InvalidArgumentException("--server and --control parameters must be different");
+        }
+
+        /*!
         \brief Poco application main function
         \param args Positional commandline args
         \return 0 for ok
@@ -925,6 +939,8 @@ namespace {
                     log_proxy << ' ' << arg;
                 log_proxy << " )" << log_trace;
             }
+
+            checkParameterConsistency();
 
             logger << "running on process " << Poco::Process::id() << log_info;
 
