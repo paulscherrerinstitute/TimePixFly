@@ -1461,6 +1461,15 @@ Such reordering queues are maintained for a number of recent period changes (see
 is undisputed - because they don't fall into a disputed interval, or because the TDC of the disputed interval has been seen - are sent to the histogramming code
 (see processing.cpp). The histogram is saved and cleared periodically (see save_interval).
 
+\section server_mode Server Mode
+
+For running with BEC, tpx3app supports the --server-mode commandline switch. The state diagram with most important actions is given below. Rest calls to the
+ASI server in orange, actions by BEC in blue, and actions by the ASI server in green.
+
+\image html program_states.png width=80%
+
+When the program is not running in server mode, the configuration is received via files, and tpx3app sends /measurement/start to the ASI server.
+
 \section issues_sec Issues
 
 - The parallelization into and synchronization between threads is probably too simple to be fast.
