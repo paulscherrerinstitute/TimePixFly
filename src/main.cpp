@@ -1020,10 +1020,12 @@ namespace {
             }
 
             // ----------------------- setup and start rest service -----------------------
+            // REST COMMAND
             // /?stop=true  GET to a stop now
             // returns:
             // - status 200
             // - data OK
+            // when: after init
             global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
                 auto& gvars = *global::instance;
                 if (val == "true") {
@@ -1035,10 +1037,12 @@ namespace {
                 throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
             };
 
+            // REST COMMAND
             // /?stop_collect=true  GET stop collecting data
             // returns:
             // - status 200
             // - data OK
+            // when: await_connection and collect
             global::instance->get_callbacks["/?stop_collect"] = [](const std::string& val) -> std::string {
                 auto& gvars = *global::instance;
                 if (val == "true") {
@@ -1050,8 +1054,10 @@ namespace {
                 throw Poco::DataFormatException("only 'true' is accepted as 'stop_collect' value");
             };
 
+            // REST COMMAND
             // /?kill=true  GET process killed
             // no return
+            // when: after init
             global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
                 if (val == "true") {
                     std::exit(EXIT_FAILURE);
@@ -1060,10 +1066,12 @@ namespace {
                 throw Poco::DataFormatException("only 'true' is accepted as 'kill' value");
             };
 
+            // REST COMMAND
             // /last-error  GET and reset last error message
             // return:
             // - status 200
             // - data {"type":"LastError","message":"none"}
+            // when: after init
             global::instance->get_callbacks["/last-error"] = []([[maybe_unused]] const std::string& val) -> std::string {
                 std::ostringstream oss;
                 {
@@ -1078,20 +1086,24 @@ namespace {
                 return oss.str();
             };
 
+            // REST COMMAND
             // /state GET program state
             // return:
             // - status 200
             // - data {"type":"ProgramState","state":"config"} see global.h
+            // when: after init
             global::instance->get_callbacks["/state"] = []([[maybe_unused]] const std::string& val) -> std::string {
                 std::ostringstream oss;
                 oss << R"({"type":"ProgramState","state":")" << global::instance->state << R"("})";
                 return oss.str();
             };
 
+            // REST COMMAND
             // /version  GET version string
             // return:
             // - status 200
             // - data {"type":"VersionString","version":"dev 9adfe29 2025-05-23"}
+            // when: after init
             global::instance->get_callbacks["/version"] = []([[maybe_unused]] const std::string& val) -> std::string {
                 std::ostringstream oss;
                 oss << R"({"type":"VersionString","version":")" << VERSION << R"("})";
@@ -1099,10 +1111,12 @@ namespace {
             };
 
             if (server_mode) {
+                // REST COMMAND
                 // /?start=true  GET started preparing for data taking
                 // return:
                 // - status 200
                 // - data OK
+                // when: config in server-mode
                 global::instance->get_callbacks["/?start"] = [](const std::string& val) -> std::string {
                     if (val == "true") {
                         auto& gvars = *global::instance;
@@ -1114,10 +1128,26 @@ namespace {
                     throw Poco::DataFormatException("only 'true' is accepted as 'start' value");
                 };
 
+                // REST COMMAND
                 // /pixel-map  GET and PUT pixel mapping to energy points, see PixelIndexToEp::from_json
                 // GET return:
                 // - status 200
                 // - data see energy_points.cpp from_json()
+                // {
+                //  "type": "PixelMap",        // optional
+                //  "chips": [                 // per chip mapping
+                //   [                         // chip 0: pixel mapping
+                //    {                        // chip 0, flat pixel 0: mapping
+                //     "i":0,                  // flat pixel index
+                //     "p":[0,1,2],            // energy points
+                //     "f":[0.33,0.33,0.33]    // energy fractions
+                //    },
+                //    ...                      // chip 0: other pixels
+                //   ],
+                //   ...                       // other chips
+                //  ]
+                // }
+                // when: config in server-mode
                 constexpr const char* rest_pmap = "/pixel-map";
                 global::instance->get_callbacks[rest_pmap] = []([[maybe_unused]] const std::string& val) -> std::string {
                     std::ostringstream oss;
@@ -1128,10 +1158,13 @@ namespace {
                     return oss.str();
                 };
 
+
+                // use description above for command extraction
                 // /pixel-map  GET and PUT pixel mapping to energy points, see PixelIndexToEp::from_json
                 // PUT return:
                 // - status 200
                 // - data OK
+                // when: config in server-mode
                 global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
                     auto& gvars = *global::instance;
                     if (gvars.state != "config")
@@ -1143,6 +1176,7 @@ namespace {
                     return "OK";
                 };
 
+                // REST COMMAND
                 // /pixel-map-from-file  PUT pixel mapping to energy points, see PixelIndexToEp::from_file
                 // returns:
                 // - status 200
@@ -1151,6 +1185,7 @@ namespace {
                 //  "type": "PixelMapFromFile",
                 //  "file": "path/to/file"
                 // }
+                // when: config in server-mode
                 global::instance->put_callbacks["/pixel-map-from-file"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                     auto& gvars = *global::instance;
                     if (gvars.state != "config")
@@ -1163,7 +1198,8 @@ namespace {
                     return "OK";
                 };
 
-                // /other-config  GET and PUT other config, see global
+                // REST COMMAND
+                // /other-config  GET and PUT other config, see global.h
                 // GET return:
                 // - status 200
                 // - data
@@ -1175,6 +1211,7 @@ namespace {
                 //  "TRoiStep: 1,
                 //  "TRoiN": 5000
                 // }
+                // when: config in server-mode
                 constexpr const char* rest_config = "/other-config";
                 global::instance->get_callbacks[rest_config] = []([[maybe_unused]] const std::string& val) -> std::string {
                     std::ostringstream oss;
@@ -1188,10 +1225,12 @@ namespace {
                     return oss.str();
                 };
 
+                // use description above for command extraction
                 // /other-config  GET and PUT other config, see global
                 // PUT return:
                 // - status 200
                 // - data OK
+                // when: config in server-mode
                 global::instance->put_callbacks[rest_config] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                     auto& gvars = *global::instance;
                     if (gvars.state != "config")
@@ -1204,6 +1243,7 @@ namespace {
                     return "OK";
                 };
 
+                // REST COMMAND
                 // /net-addresses  GET applicable net addresses
                 // GET return:
                 // - status 200
@@ -1214,6 +1254,7 @@ namespace {
                 //  "address":"127.0.0.1:8451",     // own address, the destination of ASI server raw data
                 //  "server":"127.0.0.1:8080"       // ASI server rest interface address
                 // }
+                // when: after init in server-mode
                 global::instance->get_callbacks["/net-addresses"] = [this]([[maybe_unused]] const std::string& val) -> std::string {
                     std::ostringstream oss;
                     oss << R"({"type":"NetAddresses","control":")" << controlAddress.toString() << '"'
@@ -1221,12 +1262,14 @@ namespace {
                         << R"(,"server":")" << serverAddress.toString() << R"("})";
                     return oss.str();
                 };
-            }
+            } // if server-mode
 
+            // REST COMMAND
             // /echo  PUT json data that is echoed (for testing)
             // return:
             // - status 200
             // - data same as input (in json format)
+            // when: after init
             global::instance->put_callbacks["/echo"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
                 std::ostringstream oss;
                 obj->stringify(oss);

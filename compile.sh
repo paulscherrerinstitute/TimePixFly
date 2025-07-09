@@ -76,6 +76,9 @@ case "$TARGET" in
         cmd="doxygen doc/doxygen.cfg"
         echo "$cmd"
         eval "$cmd";;
+    "restcalls")
+        echo "REST API calls:"
+        awk 'BEGIN{p=0;e=0;print"--"}/REST COMMAND/{p=1;next}/when:/{if(p){e=1}}{if(p){sub(/^ +\/\//,"");print $0};if(e){print"--";p=0};e=0}' src/main.cpp;;
     "flags")
         echo "CXXFLAGS=$CXXFLAGS"
         echo "LDFLAGS=$LDFLAGS"
@@ -88,6 +91,7 @@ case "$TARGET" in
         echo "  server         raw data replay server"
         echo "  test           some unit tests for parts of the queueing code"
         echo "  doc            compile documentation in doc/html"
+        echo "  restcalls      print description of rest api calls"
         echo "Debendencies:"
         echo "  ${LDFLAGS}"
         echo "Environment:"
