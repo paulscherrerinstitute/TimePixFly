@@ -272,7 +272,8 @@ namespace xes {
                     break;
                 }
             }
-            assert(periodPtr);
+            if (periodPtr == nullptr)
+                return;
             if (++(periodPtr->ready) == periodPtr->threadData.size()) {
                 {
                     std::unique_lock lock(thread_lock);
