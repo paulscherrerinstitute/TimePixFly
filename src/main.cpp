@@ -1511,6 +1511,15 @@ ASI server in orange, actions by BEC in blue, and actions by the ASI server in g
 
 \image html program_states.png width=80%
 
+In server mode, tpx3app can be controlled via REST API calls. The control interface address is given with the --control switch. A description of the
+REST API calls can be produced with the "restcalls" compile target:
+
+\code{.unparsed}
+$ ./compile.sh restcalls
+\endcode
+
+The current program state is pushed on a websocket, available at /ws of the control interface.
+
 When the program is not running in server mode, the configuration is received via files, and tpx3app sends /measurement/start to the ASI server.
 
 \section issues_sec Issues
@@ -1568,4 +1577,32 @@ $ ./tpx3app --initial-period=5000 --max-period-queues=6 --loglevel=warning
 \endcode
 
 And hopefully you'll have some output in the folder specified via the Processing.inp file.
+
+\section docu Documentation
+
+This documentation has been produced by
+
+\code{.unparsed}
+$ ./compile.sh doc
+\endcode
+
+This produces browsable html documentation at doc/html/index.html. The doc target requires doxygen in a version compatible to the
+config file at doc/doxygen.cfg
+
+Help on the compile targets can be produced by
+
+\code{.unparsed}
+$ ./compile.sh help
+\endcode
+
+Help on the commandline switches for programs can be produced by giving the --help switch to the program. Version information is
+available for the tpx3app with the --version switch.
+
+\code{.unparsed}
+$ ./tpx3app --help
+$ ./tpx3app --version
+\endcode
+
+Version information consists of branch-commit-date.
+
 */
