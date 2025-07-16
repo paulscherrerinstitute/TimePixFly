@@ -1484,7 +1484,8 @@ Currently, in analysis mode, the process is devided into
 
 - a main thread (see main.cpp) that interacts with the ASI server
 - a reader thread (see data_handler.h) that reads the TCP raw event data stream produced by the ASI server
-- per chip analysis threads (see data_handler.h) that dispatch events from the raw stream, build and write the histograms
+- per chip analysis threads (see data_handler.h) that dispatch events from the raw stream, build and write per chip histograms
+- a writer thread (see xes_data_manager.h) that aggregates per chip histograms and writes aggregated histograms out to disk or the network
 
 The incoming data stream is split into per chip data streams.
 
@@ -1502,7 +1503,12 @@ The period changes for which no TDC has been seen yet, are predicted (see period
 Events that fall into a disputed interval (see undisputedThreshold) around expected period changes are put into a reordering queue (see event_reordering.h).
 Such reordering queues are maintained for a number of recent period changes (see maxPeriodQueues and period_queues.h). Events for which period number assignment
 is undisputed - because they don't fall into a disputed interval, or because the TDC of the disputed interval has been seen - are sent to the histogramming code
-(see processing.cpp). The histogram is saved and cleared periodically (see save_interval).
+(see processing.cpp). The per chip histogram is periodically (see save_interval) pushed to a period queue (see xes_data_manager.h), where the writer thread picks
+it up, combines it with other per chip histograms for the same period and writes the final histogram data out to disk or network.
+
+\image html output_queue.png width=80%
+
+Output is either in files per save period (see safe_interval) or TCP streamed JSON data per safe period (see xes_data_writer.cpp).
 
 \section server_mode Server Mode
 
