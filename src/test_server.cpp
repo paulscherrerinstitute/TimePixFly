@@ -251,7 +251,11 @@ namespace {
         */
         file_desc(const std::string& name)
         {
-            fd = open(name.c_str(), O_RDONLY | O_NOATIME);
+            fd = open(name.c_str(), O_RDONLY
+                #ifdef O_NOATIME
+                | O_NOATIME
+                #endif
+            );
             if (fd < 0)
                 throw Poco::RuntimeException(std::string("unable to open file ") + name + ": " + std::strerror(fd));
         }
@@ -304,7 +308,11 @@ namespace {
             if (fstat(fd.fd, &file_status) < 0)
                 throw Poco::RuntimeException(std::string("stat failed: ") + std::strerror(errno));
             len = file_status.st_size;
-            if (! (data = (char *)mmap(nullptr, len, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd.fd, 0)))
+            if (! (data = (char *)mmap(nullptr, len, PROT_READ, MAP_PRIVATE
+                #ifdef MAP_POPULATE
+                | MAP_POPULATE
+                #endif
+                , fd.fd, 0)))
                 throw Poco::RuntimeException(std::string("mmap failed: ") + std::strerror(errno));
         }
 
