@@ -131,7 +131,7 @@ namespace {
                 json.key("error"); json.value(error_message.empty() ? std::string{global::no_error} : error_message);
                 json.endObject();
             }
-            send << "\n\n" << std::flush;
+            send << '\n' << std::flush;
         }
 
         inline std::string dest() override
