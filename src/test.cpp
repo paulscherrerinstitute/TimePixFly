@@ -210,6 +210,22 @@ namespace {
             check_eq(unit, t, p.interval_prediction(), 3.0);
             check_eq(unit, t, p.period_prediction(14), 5.0);
         }
+
+        /*!
+        \brief Period predictor to_string() unit test
+        \param unit Test unit
+        */
+        void predictor_to_string_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            ::period_predictor p;
+            int64_t ts = 1;
+            unsigned m = p.numPoints();
+            for (unsigned i=0; i<m; i++, ts++)
+                p.prediction_update(ts);
+            std::string ps = p.to_string();
+            check_eq(unit, t, ps, std::string("ts: 1 2 3 4 s0 i1.000000 c0 f0"));
+        }
     }
 
     /*! Event reorder queue unit tests */
@@ -321,6 +337,11 @@ namespace {
             "period_predictor::predictor_update",
             "prediction_update, start_update",
             period_predictor::predictor_update_test
+        });
+        tests.insert({
+            "period_predictor::predictor_to_string_test",
+            "constructor, prediction_update, to_string",
+            period_predictor::predictor_to_string_test
         });
         tests.insert({
             "event_reorder_queue::sorted",

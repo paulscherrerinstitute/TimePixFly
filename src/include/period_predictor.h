@@ -119,10 +119,19 @@ class period_predictor final {
     }
 
     /*!
+    \brief Number of TDC time points remembered by the period predictor
+    \return Number of TDC time points remembered by the period predictor
+    */
+    static inline unsigned numPoints() noexcept
+    {
+        return N;
+    }
+
+    /*!
     \brief Minimum number of TDC time points required for reliable period prediction
     \return Minimum number of times `prediction_update()` should be called before the predictor is reliable
     */
-    inline unsigned minPoints() const noexcept
+    static inline unsigned minPoints() noexcept
     {
         return (N + 2) / 2;
     }
@@ -151,6 +160,22 @@ class period_predictor final {
         for (const auto& dp : past)
             out << dp << ' ';
         out << 's' << start << " i" << interval << " c" << correction << " f" << first;
+    }
+
+    /*!
+    \brief Period predictor string representation
+    \return String in the form ts: <time stamps ..> s<start> i<interval> c<correction> f<first>
+    */
+    std::string to_string() const
+    {
+        std::string rval("ts: ");
+        for (const auto& dp : past)
+            rval += std::to_string(dp) + ' ';
+        rval += 's'; rval += std::to_string(start);
+        rval += " i"; rval += std::to_string(interval);
+        rval += " c"; rval += std::to_string(correction);
+        rval += " f"; rval += std::to_string(first);
+        return rval;
     }
 };
 

@@ -406,7 +406,7 @@ class DataHandler final {
                                 auto index = queues[chipIndex].period_index_for(period);
                                 if (! __builtin_expect(index.disputed, 1)) {
 //                                    logger << threadId << ": tdc=" << tdcclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_fatal;
-                                    throw RuntimeException("encountered undisputed period for tdc");
+                                    throw RuntimeException(std::string("encountered undisputed period for tdc - tdc ") + std::to_string(tdcclk) + ", predictor " + predictor[chipIndex].to_string());
                                 }
                                 if (! predictor[chipIndex].ok(tdcclk)) {
                                     predictor[chipIndex].start_update(tdcclk);
