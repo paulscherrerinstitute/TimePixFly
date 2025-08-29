@@ -80,7 +80,7 @@ namespace {
             try {
                 dataReceiver.connect(Poco::Net::SocketAddress{address});
             } catch (Poco::Exception& ex) {
-                throw Poco::RuntimeException(std::string{"Connection to "} + address + " failed: " + ex.displayText());
+                throw Poco::RuntimeException(std::string{"Connection to output uri failed: "} + ex.displayText());
             }
         }
 
@@ -168,7 +168,7 @@ namespace xes {
         } else if (scheme == "tcp") {
             return std::unique_ptr<Writer>{new TcpWriter{dest}};
         } else
-            throw Poco::UnknownURISchemeException{scheme + " - unsupported uri scheme"};
+            throw Poco::UnknownURISchemeException{std::string{"bad output uri - <"} + scheme + "> is an unsupported uri scheme, use file:filename or tcp:host:port"};
         return nullptr;
     }
 
