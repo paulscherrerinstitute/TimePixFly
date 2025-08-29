@@ -80,7 +80,7 @@ namespace {
             try {
                 dataReceiver.connect(Poco::Net::SocketAddress{address});
             } catch (Poco::Exception& ex) {
-                throw Poco::RuntimeException(std::string{"Connection to output uri failed: "} + ex.displayText());
+                throw Poco::RuntimeException(std::string{"Connection to output address "} + address + " failed: " + ex.displayText());
             }
         }
 
