@@ -12,6 +12,7 @@ TODO:
 */
 
 // #include <filesystem>
+#include <Poco/Exception.h>
 #include <iostream>
 #include <fstream>
 
@@ -48,7 +49,9 @@ TODO:
 #include "copy_handler.h"
 #include "json_ops.h"
 
+#include <cerrno>
 #include <unistd.h>
+#include <fcntl.h>
 
 namespace {
     using namespace std::string_view_literals;
@@ -81,23 +84,41 @@ namespace {
 
     #include "version.h"
 
-    // //=========================
-    // // Lock file
-    // //=========================
+    //=========================
+    // Lock file
+    //=========================
 
-    // /*!
-    // \brief Lock file to prevent double instances
-    // */
-    // struct Lockfile final {
-    //     /*!
-    //     \brief Constructor
-    //     \param path File path
-    //     */
-    //     Lockfile(const std::string& path)
-    //     {
+    /*!
+    \brief Lock file to prevent double instances
+    */
+    struct Lockfile final {
+        /*!
+        \brief Constructor
+        \param path File path
+        */
+        Lockfile(const std::string& path = "/tmp/tpx3app.pid")
+            : lock_file(path)
+        {
+            fd = open(path.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
+            if (fd < 0) {
+                if (errno == EEXIST) {
+                    throw Poco::RuntimeException(std::string{"lockfile exists at"} + path + ", is another tpx2app already running?");
+                } else {
+                    throw Poco::RuntimeException(std::string{"unable to create lockfile at "} + path);
+                }
+            }
+        }
 
-    //     }
-    // };
+        ~Lockfile()
+        {
+            unlink(lock_file.c_str());
+            close(fd);
+        }
+
+    private:
+        const std::string& lock_file;
+        int fd = -1;
+    };
 
     //=========================
     // REST server
@@ -1463,6 +1484,7 @@ int main (int argc, char* argv[])
 
         try {
             logger.setLevel(Message::PRIO_CRITICAL);
+            Lockfile{};
             Tpx3App app(logger, argc, argv);
             return app.run();
         } catch (Poco::Exception& ex) {
