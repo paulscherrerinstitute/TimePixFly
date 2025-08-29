@@ -32,7 +32,7 @@ namespace {
             : basePath{path}
         {}
 
-        inline ~FileWriter() = default; //!< Destructor
+        inline ~FileWriter() override = default; //!< Destructor
 
         /*!
         \brief Write XES data to file
@@ -84,7 +84,12 @@ namespace {
             }
         }
 
-        inline ~TcpWriter() = default;  //!< Destructor
+        inline ~TcpWriter() override
+        {
+            try {
+                dataReceiver.close();
+            } catch(...) {}
+        }
 
         /*!
         \brief Write XES data to TCP address
