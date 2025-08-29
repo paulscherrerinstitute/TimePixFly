@@ -112,7 +112,7 @@ namespace xes {
         inline Manager(const Detector& detector_, const std::string& uri, unsigned nPeriods)
             : writer(xes::Writer::from_uri(uri)), detector(detector_), logger(Logger::get("Tpx3App"))
         {
-            logger << "xes::Manager connecting to " << writer->dest() << ", output uri " << uri << log_info;
+            logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
             const unsigned nThreads = detector.layout.chip.size();
             dataCache.resize(nThreads);
             periodData.resize(nPeriods, Period{});
