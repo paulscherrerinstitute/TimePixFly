@@ -48,6 +48,8 @@ TODO:
 #include "copy_handler.h"
 #include "json_ops.h"
 
+#include <unistd.h>
+
 namespace {
     using namespace std::string_view_literals;
     using namespace std::chrono_literals;
@@ -78,6 +80,24 @@ namespace {
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
     #include "version.h"
+
+    // //=========================
+    // // Lock file
+    // //=========================
+
+    // /*!
+    // \brief Lock file to prevent double instances
+    // */
+    // struct Lockfile final {
+    //     /*!
+    //     \brief Constructor
+    //     \param path File path
+    //     */
+    //     Lockfile(const std::string& path)
+    //     {
+
+    //     }
+    // };
 
     //=========================
     // REST server
@@ -1295,6 +1315,7 @@ namespace {
                     global::instance->start = false;
                 }
 
+                global::instance->stop_collect = false;
                 set_state(global::setup);
 
                 try {
@@ -1346,7 +1367,6 @@ namespace {
                     //------------------------------------------------
                     set_state(global::collect);
                     dataStream.setReceiveTimeout(global::instance->collect_timeout);
-                    global::instance->stop_collect = false;
 
                     if (! streamFilePath.empty()) {
                         const auto t1 = wall_clock::now();
