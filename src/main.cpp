@@ -49,9 +49,15 @@ TODO:
 #include "copy_handler.h"
 #include "json_ops.h"
 
+#include <cstdlib>
+#include <csignal>
 #include <cerrno>
+#include <sstream>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/file.h>
+#include <error.h>
+#include <utility>
 
 namespace {
     using namespace std::string_view_literals;
@@ -88,36 +94,81 @@ namespace {
     // Lock file
     //=========================
 
+    extern "C" {
+
+        /*!
+        \brief Handle SIGTERM, CTRL-C
+        */
+        inline static void sigint_handler([[maybe_unused]] int sig)
+        {
+            global::instance->stop = true;
+        }
+    }
+
     /*!
     \brief Lock file to prevent double instances
     */
     struct Lockfile final {
         /*!
         \brief Constructor
-        \param path File path
+        Create pid file and lock it exclusively.
+        \param logger Logger
         */
-        Lockfile(const std::string& path = "/tmp/tpx3app.pid")
-            : lock_file(path)
+        inline explicit Lockfile(Logger& logger)
+            : log(logger)
         {
-            fd = open(path.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
+            assert(fd >= 0);
+            std::signal(SIGINT, sigint_handler);
+            log << "open pid file at " << lock_file << log_debug;
+            fd = open(lock_file.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
             if (fd < 0) {
                 if (errno == EEXIST) {
-                    throw Poco::RuntimeException(std::string{"lockfile exists at"} + path + ", is another tpx2app already running?");
+                    throw Poco::RuntimeException(std::string{"lockfile exists at "} + lock_file + ", is another tpx2app already running?");
                 } else {
-                    throw Poco::RuntimeException(std::string{"unable to create lockfile at "} + path);
+                    throw Poco::RuntimeException(std::string{"unable to create lockfile at "} + lock_file);
                 }
+            }
+            if (flock(fd, LOCK_EX) != 0) {
+                close(fd);
+                fd = -1;
+                throw Poco::RuntimeException(std::string{"unable to lock file at "} + lock_file + ", is another tpx2app already running?");
+            }
+            std::atexit(Lockfile::atexit);
+            std::ostringstream oss;
+            oss << getpid() << '\n';
+            auto pids = oss.str();
+            write(fd, pids.data(), pids.size());
+        }
+
+        /*!
+        \brief Destructor
+        Unlink pid file
+        */
+        inline ~Lockfile()
+        {
+            log << "unlink pid file at " << lock_file << log_debug;
+            atexit();
+        }
+
+        inline static std::string lock_file = "/tmp/tpx3app.pid";   //!< Lock file name
+
+    private:
+
+        inline static void atexit() noexcept
+        {
+            if (fd >= 0) {
+                if (int err = unlink(lock_file.c_str()))
+                    error(0, err, "unlink %s", lock_file.c_str());
+                if (int err = flock(fd, LOCK_UN))
+                    error(0, err, "unlocking lock_file");
+                if (int err = close(fd))
+                    error(0, err, "closing lock_file");
+                fd = -1;
             }
         }
 
-        ~Lockfile()
-        {
-            unlink(lock_file.c_str());
-            close(fd);
-        }
-
-    private:
-        const std::string& lock_file;
-        int fd = -1;
+        Logger& log;    //!< Logger
+        inline static int fd = -1;    //!< File descriptor
     };
 
     //=========================
@@ -529,6 +580,13 @@ namespace {
                 .required(false)
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleVersion)));
+
+            options.addOption(Option("pid-file", "P")
+                .description("pid file for locking")
+                .required(false)
+                .repeatable(false)
+                .argument("PATH")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handlePidfile)));
         }
 
         /*!
@@ -711,6 +769,17 @@ namespace {
             std::cout << VERSION << '\n';
             stopOptionsProcessing();
             global::instance->stop = true;
+        }
+
+        /*!
+        \brief Pid file option handler
+        \param name     Option name
+        \param value    Option value
+        */
+        inline void handlePidfile([[maybe_unused]] const std::string& name, const std::string& value)
+        {
+            logger << "handlePidfile(" << name << ", " << value << ')' << log_trace;
+            Lockfile::lock_file = value;
         }
 
         /*!
@@ -1484,8 +1553,8 @@ int main (int argc, char* argv[])
 
         try {
             logger.setLevel(Message::PRIO_CRITICAL);
-            Lockfile{};
             Tpx3App app(logger, argc, argv);
+            Lockfile pid_file{logger};
             return app.run();
         } catch (Poco::Exception& ex) {
             LogProxy log(logger);
