@@ -84,6 +84,8 @@ namespace xes {
             }
         };
 
+        Period noData;                      //!< Dummy period for periods without data
+
         /*!
         \brief Pool of period data
         This pool has to big enough to hold period data for periods that
@@ -115,6 +117,11 @@ namespace xes {
             logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
             const unsigned nThreads = detector.layout.chip.size();
             dataCache.resize(nThreads);
+
+            noData.threadData.resize(nThreads);
+            for (auto& d : noData.threadData)
+                d.Init(detector);
+
             periodData.resize(nPeriods, Period{});
             for (auto& pd : periodData) {
                 pd.threadData.resize(nThreads);
@@ -243,7 +250,6 @@ namespace xes {
                     if (firstNone)
                         break;
                     // xes::Manager too slow/unbalanced
-                    std::this_thread::sleep_for(1ms);
                 }
             } while (! firstNone->period.compare_exchange_weak(expect, period));
             cached.period = period;
@@ -265,15 +271,27 @@ namespace xes {
                 throw Poco::RuntimeException(global::instance->last_error);
 
             dataCache[threadNo].period = none;
-            Period* periodPtr = nullptr;
-            for (auto& pd : periodData) {
-                if (pd.period == period) {
-                    periodPtr = &pd;
-                    break;
+            Period* periodPtr;
+            period_type expect;
+
+            do {
+                periodPtr = nullptr;
+                for (auto& pd : periodData) {
+                    if (pd.period == period) {
+                        periodPtr = &pd;
+                        goto writeout_check;
+                    } else if (! periodPtr && (pd.period == none)) {
+                        periodPtr = &pd;
+                    }
                 }
-            }
-            if (periodPtr == nullptr)
-                return;
+                if (periodPtr == nullptr) {
+                    // xes::Manager too slow/unbalanced
+                    continue;
+                }
+                expect = none;
+            } while (! periodPtr->period.compare_exchange_weak(expect, period));
+
+        writeout_check:
             if (++(periodPtr->ready) == periodPtr->threadData.size()) {
                 {
                     std::unique_lock lock(thread_lock);
