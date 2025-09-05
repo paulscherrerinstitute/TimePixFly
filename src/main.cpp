@@ -137,7 +137,8 @@ namespace {
             std::ostringstream oss;
             oss << getpid() << '\n';
             auto pids = oss.str();
-            write(fd, pids.data(), pids.size());
+            if (write(fd, pids.data(), pids.size()) != (ssize_t)pids.size())
+                log << "unable to write pid into lockfile at " << lock_file << log_warn;
         }
 
         /*!

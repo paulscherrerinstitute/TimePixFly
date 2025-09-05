@@ -272,7 +272,7 @@ namespace xes {
 
             dataCache[threadNo].period = none;
             Period* periodPtr;
-            period_type expect;
+            period_type expect = none;
 
             do {
                 periodPtr = nullptr;
