@@ -8,6 +8,7 @@
 Provide functionality to manage partial XES data per thread
 */
 
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <limits>
@@ -92,11 +93,13 @@ namespace xes {
         - receive data from analysis threads
         - are written to disk
         */
-        std::vector<Period> periodData;
+        std::vector<Period> periodData;     //!< Period data pool
+        std::mutex data_lock;               //!< Protect parallel data access
+        std::atomic_uint32_t epoch = 0;     //!< Period data epoch
 
         std::vector<Period*> periodQueue;   //!< Ready period data queue pointing into data pool
+        std::mutex queue_lock;              //!< Protect parallel data access to queue
 
-        std::mutex thread_lock;             //!< Protect parallel data access
         std::condition_variable action_required; //!< Signal for data aggregate+write thread
         bool stopWriter = false;            //!< Stop data aggregate+write thread
         std::thread writerThread;           //!< Data aggregate+write thread
@@ -142,7 +145,7 @@ namespace xes {
                         Period* period;
                         {
                             clock.set();
-                            std::unique_lock lock(thread_lock);
+                            std::unique_lock lock(queue_lock);
                             while (true) {
                                 if (stopWriter) {
                                     writer->stop(std::string(global::no_error));
@@ -212,7 +215,7 @@ namespace xes {
         ~Manager()
         {
             {
-                std::unique_lock lock(thread_lock);
+                std::unique_lock lock(queue_lock);
                 stopWriter = true;
             }
             action_required.notify_all();
@@ -233,25 +236,32 @@ namespace xes {
                 return *cached.data;
 
             Period* firstNone;
-            period_type expect;
+            uint32_t current_epoch;
+
             do {
-                expect = none;
-                while(true) {
-                    firstNone = nullptr;
-                    for (auto& pd : periodData) {
-                        if (!firstNone && (pd.period == none)) {
-                            firstNone = &pd;
-                        } else if (pd.period == period) {
-                            cached.period = period;
-                            cached.data = &pd.threadData[threadNo];
-                            return *cached.data;
-                        }
+                firstNone = nullptr;
+                current_epoch = epoch.load();
+                for (auto& pd : periodData) {
+                    auto p = pd.period.load();
+                    if (!firstNone && (p == none)) {
+                        firstNone = &pd;
+                    } else if (p == period) {
+                        cached.period = period;
+                        cached.data = &pd.threadData[threadNo];
+                        return *cached.data;
                     }
-                    if (firstNone)
-                        break;
-                    // xes::Manager too slow/unbalanced
                 }
-            } while (! firstNone->period.compare_exchange_weak(expect, period));
+                if (firstNone != nullptr) {
+                    std::unique_lock lock{data_lock};
+                    if (current_epoch != epoch.load())
+                        continue;
+                    firstNone->period.store(period);
+                    epoch++;
+                    break;
+                }
+                // xes::Manager too slow/unbalanced
+            } while (true);
+
             cached.period = period;
             cached.data = &firstNone->threadData[threadNo];
             return *cached.data;
@@ -272,29 +282,35 @@ namespace xes {
 
             dataCache[threadNo].period = none;
             Period* periodPtr;
-            period_type expect = none;
+            uint32_t current_epoch;
 
             do {
                 periodPtr = nullptr;
+                current_epoch = epoch.load();
                 for (auto& pd : periodData) {
-                    if (pd.period == period) {
+                    auto p = pd.period.load();
+                    if (p == period) {
                         periodPtr = &pd;
                         goto writeout_check;
-                    } else if (! periodPtr && (pd.period == none)) {
+                    } else if (! periodPtr && (p == none)) {
                         periodPtr = &pd;
                     }
                 }
-                if (periodPtr == nullptr) {
-                    // xes::Manager too slow/unbalanced
-                    continue;
+                if (periodPtr != nullptr) {
+                    std::unique_lock lock{data_lock};
+                    if (current_epoch != epoch.load())
+                        continue;
+                    periodPtr->period.store(period);
+                    epoch++;
+                    break;
                 }
-                expect = none;
-            } while (! periodPtr->period.compare_exchange_weak(expect, period));
+                // xes::Manager too slow/unbalanced
+            } while (true);
 
         writeout_check:
             if (++(periodPtr->ready) == periodPtr->threadData.size()) {
                 {
-                    std::unique_lock lock(thread_lock);
+                    std::unique_lock lock(queue_lock);
                     periodQueue.push_back(periodPtr);
                 }
                 action_required.notify_one();
