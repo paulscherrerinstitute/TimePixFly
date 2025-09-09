@@ -243,12 +243,12 @@ namespace xes {
                 current_epoch = epoch.load();
                 for (auto& pd : periodData) {
                     auto p = pd.period.load();
-                    if (!firstNone && (p == none)) {
-                        firstNone = &pd;
-                    } else if (p == period) {
+                    if (p == period) {
                         cached.period = period;
                         cached.data = &pd.threadData[threadNo];
                         return *cached.data;
+                    } else if (!firstNone && (p == none)) {
+                        firstNone = &pd;
                     }
                 }
                 if (firstNone != nullptr) {
