@@ -116,6 +116,7 @@ class period_predictor final {
         for (int i=0; i<N; i++)
             past[N-i-1] = start - i * interval;
         correction = 0;
+        first = 0;
     }
 
     /*!
