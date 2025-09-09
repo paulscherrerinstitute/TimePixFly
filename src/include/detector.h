@@ -46,7 +46,7 @@ struct Detector final {
         \param tRoiStep         Step size
         \param tRoiN            Number of steps to end
         */
-        inline void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN) noexcept
+        inline void SetTimeROI(int tRoiStart, int tRoiStep, int tRoiN)
         {
                 Logger& logger = Logger::get("Tpx3App");
                 logger << "SetTimeROI(" << tRoiStart << ", " << tRoiStep << ", " << tRoiN << ')' << log_trace;
