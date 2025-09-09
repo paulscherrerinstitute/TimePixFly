@@ -8,6 +8,7 @@
 Detector description
 */
 
+#include <stdexcept>
 #include "shared_types.h"
 #include "layout.h"
 #include "logging.h"
@@ -49,6 +50,10 @@ struct Detector final {
         {
                 Logger& logger = Logger::get("Tpx3App");
                 logger << "SetTimeROI(" << tRoiStart << ", " << tRoiStep << ", " << tRoiN << ')' << log_trace;
+
+                if ((tRoiStep <= 0) && (tRoiN <= 0))
+                        throw std::invalid_argument("TRoiStep and TRoiN must be positive");
+
                 TRoiStart = tRoiStart;
                 TRoiStep = tRoiStep;
                 TRoiN = tRoiN;

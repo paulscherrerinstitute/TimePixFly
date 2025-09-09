@@ -312,6 +312,10 @@ namespace processing {
                 const auto& gvars = *global::instance;
                 std::string output_uri = gvars.output_uri;
 
+                if (gvars.save_interval <= 6000)
+                        throw Poco::RuntimeException("save_interval below 6000");
+
+
                 if (!gvars.server_mode) {
                         ConfigFile config{"Processing.ini"};
 
