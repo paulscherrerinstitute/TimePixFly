@@ -53,6 +53,7 @@ TODO:
 #include <csignal>
 #include <cerrno>
 #include <sstream>
+#include <string>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
@@ -117,7 +118,8 @@ namespace {
         inline explicit Lockfile(Logger& logger)
             : log(logger)
         {
-            assert(fd >= 0);
+            if (lock_file == "none")
+                return;
             std::signal(SIGINT, sigint_handler);
             log << "open pid file at " << lock_file << log_debug;
             fd = open(lock_file.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
@@ -147,11 +149,13 @@ namespace {
         */
         inline ~Lockfile()
         {
-            log << "unlink pid file at " << lock_file << log_debug;
-            atexit();
+            if (fd >= 0) {
+                log << "unlink pid file at " << lock_file << log_debug;
+                atexit();
+            }
         }
 
-        inline static std::string lock_file = "/tmp/tpx3app.pid";   //!< Lock file name
+        inline static std::string lock_file = "/tmp/tpx3app.pid";   //!< Lock file name or "none"
 
     private:
 
@@ -475,7 +479,7 @@ namespace {
             Application::defineOptions(options);
 
             options.addOption(Option("loglevel", "l")
-                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace")
+                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace\ndefult: critical")
                 .required(false)
                 .repeatable(false)
                 .argument("LEVEL")
@@ -488,49 +492,49 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleHelp)));
 
             options.addOption(Option("server", "s")
-                .description("ASI server address")
+                .description(std::string{"ASI server address\ndefault: "} + serverAddress.toString())
                 .required(false)
                 .repeatable(false)
                 .argument("ADDRESS")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleAddress)));
 
             options.addOption(Option("address", "a")
-                .description("my address")
+                .description(std::string{"my address\ndefult: "} + clientAddress.toString())
                 .required(false)
                 .repeatable(false)
                 .argument("ADDRESS")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleAddress)));
 
             options.addOption(Option("control", "c")
-                .description("control interface address")
+                .description(std::string{"control interface address\ndefault: "} + controlAddress.toString())
                 .required(false)
                 .repeatable(false)
                 .argument("ADDRESS")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleAddress)));
 
             options.addOption(Option("bpc-file", "b")
-                .description("bpc file path")
+                .description("optional bpc file path")
                 .required(false)
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
 
             options.addOption(Option("dacs-file", "d")
-                .description("dacs file path")
+                .description("optional dacs file path")
                 .required(false)
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
 
             options.addOption(Option("num-buffers", "n")
-                .description("number of data buffers")
+                .description(std::string{"number of data buffers\ndefault: "} + std::to_string(DEFAULT_NUM_BUFFERS))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("buf-size", "N")
-                .description("individual data buffer byte size,\nwill be rounded up to a multiple of 8")
+                .description(std::string{"individual data buffer byte size,\nwill be rounded up to a multiple of 8\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -544,14 +548,14 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("undisputed-threshold", "u")
-                .description("undisputed part of period [T..1-T]")
+                .description(std::string{"undisputed part of period [T..1-T]\ndefault: "} + std::to_string(undisputedThreshold))
                 .required(false)
                 .repeatable(false)
                 .argument("T")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
 
             options.addOption(Option("max-period-queues", "q")
-                .description("maximum number of period reorder queues")
+                .description(std::string{"maximum number of period reorder queues\ndefault: "} + std::to_string(maxPeriodQueues))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -571,19 +575,19 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
 
             options.addOption(Option("use-syslog", "L")
-                .description("use syslog for logging")
+                .description(std::string{"use syslog for logging with\nSYSLOG_IDENTIFIER="} + NAME)
                 .required(false)
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
 
             options.addOption(Option("version", "v")
-                .description("show version")
+                .description(std::string{"show version\nversion: "} + VERSION)
                 .required(false)
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleVersion)));
 
             options.addOption(Option("pid-file", "P")
-                .description("pid file for locking")
+                .description(std::string{"pid file for locking, or 'none'\ndefult: "} + Lockfile::lock_file)
                 .required(false)
                 .repeatable(false)
                 .argument("PATH")
@@ -1537,6 +1541,8 @@ namespace {
         }
 
         inline virtual ~Tpx3App() {}
+
+        constexpr static char NAME[] = "Tpx3App";               //!< Name (e.g. for syslog)
     };
 
 } // namespace
@@ -1550,11 +1556,13 @@ namespace {
 int main (int argc, char* argv[])
 {
     try {
-        Logger& logger = Logger::get("Tpx3App");
+        Logger& logger = Logger::get(Tpx3App::NAME);
 
         try {
             logger.setLevel(Message::PRIO_CRITICAL);
             Tpx3App app(logger, argc, argv);
+            if (global::instance->stop)
+                return Application::EXIT_OK;
             Lockfile pid_file{logger};
             return app.run();
         } catch (Poco::Exception& ex) {
