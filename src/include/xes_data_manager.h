@@ -149,7 +149,7 @@ namespace xes {
                             while (true) {
                                 if (stopWriter) {
                                     writer->stop(std::string(global::no_error));
-                                    goto stop;
+                                    goto regular_stop;
                                 }
                                 if (periodQueue.size() > 0)
                                     break;
@@ -184,21 +184,26 @@ namespace xes {
                         t_write += clock.elapsed();
                     } // while (true)
                 } catch (std::exception& ex) {
-                    writer->stop(std::string("writer: ") + ex.what());
+                    try {
+                        writer->stop(std::string("writer: ") + ex.what());
+                    } catch (...) {}    // ignore exceptions
                     logger << "writer thread exception: " << ex.what() << log_fatal;
                     global::set_error(std::string("writer: ") + ex.what());
-                    stopWriter = true;
-                    return;
                 } catch (...) {
-                    writer->stop("writer: unknown exception");
+                    try {
+                        writer->stop("writer: unknown exception");
+                    } catch (...) {}    // ignore exceptions
                     logger << "writer thread: unknown exception" << log_fatal;
                     global::set_error("writer: unknown exception");
-                    stopWriter = true;
-                    return;
                 }
-                std::exit((EXIT_FAILURE));  // unreachable
 
-            stop:
+                // exception stop
+                stopWriter = true;
+                return;
+
+            regular_stop:
+                if (writer->data_counter == 0u)
+                    global::set_error("no data was collected");
                 logger << "output wait: " << t_wait << "s, aggregate: " << t_aggregate << "s, write: " << t_write << 's' << log_notice;
             });
         }

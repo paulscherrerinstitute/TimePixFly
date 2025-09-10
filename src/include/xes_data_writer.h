@@ -49,6 +49,8 @@ namespace xes {
         \return FileWriter or TcpWriter
         */
         static std::unique_ptr<Writer> from_uri(const std::string& uri);
+
+        unsigned data_counter = 0u; //!< Data packet counter
     };
 
 

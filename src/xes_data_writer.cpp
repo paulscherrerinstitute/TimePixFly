@@ -56,6 +56,7 @@ namespace {
             if (OutFile.fail())
                     throw std::ios_base::failure("xes::FileWriter::write failed");
             OutFile.close();
+            data_counter++;
         }
 
         inline std::string dest() override
@@ -111,6 +112,7 @@ namespace {
                  << R"(,"beforeROI":)" << data.BeforeRoi
                  << R"(,"afterROI":)" << data.AfterRoi
                  << "}\n" << std::flush;
+            data_counter++;
         }
 
         inline void start(const Detector& detector) override

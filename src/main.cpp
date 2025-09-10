@@ -254,8 +254,12 @@ namespace {
                 response.setStatusAndReason(HTTPResponse::HTTP_BAD_REQUEST, ex.what());
             }
 
-            response.send() << response_text;
-            logger << "Response status: " << response.getStatus() << ", Reson: " << response.getReason() << log_debug;
+            try {
+                response.send() << response_text;
+                logger << "Response status: " << response.getStatus() << ", Reson: " << response.getReason() << log_debug;
+            } catch (std::exception& ex) {
+                logger << "Unable to handle REST call - " << ex.what() << log_error;
+            }
         }
     };
 
