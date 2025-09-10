@@ -1409,8 +1409,10 @@ namespace {
                     while (!global::instance->stop && !global::instance->start) {
                         std::this_thread::sleep_for(1ms);
                     }
-                    if (global::instance->stop)
+                    if (global::instance->stop) {
+                        global::instance->last_error.clear();
                         break; // exit server mode loop
+                    }
                     global::instance->start = false;
                 }
 
@@ -1521,6 +1523,11 @@ namespace {
                     logger << "Exception: " << ex.what() << log_critical;
                 }
             } while (global::instance->server_mode && !global::instance->stop);
+
+            if (! global::instance->last_error.empty()) {
+                set_state(global::except);
+                logger << "Exception: " << global::instance->last_error << log_error;
+            }
 
             set_state(global::shutdown);
             StateHandler::stop();

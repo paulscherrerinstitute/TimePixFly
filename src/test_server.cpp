@@ -7,7 +7,9 @@ TODO:
 - make stop stop data sending
 */
 
+#include <Poco/Util/OptionCallback.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -79,6 +81,7 @@ namespace {
     std::string file_name;                      //!< Raw data stream file name
     int premature_stall = -1;                   //!< Stall data sending before sending everything
     unsigned number_of_chips = 4;               //!< Default value for number of detector chips
+    bool no_data = false;                       //!< Don't send event data
 
     /*!
     \brief Wrap a boolean signal with extra ops
@@ -367,6 +370,8 @@ namespace {
                         std::cout << "premature stall after sending " << sz << " bytes\n";
                         break_stall.await_reset(true);
                     }
+                    if (no_data)
+                        continue;
                     while (sent < fd.len) {
                         std::cout << "data sender: trying to send " << (fd.len - sent) << " after " << sent << " bytes\n";
                         int sz = con.sendBytes(&fd.data[sent], fd.len - sent);
@@ -743,12 +748,19 @@ namespace {
        inline void handle_number(const std::string& name, const std::string& value)
         {
             long num = stol(value);
-            if (name == "nchips")
+            if (name == "nchips") {
                 number_of_chips = static_cast<unsigned>(num);
-            if (name == "premature-stall") {
+            } else if (name == "premature-stall") {
                 if ((num < 0) || (num > 2))
                     throw InvalidArgumentException("invalid premature stall value");
                 premature_stall = num;
+            }
+        }
+
+        inline void handle_bool(const std::string& name, [[maybe_unused]] const std::string& value)
+        { 
+            if (name == "no-data") {
+                no_data = true;
             }
         }
 
@@ -800,6 +812,10 @@ namespace {
             .repeatable(false)
             .argument("S")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
+        args.addOption(Option{"no-data", "d"}
+            .description("don't send any data, just connect and deconnect")
+            .repeatable(false)
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
         args.addOption(Option{"help", "h"}
             .description("show this help")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_help}));
