@@ -203,7 +203,7 @@ namespace xes {
 
             regular_stop:
                 if (writer->data_counter == 0u)
-                    global::set_error("no data was collected");
+                    global::set_error("no event data was collected");
                 logger << "output wait: " << t_wait << "s, aggregate: " << t_aggregate << "s, write: " << t_write << 's' << log_notice;
             });
         }
