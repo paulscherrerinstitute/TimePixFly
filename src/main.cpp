@@ -57,7 +57,6 @@ TODO:
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
-#include <error.h>
 #include <utility>
 
 namespace {
@@ -163,11 +162,11 @@ namespace {
         {
             if (fd >= 0) {
                 if (int err = unlink(lock_file.c_str()))
-                    error(0, err, "unlink %s", lock_file.c_str());
+                    std::cerr << strerror(err) << ": unlink " << lock_file.c_str() << '\n', exit(Application::EXIT_OSERR);
                 if (int err = flock(fd, LOCK_UN))
-                    error(0, err, "unlocking lock_file");
+                    std::cerr << strerror(err) << ": unlocking lock file\n", exit(Application::EXIT_OSERR);
                 if (int err = close(fd))
-                    error(0, err, "closing lock_file");
+                    std::cerr << strerror(err) << "closing lock_file\n", exit(Application::EXIT_OSERR);
                 fd = -1;
             }
         }
