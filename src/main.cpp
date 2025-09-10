@@ -161,12 +161,12 @@ namespace {
         inline static void atexit() noexcept
         {
             if (fd >= 0) {
-                if (int err = unlink(lock_file.c_str()))
-                    std::cerr << strerror(err) << ": unlink " << lock_file.c_str() << '\n', exit(Application::EXIT_OSERR);
-                if (int err = flock(fd, LOCK_UN))
-                    std::cerr << strerror(err) << ": unlocking lock file\n", exit(Application::EXIT_OSERR);
-                if (int err = close(fd))
-                    std::cerr << strerror(err) << "closing lock_file\n", exit(Application::EXIT_OSERR);
+                if (unlink(lock_file.c_str()))
+                    std::cerr << "Error: unlink " << lock_file.c_str() << " - " << strerror(errno) << '\n';
+                if (flock(fd, LOCK_UN))
+                    std::cerr << "Error: unlocking lock file - " << strerror(errno) << '\n';
+                if (close(fd))
+                    std::cerr << "Error: closing lock_file - " << strerror(errno) << '\n';
                 fd = -1;
             }
         }
