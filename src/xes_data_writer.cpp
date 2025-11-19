@@ -42,19 +42,22 @@ namespace {
         */
         inline void write(const xes::Data& data, period_type period) override
         {
-            std::ofstream OutFile(basePath + "-" + std::to_string(period) + ".xes");
+            const std::string path{basePath + "-" + std::to_string(period) + ".xes"};
+            std::ofstream OutFile(path);
+            if (! OutFile.good())
+                throw std::ios_base::failure("xes::FileWriter::write unable to open file - " + path);
 
             const auto& TDSpectra = data.TDSpectra;
             const auto NumEnergyPoints = data.detector->energy_points.npoints;
             const auto TRoiN = data.detector->TRoiN;
             for (std::remove_cv_t<decltype(NumEnergyPoints)> i=0; i<NumEnergyPoints; i++) {
-                    for (std::remove_cv_t<decltype(TRoiN)> j=0; j<TRoiN; j++) {
-                            OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
-                    }
-                    OutFile << "\n";
+                for (std::remove_cv_t<decltype(TRoiN)> j=0; j<TRoiN; j++) {
+                        OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
+                }
+                OutFile << "\n";
             }
             if (OutFile.fail())
-                    throw std::ios_base::failure("xes::FileWriter::write failed");
+                throw std::ios_base::failure("xes::FileWriter::write failed");
             OutFile.close();
             data_counter++;
         }
