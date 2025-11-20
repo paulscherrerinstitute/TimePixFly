@@ -99,24 +99,6 @@ namespace {
                         data.Reset();
                 }
 
-                // /*
-                // \brief Save histogram to .xes file
-
-                // The extension .xes will be appended to the output file path.
-
-                // \param data             Histogram
-                // \param OutFileName      Path to output file without .xes extension
-                // */
-                // inline void SaveToFile(Data& data, const string& OutFileName) const
-                // {
-                //         logger << "SaveToFile(" << OutFileName << ')' << log_trace;
-                //         const auto t1 = clock::now();
-                //         data.SaveToFile(OutFileName);
-                //         const auto t2 = clock::now();
-                //         auto save_time = duration_cast<milliseconds>(t2 - t1).count();
-                //         logger << "save to " << OutFileName << ", time " << save_time << " ms" << log_debug;
-                // }
-
                 /*!
                 \brief Add one event to histogram
                 TOT must be within (TOTRoiStart,TOTRoiEnd) for this event
@@ -129,12 +111,8 @@ namespace {
 
 
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
-			//std::cout<<"e"<<TOT<<"  "<<detector.TOTRoiStart<<"  "<<detector.TOTRoiEnd<<"\n";
-                        //TOT is always 100 which is probably wrong. Check....
-                        //std::cout<<"w";
                         const auto& flat_pixel = detector.energy_points[index];
 
-                        //std::cout<<"q";
                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                         for (const auto& part : flat_pixel.part) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -180,20 +158,8 @@ namespace {
                 inline void Analyse_ignore_tot(Data& data, PixelIndex index, int64_t reltoa) const noexcept
                 {
   //                      logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
-                        //----------------------------------------------------------------------
-                        // parsing one data line
-                        //----------------------------------------------------------------------
-                        // double fulltoa = toa*25.0 - ftoa*25.0/16.0;
-                        // double ftoaC=ftoa*1.0;
 
                         data.Total++;
-
-                        // temporary here
-                        //if (tot < TOTMin)
-                        //        TOTMin = tot;
-                        //if (tot > TOTMax)
-                        //        TOTMax = tot;
-                        // end of temporary
 
                         // const u64 FullToA = TOAMode ? reltoa : tot;
 
@@ -256,7 +222,6 @@ namespace {
                 \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
                 \param event            Raw event
                 */
-                // void ProcessEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
                 void ProcessEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
                 {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
@@ -265,18 +230,7 @@ namespace {
                         if (period > sp)
                                 sp += global::instance->save_interval;
 
-                        // substituted tot by constant to test speed since tot is typically ignored
-
                         //const uint64_t totclk = Decode::getTotClock(event);
-                        //const uint64_t totclk = 100;
-
-
-
-                        //const float toa = Decode::clockToFloat(toaclk);
-                        //const float tot = Decode::clockToFloat(totclk);
-
-
-                        // commented to test speed since xy is typically ignored for XAS (not for XES!)
 
                         const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
 
@@ -284,17 +238,8 @@ namespace {
 //                          logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
 //                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
 
-                        //can be replaced to test speed in XAS mode
-
                         auto index = PixelIndex::from(chipIndex, xy);
-                        //auto index = PixelIndex::from(chipIndex, 10);
-
-
-
-                        {
-                                // std::lock_guard lock{histo_lock}; // <---- problematic lock
-                                Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk);
-                        }
+                        Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk);
 
                 }
 
@@ -353,10 +298,8 @@ namespace processing {
                 analysis->PurgePeriod(chipIndex, period);
         }
 
-        // void processEvent(unsigned chipIndex, const period_type period, int64_t toaclk, int64_t relative_toaclk, uint64_t event)
         void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
         {
-                // analysis->ProcessEvent(chipIndex, period, toaclk, relative_toaclk, event);
                 analysis->ProcessEvent(chipIndex, period, relative_toaclk, event);
         }
 
