@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef IO_BUFFERS_H
 #define IO_BUFFERS_H
 
@@ -9,13 +11,13 @@ Code for buffering incoming IO
 #include <vector>
 #include <map>
 #include "spin_lock.h"
-
+#include "aligned_allocator.h"
 /*!
 \brief Buffer for holding partial raw stream chunk data
 */
 struct io_buffer final {
     inline static std::atomic<unsigned> next_id;    //!< Buffer id for next buffer
-    std::vector<char> content;                      //!< Content of this buffer
+    std::vector<char, aligned_allocator<char>> content; //!< Content of this buffer
     size_t content_offset = 0;                      //!< Content offset within raw event data packet chunk
     size_t content_size = 0;                        //!< Content size in number of bytes
     size_t chunk_size = 0;                          //!< Raw data event packet chunk size in number of bytes
