@@ -124,7 +124,7 @@ namespace {
                 \param index            Abstract pixel index of event
                 \param TimePoint        Clock tick relative to period interval start
                 */
-                inline void Register(Data& data, PixelIndex index, int TimePoint) noexcept
+                inline void Register(Data& data, PixelIndex index, int TimePoint) const noexcept
                 {
 
 
@@ -176,9 +176,8 @@ namespace {
                 \param data             Histogram
                 \param index            Abstract pixel index of event
                 \param reltoa           Event TOA relative to period interval start
-                \param tot              Event TOT value
                 */
-                inline void Analyse(Data& data, PixelIndex index, int64_t reltoa, int64_t tot) noexcept
+                inline void Analyse_ignore_tot(Data& data, PixelIndex index, int64_t reltoa) const noexcept
                 {
   //                      logger << "Analyse(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << reltoa << ", " << tot << ')' << log_trace;
                         //----------------------------------------------------------------------
@@ -196,29 +195,29 @@ namespace {
                         //        TOTMax = tot;
                         // end of temporary
 
-                        const u64 FullToA = TOAMode ? reltoa : tot;
+                        // const u64 FullToA = TOAMode ? reltoa : tot;
 
-                        if (FullToA < detector.TRoiStart) {
+                        if (reltoa < (int64_t)detector.TRoiStart) {
                                 data.BeforeRoi++;
 //                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
-                        } else if (FullToA >= detector.TRoiEnd) {
+                        } else if (reltoa >= (int64_t)detector.TRoiEnd) {
                                 data.AfterRoi++;
 //                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
-                        } else if ((tot > detector.TOTRoiStart) && (tot < detector.TOTRoiEnd)) {
+                        } else { // if ((tot > detector.TOTRoiStart) && (tot < detector.TOTRoiEnd)) {
                                 // not ideal here. Does not work if tot step is
                                 // not 1
 
-                                if constexpr (TOAMode == true) {
+                                // if constexpr (TOAMode == true) {
                                         //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
-                                        const int TP = static_cast<int>((FullToA - detector.TRoiStart) * TRoiStep_inv);
+                                        const int TP = static_cast<int>((reltoa - detector.TRoiStart) * TRoiStep_inv);
                                         Register(data, index, TP);
                                         //RegisterXAS(data, index, TP, tot);
 
-                                } else {
-                                        const int TOTP = tot;
-                                        Register(data, index, TOTP);
+                                // } else {
+                                //         const int TOTP = tot;
+                                //         Register(data, index, TOTP);
                                         //RegisterXAS(data, index, TOTP, tot);
-                                }
+                                // }
                         }
                 } // end Analyse()
 
@@ -268,13 +267,13 @@ namespace {
 
                         // substituted tot by constant to test speed since tot is typically ignored
 
-                        const uint64_t totclk = Decode::getTotClock(event);
+                        //const uint64_t totclk = Decode::getTotClock(event);
                         //const uint64_t totclk = 100;
 
 
 
                         //const float toa = Decode::clockToFloat(toaclk);
-                        //const float tot = Decode::clockToFloat(totclk, 40e6);
+                        //const float tot = Decode::clockToFloat(totclk);
 
 
                         // commented to test speed since xy is typically ignored for XAS (not for XES!)
@@ -294,7 +293,7 @@ namespace {
 
                         {
                                 // std::lock_guard lock{histo_lock}; // <---- problematic lock
-                                Analyse(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk, totclk);
+                                Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk);
                         }
 
                 }

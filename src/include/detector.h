@@ -28,7 +28,7 @@ struct Detector final {
         static constexpr bool TOAMode = true;
 
         static constexpr u16 TOTRoiStart = 0;           //!< ROI start in terms of TOT
-        static constexpr u16 TOTRoiEnd = 64000;           //!< ROI end in terms of TOT
+        static constexpr u16 TOTRoiEnd = 64000;         //!< ROI end in terms of TOT
 
         u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
         u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks

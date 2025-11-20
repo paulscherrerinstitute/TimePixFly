@@ -70,9 +70,10 @@ struct AsiRawStreamDecoder final {
     \return Clock value in seconds
     */
     [[gnu::const]]
-    inline static float clockToFloat(int64_t count, double clock=640e6) noexcept
+    inline static float clockToFloat(int64_t count) noexcept
     {
-        return count / clock;
+        static constexpr double clock_to_sec = 640e-6;  // 1 clock tick = 1.5625ns
+        return count * clock_to_sec;
     }
 
     /*!
@@ -160,7 +161,7 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static uint64_t getTotClock(uint64_t data) noexcept
     {
-        return getBits(data, 29, 20);
+        return getBits(data, 29, 20) << 4;
     }
 };  // AsiRawStreamDecoder
 
