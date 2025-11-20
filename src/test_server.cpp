@@ -776,6 +776,11 @@ namespace {
             }
         }
 
+        /*!
+        \brief Bool values option handler
+        \param name  Option name
+        \param value Option value
+        */
         inline void handle_bool(const std::string& name, [[maybe_unused]] const std::string& value)
         { 
             if (name == "no-data") {

@@ -98,6 +98,7 @@ namespace {
 
         /*!
         \brief Handle SIGTERM, CTRL-C
+        \param sig Signal number
         */
         inline static void sigint_handler([[maybe_unused]] int sig)
         {
@@ -158,6 +159,10 @@ namespace {
 
     private:
 
+        /*!
+        \brief Atexit handler
+        Unlink the pid file
+        */
         inline static void atexit() noexcept
         {
             if (fd >= 0) {

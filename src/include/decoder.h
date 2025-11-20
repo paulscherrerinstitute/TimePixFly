@@ -66,7 +66,6 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief Convert clock ticks counter value to seconds
     \param count Clock counter value in units of clock ticks
-    \param clock Clock tick frequency
     \return Clock value in seconds
     */
     [[gnu::const]]
