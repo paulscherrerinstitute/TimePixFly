@@ -7,8 +7,10 @@ TODO:
 - make stop stop data sending
 */
 
+#include <Poco/Exception.h>
 #include <Poco/Util/OptionCallback.h>
 #include <fcntl.h>
+#include <iterator>
 #include <netdb.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -69,6 +71,7 @@ using Poco::RuntimeException;
 using Poco::DataFormatException;
 using Poco::InvalidArgumentException;
 using Poco::Util::UnknownOptionException;
+using Poco::Util::OptionException;
 
 namespace {
     using namespace std::chrono_literals;
@@ -79,8 +82,9 @@ namespace {
     OptionSet args;                             //!< Commandline arguments OptionSet
     std::thread data_sender;                    //!< Data sender thread
     std::string file_name;                      //!< Raw data stream file name
+    std::string layout_name;                    //!< Layout info file in json format (as from the ASI server)
     int premature_stall = -1;                   //!< Stall data sending before sending everything
-    unsigned number_of_chips = 4;               //!< Default value for number of detector chips
+    unsigned number_of_chips = 8;               //!< Default value for number of detector chips
     bool no_data = false;                       //!< Don't send event data
 
     /*!
@@ -600,26 +604,39 @@ namespace {
     */
     void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
-        auto width = static_cast<unsigned>(std::ceil(std::sqrt(number_of_chips)));
-        auto height = number_of_chips / width;
-        if ((width * height) != number_of_chips)
-            throw InvalidArgumentException("number of chips argument cannot be decomposed properly into width and height");
-
         std::ostringstream oss;
-        oss << R"({"Original":{"Width":)" << width * 256
-            << R"(,"Height":)" << height * 256 << R"(,"Chips":[)";
 
-        unsigned i=1;
-        for (unsigned h=0; h<height; h++) {
-            auto posX = h * 256;
-            for(unsigned w=0; w<width; i++, w++) {
-                auto posY = w * 256;
-                oss << R"({"X":)" << posX << R"(,"Y":)" << posY << "}";
-                if (i < number_of_chips)
-                    oss << ',';
+        if (layout_name.empty()) {
+            auto height = 2u;
+            auto width = number_of_chips / height;
+            if ((width * height) != number_of_chips)
+                throw InvalidArgumentException("number of chips argument cannot be decomposed properly into width and height");
+
+            oss << R"({"Original":{"Width":)" << width * 256
+                << R"(,"Height":)" << height * 256 << R"(,"Chips":[)";
+
+            unsigned i=1;
+            for (unsigned h=0; h<height; h++) {
+                auto posX = h * 256;
+                for(unsigned w=0; w<width; i++, w++) {
+                    auto posY = w * 256;
+                    oss << R"({"X":)" << posX << R"(,"Y":)" << posY << "}";
+                    if (i < number_of_chips)
+                        oss << ',';
+                }
             }
+            oss << "]}}\n";
+        } else {
+            std::ifstream ifs(layout_name);
+            if (!ifs.good())
+                throw InvalidArgumentException("unable to open layout file");
+
+            std::copy(
+                std::istreambuf_iterator<char>(ifs),
+                std::istreambuf_iterator<char>(),
+                std::ostreambuf_iterator<char>(oss)
+            );
         }
-        oss << "]}}\n";
 
         response.setContentType("application/json");
         response.send() << oss.str();
@@ -736,6 +753,8 @@ namespace {
         {
             if (name == "input")
                 file_name = value;
+            else if (name == "layout")
+                layout_name = value;
             else if (name == "bind")
                 bind_to = ServerSocket{SocketAddress{value}};
         }
@@ -807,6 +826,11 @@ namespace {
             .repeatable(false)
             .argument("N")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
+        args.addOption(Option{"layout", "l"}
+            .description("layout file (json)")
+            .repeatable(false)
+            .argument("JSON")
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_string}));
         args.addOption(Option{"premature-stall", "s"}
             .description("premature stall of data sending, 0-before connect/1-after connect/2-after header")
             .repeatable(false)
