@@ -464,7 +464,8 @@ namespace {
         std::string dacsFilePath;       //!< Path to ASI dacs detector configuration file (optional)
         std::string streamFilePath;     //!< Path (and flag) to file to which the raw event stream should be copied (don't copy if empty)
 
-        int64_t initialPeriod;                          //!< Initial period interval in clock ticks
+        static constexpr float ns_to_clk = 2. / 3.125;  //!< Nanoseconds to TDC timestamp clock ticks (see ASI server TDC event description, only 1 bit of fine timestamp used)
+        int64_t initialPeriod = 7686. * ns_to_clk;      //!< Initial period interval in clock ticks 130.1 kHz
         double undisputedThreshold = 0.1;               //!< Default undisputed period interval threshold as ratio, [t..1-t] is undisputed
         unsigned long numBuffers = DEFAULT_NUM_BUFFERS; //!< Number of IO buffers
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
@@ -544,8 +545,8 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("initial-period", "p")
-                .description("initial TDC period")
-                .required(true)
+                .description(std::string{"initial TDC period in nanoseconds\ndefault: "} + std::to_string(initialPeriod))
+                .required(false)
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
@@ -632,7 +633,7 @@ namespace {
         */
         inline void handleBool(const std::string& name, const std::string& value)
         {
-            logger << "handleNumber(" << name << ", " << value << ")" << log_trace;
+            logger << "handleBool(" << name << ", " << value << ")" << log_trace;
             bool val = true;
             if ((value == "") ||
                 (value == "true") ||
