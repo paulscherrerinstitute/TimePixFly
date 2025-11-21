@@ -68,10 +68,6 @@ namespace {
 
                 u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
-                                                        //TOTMin and TOTMax probably can be removed. Not really used. TOTROIStart are the ROI...
-                u16 TOTMin = 0;                         //!< Minimum TOT value accepted
-                u16 TOTMax = 64000;                     //!< Maximum TOT value accepted
-
                 static constexpr period_type no_save = 2; //!< Don't save save data before this period
                 std::vector<period_type> save_point;    //!< Next period for which a file is written
                 const Detector& detector;               //!< Reference to constant Detector data

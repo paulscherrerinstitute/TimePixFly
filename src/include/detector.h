@@ -27,12 +27,14 @@ struct Detector final {
         */
         static constexpr bool TOAMode = true;
 
-        static constexpr u16 TOTRoiStart = 0;           //!< ROI start in terms of TOT
-        static constexpr u16 TOTRoiEnd = 64000;         //!< ROI end in terms of TOT
+        // static constexpr u16 TOTRoiStart = 0;           //!< ROI start in terms of TOT
+        // static constexpr u16 TOTRoiEnd = 64000;         //!< ROI end in terms of TOT
 
-        u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
+        // u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
+        u64 TRoiStart = 0;                              //!< ROI start offset in clock ticks relative to interval start
         u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks
-        u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
+        // u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
+        u64 TRoiN = 5000;                               //!< Number of histogram bins
         u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
 
         const PixelIndexToEp& energy_points;            //!< Abstract pixel index to energy point mapping
