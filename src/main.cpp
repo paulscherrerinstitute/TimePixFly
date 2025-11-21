@@ -1259,8 +1259,8 @@ namespace {
                 // - data see energy_points.cpp from_json()
                 // {
                 //  "type": "PixelMap",        // optional
-                //  "chips": [                 // per chip mapping (256x256 pixels)
-                //   [                         // chip 0: pixel mapping
+                //  "chips": [                 // per chip mapping
+                //   [                         // chip 0: pixel mapping (256x256 pixels)
                 //    {                        // chip 0, flat pixel 0: mapping
                 //     "i":0,                  // flat pixel index (x*256+y)
                 //     "p":[0,1,2],            // energy points
