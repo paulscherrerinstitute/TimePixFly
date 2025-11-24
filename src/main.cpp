@@ -834,10 +834,14 @@ namespace {
         inline std::istream& serverGet(const std::string& requestString, HTTPResponse& response)
         {
             logger << "serverGet(" << requestString << ')' << log_trace;
-            auto request = HTTPRequest{HTTPRequest::HTTP_GET, getUri(requestString)};
-            logger << request.getMethod() << " " << request.getURI() << log_debug;
-            clientSession->sendRequest(request);
-            return clientSession->receiveResponse(response);
+            try {
+                auto request = HTTPRequest{HTTPRequest::HTTP_GET, getUri(requestString)};
+                logger << request.getMethod() << " " << request.getURI() << log_debug;
+                clientSession->sendRequest(request);
+                return clientSession->receiveResponse(response);
+            } catch (Poco::Exception& ex) {
+                throw Poco::RuntimeException{std::string{"ASI server GET request for " + requestString + " failed - " + ex.displayText()}};
+            }
         }
 
         /*!
@@ -850,11 +854,15 @@ namespace {
         inline std::ostream& serverPut(const std::string& requestString, const std::string& contentType, std::streamsize contentLength)
         {
             logger << "serverPut(" << requestString << ", " << contentType << ", " << contentLength << ')' << log_trace;
-            auto request = HTTPRequest{HTTPRequest::HTTP_PUT, getUri(requestString)};
-            request.setContentType(MediaType{contentType});
-            request.setContentLength(contentLength);
-            logger << request.getMethod() << " " << request.getURI() << log_debug;
-            return clientSession->sendRequest(request);
+            try {
+                auto request = HTTPRequest{HTTPRequest::HTTP_PUT, getUri(requestString)};
+                request.setContentType(MediaType{contentType});
+                request.setContentLength(contentLength);
+                logger << request.getMethod() << " " << request.getURI() << log_debug;
+                return clientSession->sendRequest(request);
+            } catch (Poco::Exception& ex) {
+                throw Poco::RuntimeException{std::string{"ASI server PUT request for " + requestString + " failed - " + ex.displayText()}};
+            }
         }
 
         /*!
@@ -1074,16 +1082,19 @@ namespace {
             bool server_mode = global::instance->server_mode;
 
             // ----------------------- get detector server data -----------------------
+
             logger << "connecting to ASI server at " << serverAddress.toString() << log_notice;
             clientSession.reset(new HTTPClientSession{serverAddress});
 
-            auto dashboardPtr = dashboard();
-            std::string softwareVersion = (dashboardPtr|"Server")->getValue<std::string>("SoftwareVersion");
             {
-                LogProxy log(logger);
-                log << "Server Software Version: " << softwareVersion << "\nDashboard: ";
-                dashboardPtr->stringify(log.base());
-                log << log_notice;
+                auto dashboardPtr = dashboard();
+                std::string softwareVersion = (dashboardPtr|"Server")->getValue<std::string>("SoftwareVersion");
+                {
+                    LogProxy log(logger);
+                    log << "Server Software Version: " << softwareVersion << "\nDashboard: ";
+                    dashboardPtr->stringify(log.base());
+                    log << log_notice;
+                }
             }
 
             if (! server_mode)
