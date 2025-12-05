@@ -97,7 +97,7 @@ namespace {
     extern "C" {
 
         /*!
-        \brief Handle SIGTERM, CTRL-C
+        \brief Handle SIGTERM, SIGINT(CTRL-C), SIGHUP
         \param sig Signal number
         */
         inline static void sigint_handler([[maybe_unused]] int sig)
@@ -121,6 +121,8 @@ namespace {
             if (lock_file == "none")
                 return;
             std::signal(SIGINT, sigint_handler);
+            std::signal(SIGTERM, sigint_handler);
+            std::signal(SIGHUP, sigint_handler);
             log << "open pid file at " << lock_file << log_debug;
             fd = open(lock_file.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
             if (fd < 0) {
