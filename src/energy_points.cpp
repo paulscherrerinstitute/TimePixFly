@@ -158,7 +158,7 @@ namespace {
             FlatPixelToEp& pixel = pmap.at(PixelIndex::from(k, l));
             const unsigned numEnergyPoints = (count - 2u) / 2u;
             for (unsigned m=0; m<numEnergyPoints; m++) {
-                EpPart part;
+                EpPart part{};
                 part.energy_point = parse<unsigned>(s, posN[2+m]);
                 pmap.npoints = std::max(pmap.npoints, part.energy_point);
                 pixel.part.push_back(std::move(part));
