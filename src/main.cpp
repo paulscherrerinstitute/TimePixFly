@@ -16,6 +16,7 @@ TODO:
 #include <iostream>
 #include <fstream>
 
+#include "include/logging.h"
 #include "poll.h"
 
 #include "Poco/Dynamic/Var.h"
@@ -54,10 +55,12 @@ TODO:
 #include <cerrno>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/file.h>
-#include <utility>
+#include <cstring>
+#include <cerrno>
 
 namespace {
     using namespace std::string_view_literals;
@@ -97,11 +100,14 @@ namespace {
     extern "C" {
 
         /*!
-        \brief Handle SIGTERM, SIGINT(CTRL-C), SIGHUP
+        \brief Handle SIGINT(CTRL-C), SIGTERM, SIGHUP, SIGQUIT, SIGUSR1
+        All signals stop the server/receiver loop, SIGUSR1 restarts the server
         \param sig Signal number
         */
         inline static void sigint_handler([[maybe_unused]] int sig)
         {
+            if (sig == SIGUSR1)
+                global::instance->restart = true;
             global::instance->stop = true;
         }
     }
@@ -120,9 +126,6 @@ namespace {
         {
             if (lock_file == "none")
                 return;
-            std::signal(SIGINT, sigint_handler);
-            std::signal(SIGTERM, sigint_handler);
-            std::signal(SIGHUP, sigint_handler);
             log << "open pid file at " << lock_file << log_debug;
             fd = open(lock_file.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
             if (fd < 0) {
@@ -490,7 +493,7 @@ namespace {
             Application::defineOptions(options);
 
             options.addOption(Option("loglevel", "l")
-                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace\ndefult: critical")
+                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace\ndefault: critical")
                 .required(false)
                 .repeatable(false)
                 .argument("LEVEL")
@@ -510,7 +513,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleAddress)));
 
             options.addOption(Option("address", "a")
-                .description(std::string{"my address\ndefult: "} + clientAddress.toString())
+                .description(std::string{"my address\ndefault: "} + clientAddress.toString())
                 .required(false)
                 .repeatable(false)
                 .argument("ADDRESS")
@@ -598,7 +601,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleVersion)));
 
             options.addOption(Option("pid-file", "P")
-                .description(std::string{"pid file for locking, or 'none'\ndefult: "} + Lockfile::lock_file)
+                .description(std::string{"pid file for locking, or 'none'\ndefault: "} + Lockfile::lock_file)
                 .required(false)
                 .repeatable(false)
                 .argument("PATH")
@@ -627,7 +630,9 @@ namespace {
             HelpFormatter helpFormatter(options());
             helpFormatter.setCommand(commandName());
             helpFormatter.setUsage("OPTIONS");
-            helpFormatter.setHeader("Handle TimePix3 raw stream.");
+            helpFormatter.setHeader("Handle TimePix3 raw stream or send SIGTERM (for stop) or SIGUSR1 (for restart)\n"
+                                    "to the tpx3app process with the PID recorded in the pid-file.");
+            helpFormatter.setUsage(helpFormatter.getUsage() + " or " + commandName() + " (stop | restart) [pid_file]");
             helpFormatter.format(std::cout);
             stopOptionsProcessing();
             global::instance->stop = true;
@@ -1175,6 +1180,24 @@ namespace {
             };
 
             // REST COMMAND
+            // /?restart=true  GET to a restart now
+            // returns:
+            // - status 200
+            // - data OK
+            // when: after init
+            global::instance->get_callbacks["/?restart"] = [](const std::string& val) -> std::string {
+                auto& gvars = *global::instance;
+                if (val == "true") {
+                    gvars.restart.store(true);
+                    gvars.stop.store(true);
+                    for (const auto& handler : gvars.stop_handlers)
+                        handler();
+                    return "OK";
+                }
+                throw Poco::DataFormatException("only 'true' is accepted as 'stop' value");
+            };
+
+            // REST COMMAND
             // /?stop_collect=true  GET stop collecting data
             // returns:
             // - status 200
@@ -1563,16 +1586,63 @@ namespace {
         \param argc Number of commandline arguments
         \param argv Commandline argument values
         */
-        explicit Tpx3App(Logger& log, int argc, char* argv[])
+        inline explicit Tpx3App(Logger& log, int argc, char* argv[])
             : logger(log)
         {
             init(argc, argv);
         }
 
-        inline virtual ~Tpx3App() {}
+        inline virtual ~Tpx3App() {}                //!< Destructor
 
-        constexpr static char NAME[] = "Tpx3App";               //!< Name (e.g. for syslog)
+        constexpr static char NAME[] = "Tpx3App";   //!< Name (e.g. for syslog)
     };
+
+    /*!
+    \brief Handle stop and restart command
+    \param argc Number of comandline arguments
+    \param argv Commandline arguments
+    */
+    void stopOrRestartCommand(int argc, char* argv[])
+    {
+        // Search for "stop" or "restart"
+        int command = 0;
+        for (int i=1; i<argc; i++) {
+            auto arg = std::string_view(argv[i]);
+            if ((arg == "stop") || (arg == "restart")) {
+                command = i;
+                break;
+            }
+        }
+
+        // Handle command and exit, or just leave it
+        if (command != 0) {
+            int retval = Application::EXIT_OK;
+            try {
+                int pid = 0;
+                const std::string cmd{argv[command]};
+                if (command != 1)
+                    throw InvalidArgumentException(cmd + " must be the first argument");
+                if (argc > 3)
+                    throw InvalidArgumentException(std::string{"only one argument (lockfile) is allowed for "} + cmd);
+                {
+                    std::string pid_file = argc > 2 ? std::string{argv[2]} : Lockfile::lock_file;
+                    std::ifstream ifs(pid_file);
+                    ifs >> pid;
+                    if (!ifs || (pid==0))
+                        throw InvalidArgumentException(std::string{"unable to read pid from "} + pid_file + " (is tpx3app running?)");
+                }
+                bool stop = (cmd == "stop");
+                std::cout << (stop ? "stop" : "restart") << " process " << pid << '\n';
+                int res = kill(pid, stop ? SIGTERM : SIGUSR1);
+                if (res != 0)
+                    throw RuntimeException(std::strerror(errno));
+            } catch (Poco::Exception& ex) {
+                std::cerr << ex.displayText() << '\n';
+                retval = Application::EXIT_USAGE;
+            } catch (...) {}
+            std::exit(retval);
+        }
+    }
 
 } // namespace
 
@@ -1584,18 +1654,39 @@ namespace {
 */
 int main (int argc, char* argv[])
 {
+    int retval = Application::EXIT_USAGE;
+
     try {
         Logger& logger = Logger::get(Tpx3App::NAME);
+        LogProxy log(logger);
+
+        stopOrRestartCommand(argc, argv); // exits if applicable
+
+        std::signal(SIGINT, sigint_handler);
+        std::signal(SIGTERM, sigint_handler);
+        std::signal(SIGHUP, sigint_handler);
+        std::signal(SIGQUIT, sigint_handler);
+        std::signal(SIGUSR1, sigint_handler);
 
         try {
+            retval = Application::EXIT_SOFTWARE;
             logger.setLevel(Message::PRIO_CRITICAL);
             Tpx3App app(logger, argc, argv);
             if (global::instance->stop)
                 return Application::EXIT_OK;
             Lockfile pid_file{logger};
-            return app.run();
+
+            do {
+                global::instance->stop.store(false);
+                global::instance->restart.store(false);
+                retval = app.run();
+                if (global::instance->restart.load())
+                    log << "restart, last error is \"" << global::instance->last_error << '"' << log_info;
+                else
+                    break;
+            } while (true);
+
         } catch (Poco::Exception& ex) {
-            LogProxy log(logger);
             log << ex.displayText() << '\n';
             const Poco::Exception* pEx = & ex;
             while ((pEx = pEx->nested())) {
@@ -1603,7 +1694,7 @@ int main (int argc, char* argv[])
             }
             log << log_fatal;
         } catch (std::exception& ex) {
-            logger << "Exception: " << ex.what() << log_fatal;
+            log << "Exception: " << ex.what() << log_fatal;
         }
 
     } catch (Poco::Exception& ex) {
@@ -1611,6 +1702,8 @@ int main (int argc, char* argv[])
     } catch (std::exception& ex) {
         std::cerr << "fatal error: " << ex.what() << '\n';
     }
+
+    return retval;
 }
 
 /*!
