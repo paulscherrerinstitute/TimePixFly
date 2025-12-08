@@ -628,11 +628,10 @@ namespace {
         {
             logger << "handleHelp(" << name << ", " << value << ")" << log_trace;
             HelpFormatter helpFormatter(options());
-            helpFormatter.setCommand(commandName());
-            helpFormatter.setUsage("OPTIONS");
-            helpFormatter.setHeader("Handle TimePix3 raw stream or send SIGTERM (for stop) or SIGUSR1 (for restart)\n"
-                                    "to the tpx3app process with the PID recorded in the pid-file.");
-            helpFormatter.setUsage(helpFormatter.getUsage() + " or " + commandName() + " (stop | restart) [pid_file]");
+            helpFormatter.setUsage(commandName() + " OPTIONS\n       " + commandName() + " (stop | restart) [pid-file]\n");
+            helpFormatter.setHeader(std::string{"Handle TimePix3 raw stream or send SIGTERM (for stop) or SIGUSR1 (for restart)\n"
+                                    "to the tpx3app process with the PID recorded in the pid-file. The default\n"
+                                    "pid-file is "} + Lockfile::lock_file);
             helpFormatter.format(std::cout);
             stopOptionsProcessing();
             global::instance->stop = true;
