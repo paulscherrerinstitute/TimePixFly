@@ -825,10 +825,15 @@ namespace {
                 ConfigFile cf{value};
 
                 {
+                    // handle use syslog and loglevel first
+                    if (cf.getBool("use-syslog", false))
+                        handleBool("use-syslog", "1");
+                    std::string ll = cf.getString("loglevel", "");
+                    if (!ll.empty())
+                        handleLogLevel("loglevel", ll);
+                }
+                {
                     std::string argstr;
-                    argstr = cf.getString("loglevel", "");
-                    if (!argstr.empty())
-                        handleLogLevel("loglevel", argstr);
                     argstr = cf.getString("server", "");
                     if (!argstr.empty())
                         handleAddress("server", argstr);
@@ -877,9 +882,6 @@ namespace {
                     argb = cf.getBool("server-mode", false);
                     if (argb)
                         handleBool("server-mode", std::to_string(argb));
-                    argb = cf.getBool("use-syslog", false);
-                    if (argb)
-                        handleBool("use-syslog", std::to_string(argb));
                 }
             } catch (Poco::Exception& ex) {
                 throw InvalidArgumentException{std::string{"bad config file - "} + ex.message()};
