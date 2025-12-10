@@ -4,11 +4,8 @@ Event analysis code
 */
 
 #include <iostream>
-#include <array>
-#include <numeric>
 #include <algorithm>
 #include <cmath>
-#include <unordered_map>
 
 #include "xes_data_manager.h"
 #include "decoder.h"

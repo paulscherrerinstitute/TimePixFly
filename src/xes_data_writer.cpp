@@ -3,8 +3,6 @@
 Provide XES data writer implementations
 */
 
-#include <cstdint>
-
 #include "Poco/Exception.h"
 #include "Poco/URI.h"
 #include "Poco/Net/SocketAddress.h"

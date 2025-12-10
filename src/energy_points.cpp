@@ -3,7 +3,6 @@
 Provide pixel map parsing function
 */
 
-#include <cstdint>
 #include <cassert>
 
 #include "Poco/Exception.h"

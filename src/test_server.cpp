@@ -23,7 +23,6 @@ TODO:
 #include <fstream>
 #include <functional>
 #include <unordered_map>
-#include <atomic>
 #include <mutex>
 #include <thread>
 #include <cmath>
