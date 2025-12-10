@@ -7,11 +7,10 @@ Event analysis code
 #include <algorithm>
 #include <cmath>
 
+#include "config_file.h"
 #include "xes_data_manager.h"
 #include "decoder.h"
 #include "processing.h"
-
-#include "Poco/Util/IniFileConfiguration.h"
 
 // anonymous namespace to prevent symbol visibility
 namespace {
@@ -35,21 +34,6 @@ namespace {
         using std::exit;
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
-
-        /*!
-        \brief Processing configuration file object
-        */
-        struct ConfigFile final : public Poco::Util::IniFileConfiguration {
-                /*!
-                \brief Constructor
-                \param path INI style configuration file path
-                */
-                inline ConfigFile(const std::string& path)
-                        : IniFileConfiguration{path}
-                {}
-
-                inline ~ConfigFile() noexcept = default;
-        };
 
         std::unique_ptr<Detector> detptr;       //!< Pointer to detector object, created by init()
 

@@ -13,6 +13,8 @@ TODO:
 
 // #include <filesystem>
 #include <Poco/Exception.h>
+#include <Poco/Util/OptionCallback.h>
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 
@@ -45,6 +47,7 @@ TODO:
 
 #include "Poco/StreamCopier.h"
 
+#include "config_file.h"
 #include "decoder.h"
 #include "data_handler.h"
 #include "copy_handler.h"
@@ -606,6 +609,16 @@ namespace {
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handlePidfile)));
+            options.addOption(Option("config-file", "C")
+                .description("ini style config file for arguments.\n"
+                             "commandline: --xy=val\n"
+                             "ini file   : xy=val\n"
+                             "The file takes precedence over previous commandline arguments, "
+                             "but the following commandline arguments take precedence over the file.")
+                .required(false)
+                .repeatable(false)
+                .argument("PATH")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleConfigFile)));
         }
 
         /*!
@@ -800,6 +813,77 @@ namespace {
         {
             logger << "handlePidfile(" << name << ", " << value << ')' << log_trace;
             Lockfile::lock_file = value;
+        }
+
+        /*!
+        \brief 
+        */
+        inline void handleConfigFile([[maybe_unused]] const std::string& name, const std::string& value)
+        {
+            logger << "handleConfigFile(" << name << ", " << value << ')' << log_trace;
+            try {
+                ConfigFile cf{value};
+
+                {
+                    std::string argstr;
+                    argstr = cf.getString("loglevel", "");
+                    if (!argstr.empty())
+                        handleLogLevel("loglevel", argstr);
+                    argstr = cf.getString("server", "");
+                    if (!argstr.empty())
+                        handleAddress("server", argstr);
+                    argstr = cf.getString("address", "");
+                    if (!argstr.empty())
+                        handleAddress("address", argstr);
+                    argstr = cf.getString("control", "");
+                    if (!argstr.empty())
+                        handleAddress("control", argstr);
+                    argstr = cf.getString("bpc-file", "");
+                    if (!argstr.empty())
+                        handleFilePath("bpc-file", argstr);
+                    argstr = cf.getString("dacs-file", "");
+                    if (!argstr.empty())
+                        handleFilePath("dacs-file", argstr);
+                    argstr = cf.getString("stream-to-file", "");
+                    if (!argstr.empty())
+                        handleFilePath("stream-to-file", argstr);
+                    argstr = cf.getString("pid-file", "");
+                    if (!argstr.empty())
+                        handlePidfile("pid-file", argstr);
+                }
+                {                
+                    std::uint32_t argint;
+                    argint = cf.getUInt("num-buffers", 0);
+                    if (argint > 0)
+                        handleNumber("num-buffers", std::to_string(argint));
+                    argint = cf.getUInt("buf-size", 0);
+                    if (argint > 0)
+                        handleNumber("buf-size", std::to_string(argint));
+                    argint = cf.getUInt("initial-period", 0);
+                    if (argint > 0)
+                        handleNumber("initial-period", std::to_string(argint));
+                    argint = cf.getUInt("max-period-queues", 0);
+                    if (argint > 0)
+                        handleNumber("max-period-queues", std::to_string(argint));
+                }
+                {
+                    double argf;
+                    argf = cf.getDouble("undisputed-threshold", -1.);
+                    if (argf >= .0)
+                        handleFloat("undisputed-threshold", std::to_string(argf));
+                }
+                {
+                    bool argb;
+                    argb = cf.getBool("server-mode", false);
+                    if (argb)
+                        handleBool("server-mode", std::to_string(argb));
+                    argb = cf.getBool("use-syslog", false);
+                    if (argb)
+                        handleBool("use-syslog", std::to_string(argb));
+                }
+            } catch (Poco::Exception& ex) {
+                throw InvalidArgumentException{std::string{"bad config file - "} + ex.message()};
+            }
         }
 
         /*!
