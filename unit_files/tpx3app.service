@@ -1,0 +1,18 @@
+[Unit]
+Description=tpx3app - TimePix detector stream handler
+BindsTo=serval.service
+
+[Service]
+Type=simple
+User=asi
+Group=asi
+StandardInput=null
+RootDirectory=/home/asi/git
+ExecStart=/home/asi/git/tpx3app --control=%H.psi.ch:8452 --initial-period=7633 --max-period-queues=6 --loglevel=debug -S
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
