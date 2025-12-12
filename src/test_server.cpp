@@ -718,6 +718,7 @@ namespace {
         path_handler.emplace("/detector/info", get_detector_info);
         path_handler.emplace("/detector/layout", get_detector_layout);
         path_handler.emplace("/stop", get_stop);
+        path_handler.emplace("/server/shutdown", get_stop);
         path_handler.emplace("/kill", get_kill);
         path_handler.emplace("/break-stall", get_break_stall);
 
