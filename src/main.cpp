@@ -1713,7 +1713,11 @@ namespace {
                     std::string pid_file = argc > 2 ? std::string{argv[2]} : Lockfile::lock_file;
                     if (pid_file.rfind(".ini") != std::string::npos) {
                         ConfigFile conf{pid_file};
-                        pid_file = conf.getString("pid-file");
+                        try {
+                            pid_file = conf.getString("pid-file");
+                        } catch (Poco::NotFoundException&) {
+                            throw InvalidArgumentException(std::string{"unable to find key pid-file in ini file "} + pid_file);
+                        }
                     }
                     std::ifstream ifs(pid_file);
                     ifs >> pid;
@@ -1728,7 +1732,10 @@ namespace {
             } catch (Poco::Exception& ex) {
                 std::cerr << ex.displayText() << '\n';
                 retval = Application::EXIT_USAGE;
-            } catch (...) {}
+            } catch (...) {
+                std::cerr << "internal error\n";
+                retval = Application::EXIT_SOFTWARE;
+            }
             std::exit(retval);
         }
     }
