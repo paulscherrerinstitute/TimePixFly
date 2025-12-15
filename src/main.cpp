@@ -641,7 +641,7 @@ namespace {
         {
             logger << "handleHelp(" << name << ", " << value << ")" << log_trace;
             HelpFormatter helpFormatter(options());
-            helpFormatter.setUsage(commandName() + " OPTIONS\n       " + commandName() + " (stop | restart) [pid-file]\n");
+            helpFormatter.setUsage(commandName() + " OPTIONS\n       " + commandName() + " (stop | restart) [ini/pid-file]\n");
             helpFormatter.setHeader(std::string{"Handle TimePix3 raw stream or send SIGTERM (for stop) or SIGUSR1 (for restart)\n"
                                     "to the tpx3app process with the PID recorded in the pid-file. The default\n"
                                     "pid-file is "} + Lockfile::lock_file);
@@ -1711,6 +1711,10 @@ namespace {
                     throw InvalidArgumentException(std::string{"only one argument (lockfile) is allowed for "} + cmd);
                 {
                     std::string pid_file = argc > 2 ? std::string{argv[2]} : Lockfile::lock_file;
+                    if (pid_file.rfind(".ini") != std::string::npos) {
+                        ConfigFile conf{pid_file};
+                        pid_file = conf.getString("pid-file");
+                    }
                     std::ifstream ifs(pid_file);
                     ifs >> pid;
                     if (!ifs || (pid==0))
