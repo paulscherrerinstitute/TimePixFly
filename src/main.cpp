@@ -480,7 +480,6 @@ namespace {
         static constexpr float ns_to_clk = 2. / 3.125;  //!< Nanoseconds to TDC timestamp clock ticks (see ASI server TDC event description, only 1 bit of fine timestamp used)
         int64_t initialPeriod = 7686. * ns_to_clk;      //!< Initial period interval in clock ticks 130.1 kHz
         double undisputedThreshold = 0.1;               //!< Default undisputed period interval threshold as ratio, [t..1-t] is undisputed
-        unsigned long numBuffers = DEFAULT_NUM_BUFFERS; //!< Number of IO buffers
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
         unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
@@ -542,13 +541,6 @@ namespace {
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
-
-            options.addOption(Option("num-buffers", "n")
-                .description(std::string{"number of data buffers\ndefault: "} + std::to_string(DEFAULT_NUM_BUFFERS))
-                .required(false)
-                .repeatable(false)
-                .argument("NUM")
-                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("buf-size", "N")
                 .description(std::string{"individual data buffer byte size,\nwill be rounded up to a multiple of 8\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
@@ -702,10 +694,6 @@ namespace {
                 if (num < 8)
                     throw InvalidArgumentException{"buffer size too small"};
                 bufferSize = (num + 7ul) & ~7ul;
-            } else if (name == "num-buffers") {
-                if (num < 1)
-                    throw InvalidArgumentException{"non-positive number of data buffers"};
-                numBuffers = num;
             } else if (name == "initial-period") {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive initial TDC period"};
@@ -858,9 +846,6 @@ namespace {
                 }
                 {                
                     std::uint32_t argint;
-                    argint = cf.getUInt("num-buffers", 0);
-                    if (argint > 0)
-                        handleNumber("num-buffers", std::to_string(argint));
                     argint = cf.getUInt("buf-size", 0);
                     if (argint > 0)
                         handleNumber("buf-size", std::to_string(argint));
