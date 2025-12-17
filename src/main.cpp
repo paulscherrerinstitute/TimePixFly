@@ -804,12 +804,24 @@ namespace {
         }
 
         /*!
-        \brief 
+        \brief Ini style config file handler
+        The config file should have the .ini suffix.
+        The config file defines arguments like
+        ```
+        use-syslog=true
+        buf-size=1024
+        ```
+        use-syslog and loglevel are handled first.
+        \param name     Option name - "config-file"
+        \param value    Option value - path to the ini style file
         */
         inline void handleConfigFile([[maybe_unused]] const std::string& name, const std::string& value)
         {
             logger << "handleConfigFile(" << name << ", " << value << ')' << log_trace;
             try {
+                if (value.find(".ini") == std::string::npos)
+                    throw InvalidArgumentException("config file must have the .ini suffix");
+
                 ConfigFile cf{value};
 
                 {
