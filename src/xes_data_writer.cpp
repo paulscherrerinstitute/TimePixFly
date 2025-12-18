@@ -11,6 +11,8 @@ Provide XES data writer implementations
 #include "Poco/JSON/PrintHandler.h"
 
 #include "global.h"
+#include "include/shared_types.h"
+#include "period_predictor.h"
 #include "xes_data_writer.h"
 
 namespace {
@@ -75,6 +77,7 @@ namespace {
     public:
         /*!
         \brief Constructor
+        Connects to TCP address
         \param address Hostname and port in the form {host}:{port}
         */
         inline TcpWriter(const std::string& address)
@@ -86,6 +89,10 @@ namespace {
             }
         }
 
+        /*!
+        \brief Destructor
+        Closes the connection to TCP address
+        */
         inline ~TcpWriter() override
         {
             try {
@@ -95,7 +102,16 @@ namespace {
 
         /*!
         \brief Write XES data to TCP address
-        Send: { "type":"XesData", "Period":{period}, "TDSpectra":[{ep0}, {ep1}, ..., {epNxM}] }
+        DATA PACKET:
+        {
+            "type":"XesData",
+            "period":{period},
+            "TDSpectra":[{ep0}, {ep1}, ..., {epNxM}],
+            "totalEvents":{totalEvents},
+            "beforeROI":{BeforeRoi},
+            "afterROI":{AfterRoi}
+        }
+        when: for every save_interval after start
         \param data XES Data
         \param period Which period
         */
@@ -114,8 +130,25 @@ namespace {
                  << R"(,"afterROI":)" << data.AfterRoi
                  << "}\n" << std::flush;
             data_counter++;
+            last_period = period;
         }
 
+        /*!
+        \brief Send XES start frame to TCP address
+        DATA PACKET:
+        {
+            "type":"StartFrame",
+            "Mode":"TOA",
+            "TRoiStart":{TRoiStart},
+            "TRoiStep":{TRoiStep},
+            "TRoiN":{TRoiN},
+            "NumEnergyPoints":{npoints},
+            "save_interval":{save_interval}
+        }
+        when: at start of measurement
+        Resets \ref{last_period}
+        \param detector Detector information reference
+        */
         inline void start(const Detector& detector) override
         {
             Poco::Net::SocketStream send{dataReceiver};
@@ -132,8 +165,19 @@ namespace {
                 json.endObject();
             }
             send << '\n' << std::flush;
+            last_period = 0u;
         }
 
+        /*!
+        \brief Send XES end frame to TCP address
+        DATA PACKET:
+        {
+            "type":"EndFrame",
+            "periods":131000,   // last_period - 3 (period predictor setup delay)
+            "error":"error description"
+        }
+        when: at end of measurement
+        */
         inline void stop(const std::string& error_message) override
         {
             Poco::Net::SocketStream send{dataReceiver};
@@ -141,10 +185,12 @@ namespace {
                 Poco::JSON::PrintHandler json{send};
                 json.startObject();
                 json.key("type"); json.value(std::string{"EndFrame"});
+                json.key("periods"); json.value(std::min(last_period - period_predictor::minPoints(), period_type{0u}));
                 json.key("error"); json.value(error_message.empty() ? std::string{global::no_error} : error_message);
                 json.endObject();
             }
             send << '\n' << std::flush;
+            last_period = 0u;
         }
 
         inline std::string dest() override

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared_types.h"
 #ifndef XES_DATA_WRITER_H
 #define XES_DATA_WRITER_H
 
@@ -50,7 +51,8 @@ namespace xes {
         */
         static std::unique_ptr<Writer> from_uri(const std::string& uri);
 
-        unsigned data_counter = 0u; //!< Data packet counter
+        unsigned data_counter = 0u;     //!< Data packet counter
+        period_type last_period = 0u;   //!< Last seen packet period
     };
 
 
