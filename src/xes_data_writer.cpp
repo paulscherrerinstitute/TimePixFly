@@ -180,12 +180,14 @@ namespace {
         */
         inline void stop(const std::string& error_message) override
         {
+            const auto min_periods = period_predictor::minPoints();
+            auto periods = (last_period > min_periods ? last_period - min_periods : period_type{0u});
             Poco::Net::SocketStream send{dataReceiver};
             {
                 Poco::JSON::PrintHandler json{send};
                 json.startObject();
                 json.key("type"); json.value(std::string{"EndFrame"});
-                json.key("periods"); json.value(std::min(last_period - period_predictor::minPoints(), period_type{0u}));
+                json.key("periods"); json.value(periods);
                 json.key("error"); json.value(error_message.empty() ? std::string{global::no_error} : error_message);
                 json.endObject();
             }
