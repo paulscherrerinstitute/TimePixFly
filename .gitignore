@@ -7,3 +7,4 @@ doc/html
 save_data
 version.h
 .vscode/
+.clangd
