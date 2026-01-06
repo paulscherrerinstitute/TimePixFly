@@ -63,6 +63,18 @@ class Timer final {
     {
         start = start_;
     }
+
+    /*!
+    \brief Elapsed time since start and reset start to now
+    \return Elapsed time
+    */
+    double elapsed_reset() noexcept
+    {
+        auto now = clock::now();
+        double duration = std::chrono::duration<double>{now - start}.count();
+        start = now;
+        return duration;
+    }
 };
 
 /*!

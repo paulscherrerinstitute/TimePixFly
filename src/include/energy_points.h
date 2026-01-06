@@ -9,6 +9,7 @@ Pixel to energy point mapping
 #include <istream>
 #include <vector>
 #include <cassert>
+#include "pixel_index.h"
 
 /*!
 \brief Partial energy point mapping

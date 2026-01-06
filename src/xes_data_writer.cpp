@@ -146,7 +146,7 @@ namespace {
             "save_interval":{save_interval}
         }
         when: at start of measurement
-        Resets \ref{last_period}
+        Resets \ref last_period
         \param detector Detector information reference
         */
         inline void start(const Detector& detector) override
@@ -170,11 +170,12 @@ namespace {
 
         /*!
         \brief Send XES end frame to TCP address
+        \param error_message Error message, will be set to "none" if empty
         DATA PACKET:
         {
             "type":"EndFrame",
             "periods":131000,   // last_period - 3 (period predictor setup delay)
-            "error":"error description"
+            "error":"error_message"
         }
         when: at end of measurement
         */

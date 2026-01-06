@@ -458,7 +458,6 @@ namespace {
     class Tpx3App final : public Application {
 
         constexpr static unsigned DEFAULT_BUFFER_SIZE = 1024;   //!< Default IO buffer size
-        constexpr static unsigned DEFAULT_NUM_BUFFERS = 8;      //!< Default number of IO buffers
         // constexpr static unsigned DEFAULT_NUM_ANALYSERS = 6;
 
         Logger& logger;                 //!< Poco::Logger object

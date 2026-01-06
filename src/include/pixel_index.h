@@ -6,6 +6,7 @@
 Pixel index abtraction
 */
 
+#include <cstdint>
 #include "layout.h"
 
 /*!

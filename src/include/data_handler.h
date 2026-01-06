@@ -1,11 +1,14 @@
+#pragma once
+
 #ifndef DATA_HANDLER_H
-#define DATA_HANDLER_H
+#define DATA_HANDLER_H  //!< Include flag
 
 /*!
 \file
 Code for processing raw data stream
 */
 
+#include "shared_types.h"
 #ifndef SERVER_VERSION
     #define SERVER_VERSION 320  //!< Default ASI server version
 #endif
@@ -245,10 +248,11 @@ class DataHandler final {
     \brief Purge period change interval from memory
     \param chipIndex    Chip number
     \param period       Period number
+    \param final        Final purge at end of measurement
     */
-    inline void purgePeriod(unsigned chipIndex, period_type period)
+    inline void purgePeriod(unsigned chipIndex, period_type period, bool final=false)
     {
-        processing::purgePeriod(chipIndex, period);
+        processing::purgePeriod(chipIndex, period, final);
     }
 
     /*!
@@ -280,6 +284,7 @@ class DataHandler final {
         // logger << "purgeQueues(" << chipIndex << ", " << toSize << ')' << log_trace;
         while (queues[chipIndex].size() > toSize) {
             auto pp = queues[chipIndex].oldest();
+            queues[chipIndex].last_purged = pp->first;
             purgePeriod(chipIndex, pp->first);
             // logger << chipIndex << ": remove queue for period " << pp->first << log_debug;
             queues[chipIndex].erase(pp);
@@ -447,7 +452,7 @@ class DataHandler final {
 
             // purge remaining queues
             purgeQueues(chipIndex);
-            purgePeriod(chipIndex, std::numeric_limits<period_type>::max());
+            purgePeriod(chipIndex, queues[chipIndex].last_purged, true);
 
             {
                 spin_lock lock{memberMutex};

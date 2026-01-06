@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef PERIOD_QUEUES_H
 #define PERIOD_QUEUES_H
 
@@ -231,7 +233,8 @@ struct period_queues final {
         return element.empty();
     }
 
-    queue_type element;         //!< The remembered period changes
+    queue_type element;             //!< The remembered period changes
+    period_type last_purged = 0u;   //!< The last purged period
 
     /*!
     \brief Disputed period threshold

@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef PROCESSING_H
 #define PROCESSING_H
 
@@ -6,6 +8,7 @@
 Includes for processing code
 */
 
+#include "shared_types.h"
 #include "layout.h"
 
 namespace processing {
@@ -28,8 +31,9 @@ namespace processing {
 
     \param chipIndex    Purge period for this chip only
     \param period       The period change at the beginning of this period will be purged off the queue
+    \param final        Is this the final force purge, at measurement end?
     */
-    void purgePeriod(unsigned chipIndex, period_type period);
+    void purgePeriod(unsigned chipIndex, period_type period, bool final=false);
 
     /*!
     \brief Process a TOA event

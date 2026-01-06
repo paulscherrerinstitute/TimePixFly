@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shared_types.h"
 #ifndef XES_DATA_H
 #define XES_DATA_H
 
@@ -10,6 +11,8 @@ Provide data container for XES data
 
 #include <string>
 #include <fstream>
+#include <functional>
+#include <cassert>
 #include "detector.h"
 
 namespace xes {
@@ -27,6 +30,8 @@ namespace xes {
             int BeforeRoi = 0;              //!< Number of events before roi
             int AfterRoi = 0;               //!< Number of events after roi
             int Total = 0;                  //!< Total events handled
+
+            period_type period = 0;         //!< Last seen period for this data
 
             /*!
             \brief Create TDSpectra data container
@@ -59,12 +64,25 @@ namespace xes {
             \param data other Data
             \return *this
             */
-            inline Data& operator+=(const Data& data)
+            inline Data& operator+=(const Data& data) noexcept
             {
                 assert(data.TDSpectra.size() == TDSpectra.size());
-                for (histo_type::size_type i=0; i<data.TDSpectra.size(); i++)
+                for (histo_type::size_type i=0; i<TDSpectra.size(); i++)
                     TDSpectra[i] += data.TDSpectra[i];
                 return *this;
+            }
+
+            /*!
+            \brief Aggregate rhs partial TDSpectra into this one and reset rhs
+            \param rhs Right hand side partial TDSpectra
+            */
+            inline void addResetRhs(Data& rhs) noexcept
+            {
+                assert(rhs.TDSpectra.size() == TDSpectra.size());
+                for (histo_type::size_type i=0; i<TDSpectra.size(); i++) {
+                    TDSpectra[i] += rhs.TDSpectra[i];
+                    rhs.TDSpectra[i] = histo_type::value_type{};
+                }
             }
 
             /*!
@@ -81,13 +99,31 @@ namespace xes {
             /*!
             \brief Reset TDSpectra to zero
             */
-            inline void Reset()
+            inline void Reset() noexcept
             {
                 std::fill(TDSpectra.begin(), TDSpectra.end(), 0);
                 BeforeRoi = AfterRoi = Total = 0;
+                period = 0;
             }
     };
 
 } // namespace xes
+
+/*!
+\brief Less operator for XES Data
+*/
+template<>
+struct std::less<xes::Data> final {
+    /*!
+    \brief Call
+    \param lhs Left hand side XES data
+    \param rhs Right hand side XES data
+    \return True if lhs is less than rhs period
+    */
+    inline bool operator()(const xes::Data& lhs, const xes::Data& rhs) const noexcept
+    {
+        return lhs.period < rhs.period;
+    }
+};
 
 #endif

@@ -12,6 +12,7 @@ Detector description
 #include "shared_types.h"
 #include "layout.h"
 #include "logging.h"
+#include "energy_points.h"
 
 /*!
 \brief Constant detector data

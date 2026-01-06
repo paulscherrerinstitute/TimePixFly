@@ -174,22 +174,27 @@ namespace {
 
                 \param chipIndex        Chip number
                 \param period           Interval change at start of this period will be purged
+                \param final            Final forged purge at measurement end
                 */
-                void PurgePeriod(unsigned chipIndex, period_type period)
+                void PurgePeriod(unsigned chipIndex, period_type period, bool final=false)
                 {
 //                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
 //                        logger << chipIndex << ": purge period " << period << log_info;
-                        period_type& sp = save_point[chipIndex];
-                        if (period < sp)
-                                return;
+                        if (!final) {
+                                period_type& sp = save_point[chipIndex];
+                                if (period < sp)
+                                        return;
 
-                        if (sp == no_save) {
+                                if (sp == no_save) {
+                                        sp += global::instance->save_interval;
+                                        return;
+                                }
+
+                                dataManager.ReturnData(chipIndex, sp);
                                 sp += global::instance->save_interval;
-                                return;
+                        } else {
+                                dataManager.ReturnData(chipIndex, period, true);
                         }
-
-                        dataManager.ReturnData(chipIndex, sp);
-                        sp += global::instance->save_interval;
                 }
 
                 /*!
@@ -270,9 +275,9 @@ namespace processing {
                 analysis.reset(new Analysis<Detector::TOAMode>{*detptr, output_uri});
         }
 
-        void purgePeriod(unsigned chipIndex, period_type period)
+        void purgePeriod(unsigned chipIndex, period_type period, bool final)
         {
-                analysis->PurgePeriod(chipIndex, period);
+                analysis->PurgePeriod(chipIndex, period, final);
         }
 
         void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
