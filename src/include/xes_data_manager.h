@@ -1,10 +1,5 @@
 #pragma once
 
-#include "shared_types.h"
-#include <cstddef>
-#include <memory>
-#include <ostream>
-#include <strstream>
 #ifndef XES_DATA_MANAGER_H
 #define XES_DATA_MANAGER_H
 
@@ -13,12 +8,12 @@
 Provide functionality to manage partial XES data per thread
 */
 
-#include <atomic>
+#include <cstddef>
+#include <ostream>
+#include <strstream>
 #include <mutex>
 #include <condition_variable>
 #include <limits>
-#include <chrono>
-#include <stdexcept>
 #include <queue>
 #include <forward_list>
 

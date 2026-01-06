@@ -1,6 +1,5 @@
 #pragma once
 
-#include "shared_types.h"
 #ifndef XES_DATA_H
 #define XES_DATA_H
 
@@ -12,7 +11,6 @@ Provide data container for XES data
 #include <string>
 #include <fstream>
 #include <functional>
-#include <cassert>
 #include "detector.h"
 
 namespace xes {

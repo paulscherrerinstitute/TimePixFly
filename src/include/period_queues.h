@@ -10,6 +10,7 @@ Code for event to period assignment logic
 
 #include <memory>
 #include <map>
+#include <cmath>
 #include <cassert>
 #include "event_reordering.h"
 #include "shared_types.h"

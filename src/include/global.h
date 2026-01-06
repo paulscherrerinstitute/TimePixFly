@@ -19,7 +19,6 @@ Global configuration and control data
 #include "Poco/JSON/Object.h"
 
 #include "shared_types.h"
-#include "pixel_index.h"
 #include "energy_points.h"
 
 /*!

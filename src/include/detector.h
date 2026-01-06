@@ -10,7 +10,6 @@ Detector description
 
 #include <stdexcept>
 #include "shared_types.h"
-#include "layout.h"
 #include "logging.h"
 #include "energy_points.h"
 

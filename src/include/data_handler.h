@@ -8,7 +8,6 @@
 Code for processing raw data stream
 */
 
-#include "shared_types.h"
 #ifndef SERVER_VERSION
     #define SERVER_VERSION 320  //!< Default ASI server version
 #endif

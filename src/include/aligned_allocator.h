@@ -3,8 +3,12 @@
 #ifndef ALIGNED_ALLOCATOR_H
 #define ALIGNED_ALLOCATOR_H
 
-#include <cstdlib>
+/*!
+\file
+Provide aligned memory allocation
+*/
 
+#include <cstdlib>
 
 inline static constexpr size_t memory_alignment = 256u/8u;  //!< Memory alignment for AVX2
 

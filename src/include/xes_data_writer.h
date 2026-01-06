@@ -1,6 +1,5 @@
 #pragma once
 
-#include "shared_types.h"
 #ifndef XES_DATA_WRITER_H
 #define XES_DATA_WRITER_H
 

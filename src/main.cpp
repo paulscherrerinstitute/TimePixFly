@@ -12,15 +12,18 @@ TODO:
 */
 
 // #include <filesystem>
-#include <Poco/Exception.h>
-#include <Poco/Util/OptionCallback.h>
-#include <cstdint>
-#include <iostream>
-#include <fstream>
+#include <cstdlib>
+#include <csignal>
+#include <cerrno>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+#include <cerrno>
 
-#include "include/logging.h"
-#include "poll.h"
+#include <sys/file.h>
+#include <poll.h>
 
+#include "Poco/Util/OptionCallback.h"
 #include "Poco/Dynamic/Var.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/PrintHandler.h"
@@ -44,7 +47,6 @@ TODO:
 #include "Poco/Process.h"
 #include "Poco/Timespan.h"
 #include "Poco/SyslogChannel.h"
-
 #include "Poco/StreamCopier.h"
 
 #include "config_file.h"
@@ -53,17 +55,6 @@ TODO:
 #include "copy_handler.h"
 #include "json_ops.h"
 
-#include <cstdlib>
-#include <csignal>
-#include <cerrno>
-#include <sstream>
-#include <string>
-#include <string_view>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/file.h>
-#include <cstring>
-#include <cerrno>
 
 namespace {
     using namespace std::string_view_literals;

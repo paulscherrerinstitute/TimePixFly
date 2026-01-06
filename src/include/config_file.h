@@ -3,6 +3,11 @@
 #ifndef CONFIG_FILE_H
 #define CONFIG_FILE_H
 
+/*!
+\file
+Provide wrapper for Poco Windows INI sytyle config file
+*/
+
 #include "Poco/Util/IniFileConfiguration.h"
 
 /*!

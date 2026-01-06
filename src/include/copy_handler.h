@@ -12,8 +12,11 @@ Provide raw stream to file copying code
 #include <thread>
 #include <mutex>
 #include <chrono>
+#include <fstream>
+
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
+
 #include "logging.h"
 
 namespace {

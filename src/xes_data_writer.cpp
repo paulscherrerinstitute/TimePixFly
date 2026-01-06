@@ -11,7 +11,6 @@ Provide XES data writer implementations
 #include "Poco/JSON/PrintHandler.h"
 
 #include "global.h"
-#include "include/shared_types.h"
 #include "period_predictor.h"
 #include "xes_data_writer.h"
 
