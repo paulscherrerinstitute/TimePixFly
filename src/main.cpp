@@ -47,7 +47,6 @@ TODO:
 #include "Poco/Process.h"
 #include "Poco/Timespan.h"
 #include "Poco/SyslogChannel.h"
-#include "Poco/StreamCopier.h"
 
 #include "config_file.h"
 #include "decoder.h"

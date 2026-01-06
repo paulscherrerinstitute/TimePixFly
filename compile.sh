@@ -47,7 +47,21 @@ test -f README.md || { echo "This command must be executed from the git top dire
 
 VERSION="$(git branch --show-current) $(git log -n1 --format="%h %as")"
 (($? == 0)) || { echo "This command must be executed inside the git repository"; exit 1; }
-echo "const char VERSION[]=\"$VERSION\"; //!< source code version from git" > src/include/version.h
+echo \
+"
+#pragma once
+
+#ifndef VERSION_H
+#define VERSION_H
+
+/*!
+\brief Provide program version
+This file is produced by the compile.sh script
+*/
+const char VERSION[]=\"$VERSION\"; //!< source code version from git
+
+#endif
+" > src/include/version.h
 
 function strip_target() {
         if [ -n "${STRIP}" ]; then

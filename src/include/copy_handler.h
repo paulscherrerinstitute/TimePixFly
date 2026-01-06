@@ -8,6 +8,7 @@ Provide raw stream to file copying code
 
 #include <array>
 #include <vector>
+#include <deque>
 #include <atomic>
 #include <thread>
 #include <mutex>
