@@ -14,12 +14,14 @@ Code for processing raw data stream
 
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
+
 #include "logging.h"
 #include "global.h"
 #include "io_buffers.h"
 #include "period_predictor.h"
 #include "period_queues.h"
 #include "processing.h"
+#include "thread_naming.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -143,6 +145,8 @@ class DataHandler final {
     */
     void readData()
     {
+        set_thread_name("tpx3app:reader");
+
         double spinTime = .0;
         double workTime = .0;
 
@@ -331,6 +335,8 @@ class DataHandler final {
     */
     void analyseData(unsigned threadId)
     {
+        set_thread_name("tpx3app:analyze");
+
         const unsigned chipIndex = threadId;
 
         perChipBufferPool[chipIndex].reset(new io_buffer_pool{});

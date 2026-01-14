@@ -8,7 +8,6 @@
 Detector description
 */
 
-#include <stdexcept>
 #include "shared_types.h"
 #include "logging.h"
 #include "pixel_map.h"
@@ -76,7 +75,7 @@ struct Detector final {
         /*!
         \brief Constructor
         \param layout_ Detector layout reference
-        \param ep Pixel index to energy point mapping
+        \param pm Pixel index to energy point mapping
         */
         inline Detector(const detector_layout& layout_, const PixelMap& pm)
             : layout{layout_}, pix_map{pm}

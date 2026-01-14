@@ -10,7 +10,6 @@ Provide functionality to manage partial XES data per thread
 
 #include <cstddef>
 #include <ostream>
-#include <strstream>
 #include <mutex>
 #include <condition_variable>
 #include <limits>
@@ -22,6 +21,7 @@ Provide functionality to manage partial XES data per thread
 #include "global.h"
 #include "timing.h"
 #include "xes_data_writer.h"
+#include "thread_naming.h"
 
 /*!
 \brief XES data manager functionality
@@ -93,9 +93,8 @@ namespace xes {
         \brief Constructor
         \param detector_ Detector data reference
         \param uri Output file:name (without period and .xes), or tcp:host:port
-        \param nPeriods How many periods receive/emit data in parallel (see periodData member)
         */
-        inline Manager(const Detector& detector_, const std::string& uri, unsigned nPeriods)
+        inline Manager(const Detector& detector_, const std::string& uri)
             : writer(xes::Writer::from_uri(uri)), detector(detector_), logger(Logger::get("Tpx3App"))
         {
             logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
@@ -107,6 +106,8 @@ namespace xes {
                 double t_aggregate = .0;
                 double t_write = .0;
                 unsigned cyclic_start=0;    // module_data starting point
+
+                set_thread_name("tpx3app:writer");
 
                 try {
                     writer->start(detector);

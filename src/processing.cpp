@@ -60,7 +60,7 @@ namespace {
                 \param uri Output file:name (without period and .xes), or tcp:host:port
                 */
                 inline Analysis(const Detector& det, const std::string& uri)
-                        : dataManager{det, uri, 3},
+                        : dataManager{det, uri},
                           save_point(det.layout.chip.size(), no_save),
                           detector{det},
                           TRoiStep_inv{1.f/detector.TRoiStep}

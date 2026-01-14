@@ -12,7 +12,6 @@ Global configuration and control data
 #include <functional>
 #include <string>
 #include <string_view>
-#include <memory>
 #include <variant>
 #include <atomic>
 

@@ -9,7 +9,6 @@ Provide data structures for dealing with the pixel to energy point mapping
 #define PIXEL_MAP_H
 
 #include <stdexcept>
-#include <vector>
 #include "pixel_index.h"
 
 /*!
