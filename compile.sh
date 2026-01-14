@@ -83,7 +83,7 @@ case "$TARGET" in
         eval "$cmd"
         strip_target "server";;
     "test")
-        cmd="${CXX} -I src/include src/test.cpp -std=c++17 ${TEST_FLAGS} -o test"
+        cmd="${CXX} -I src/include src/test.cpp src/energy_points.cpp src/global.cpp -std=c++17 ${TEST_FLAGS} ${LDFLAGS} -o test"
         echo "$cmd"
         eval "$cmd";;
     "doc")

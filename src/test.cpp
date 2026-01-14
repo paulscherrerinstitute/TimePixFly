@@ -9,8 +9,12 @@ Unit tests
 #include <iostream>
 #include <cstring>
 #include <regex>
+#include <sstream>
+#include "global.h"
 #include "period_predictor.h"
 #include "period_queues.h"
+#include "layout.h"
+#include "energy_points.h"
 
 namespace {
 
@@ -323,6 +327,28 @@ namespace {
         }
     }
 
+    /*! Pixel to energy point mapping unit tests */
+    namespace pixmap {
+        /*!
+        \brief PixelIndexToEp tests
+        \param unit Test unit
+        */
+        void energypoints_test(const test_unit& unit)
+        {
+            unsigned t = 0;
+            auto& gvar = *global::instance;
+            ::PixelIndexToEp pite;
+            ::detector_layout layout{chip_size, chip_size, {{{0,0}}}};
+            gvar.layout = layout;
+
+            std::string ep {"0,0,0,1.0\n0,0,1,1.0"};
+            std::istringstream iss{ep};
+
+            PixelIndexToEp::from(pite, iss);
+            check_eq(unit, t, (unsigned)pite.chip.size(), 1u);
+        }
+    }
+
     /*!
     \brief Initialize unit tests
     */
@@ -362,6 +388,11 @@ namespace {
             "period_queues::purge",
             "registerStart, oldest, erase",
             period_queues::purge_test
+        });
+        tests.insert({
+            "pixmap::energypoints",
+            "PixelIndexToEp data structure tests",
+            pixmap::energypoints_test
         });
     }
 
