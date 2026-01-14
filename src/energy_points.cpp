@@ -9,6 +9,7 @@ Provide pixel map parsing function
 
 #include "global.h"
 #include "json_ops.h"
+#include "pixel_map.h"
 
 namespace {
 
@@ -177,6 +178,38 @@ void PixelIndexToEp::from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
         default:
             throw Poco::LogicException{std::string{"Illegal pixelmap parsing type - "} + std::to_string(type)};
     };
+}
+
+std::unique_ptr<PixelMap> PixelIndexToEp::to_map() const
+{
+    unsigned pix_per_chip = static_cast<unsigned>(chip.at(0).flat_pixel.size());
+    std::unique_ptr<PixelMap> pmap{new PixelMap{
+        .pixels_per_chip=pix_per_chip,
+        .npoints=npoints,
+        .mapping={},
+        .indices={}
+    }};
+    unsigned idx = 0; // index
+    unsigned pix = 0; // pixel
+    pmap->indices.resize(pix_per_chip * chip.size() + 1);
+    for (std::size_t c=0; c<chip.size(); c++) {
+        const auto& fpix = chip[c].flat_pixel;
+        for (std::size_t p=0; p<fpix.size(); p++) {
+            pmap->indices[pix] = idx;
+            const auto& p2ep = fpix[p].part;
+
+            for (std::size_t e=0; e<p2ep.size(); e++) {
+                pmap->mapping.push_back(MapDest{p2ep[e].energy_point, p2ep[e].weight});
+                idx++;
+            }
+
+            pix++;
+        }
+    }
+
+    pmap->indices.at(pix) = idx;
+    assert(pmap->mapping.size() == idx);
+    return pmap;
 }
 
 std::ostream& operator<<(std::ostream& out, const PixelIndexToEp& pmap)

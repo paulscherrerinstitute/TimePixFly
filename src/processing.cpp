@@ -88,10 +88,10 @@ namespace {
 
 
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
-                        const auto& flat_pixel = detector.energy_points[index];
+                        auto map_range = detector.pix_map[index];
 
                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
-                        for (const auto& part : flat_pixel.part) {
+                        for (const auto& part : map_range) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //This line takes most of the time of Register (and 50% of time of ProcessEvent)
                                 //if (detector.energy_points.npoints!=15) std::cout<<"!!!!!!! ";
@@ -105,7 +105,7 @@ namespace {
                                 //int iii=index.flat_pixel;
 
                                 //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
-                                data.TDSpectra[TimePoint * detector.energy_points.npoints + part.energy_point] += part.weight; // / clb;
+                                data.TDSpectra[TimePoint * detector.pix_map.npoints + part.energy_point] += part.weight; // / clb;
                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                         //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;
@@ -256,10 +256,9 @@ namespace processing {
                         auto in = std::ifstream("XESPoints.inp");
                         std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                         PixelIndexToEp::from(*pmap, in);
-                        auto& pmap_p = global::instance->pixel_map;
-                        pmap_p = std::move(pmap);
+                        global::instance->pix_map = pmap->to_map();
 
-                        detptr.reset(new Detector{layout, *gvars.pixel_map});
+                        detptr.reset(new Detector{layout, *gvars.pix_map});
                         detptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
                         auto TRoiStart = gvars.TRoiStart.load();
@@ -268,7 +267,7 @@ namespace processing {
                         logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
                                << ", Output=" << output_uri << log_info;
 
-                        detptr.reset(new Detector{layout, *gvars.pixel_map});
+                        detptr.reset(new Detector{layout, *gvars.pix_map});
                         detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 

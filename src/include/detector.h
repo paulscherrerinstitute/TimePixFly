@@ -11,7 +11,7 @@ Detector description
 #include <stdexcept>
 #include "shared_types.h"
 #include "logging.h"
-#include "energy_points.h"
+#include "pixel_map.h"
 
 /*!
 \brief Constant detector data
@@ -37,7 +37,7 @@ struct Detector final {
         u64 TRoiN = 5000;                               //!< Number of histogram bins
         u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
 
-        const PixelIndexToEp& energy_points;            //!< Abstract pixel index to energy point mapping
+        const PixelMap& pix_map;                        //!< Abstract pixel index to energy point mapping
 
         /*!
         \brief Set region of interest within period interval
@@ -78,8 +78,8 @@ struct Detector final {
         \param layout_ Detector layout reference
         \param ep Pixel index to energy point mapping
         */
-        inline Detector(const detector_layout& layout_, const PixelIndexToEp& ep)
-            : layout{layout_}, energy_points{ep}
+        inline Detector(const detector_layout& layout_, const PixelMap& pm)
+            : layout{layout_}, pix_map{pm}
         {}
 
         ~Detector() = default;

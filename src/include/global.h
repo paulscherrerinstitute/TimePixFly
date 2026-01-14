@@ -51,7 +51,7 @@ struct global final {
     std::atomic<u64> TRoiStep{1};                                       //!< Time ROI step (server mode)
     std::atomic<u64> TRoiN{5000};                                       //!< Time ROI number of steps (server mode)
     // TODO: Protect these with a lock
-    std::unique_ptr<PixelIndexToEp> pixel_map{nullptr};                    //!< Area ROI
+    std::unique_ptr<PixelMap> pix_map{nullptr};                             //!< Area ROI
     std::string output_uri;                                                //!< file:name (without period and .xes), or tcp:host:port
 
     // From CLI arguments

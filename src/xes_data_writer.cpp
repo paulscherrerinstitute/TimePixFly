@@ -47,7 +47,7 @@ namespace {
                 throw std::ios_base::failure("xes::FileWriter::write unable to open file - " + path);
 
             const auto& TDSpectra = data.TDSpectra;
-            const auto NumEnergyPoints = data.detector->energy_points.npoints;
+            const auto NumEnergyPoints = data.detector->pix_map.npoints;
             const auto TRoiN = data.detector->TRoiN;
             for (std::remove_cv_t<decltype(NumEnergyPoints)> i=0; i<NumEnergyPoints; i++) {
                 for (std::remove_cv_t<decltype(TRoiN)> j=0; j<TRoiN; j++) {
@@ -159,7 +159,7 @@ namespace {
                 json.key("TRoiStart"); json.value(detector.TRoiStart);
                 json.key("TRoiStep"); json.value(detector.TRoiStep);
                 json.key("TRoiN"); json.value(detector.TRoiN);
-                json.key("NumEnergyPoints"); json.value(detector.energy_points.npoints);
+                json.key("NumEnergyPoints"); json.value(detector.pix_map.npoints);
                 json.key("save_interval"); json.value(global::instance->save_interval);
                 json.endObject();
             }

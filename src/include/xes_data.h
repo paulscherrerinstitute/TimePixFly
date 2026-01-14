@@ -37,7 +37,7 @@ namespace xes {
             \param det Detector data
             */
             inline explicit Data(const Detector& det)
-                : detector(&det), TDSpectra(det.TRoiN * det.energy_points.npoints)
+                : detector(&det), TDSpectra(det.TRoiN * det.pix_map.npoints)
             {}
 
             inline Data() = default;                        //!< Default constructor
@@ -91,7 +91,7 @@ namespace xes {
             inline void Init(const Detector& det)
             {
                 detector = &det;
-                TDSpectra.resize(det.TRoiN * det.energy_points.npoints);
+                TDSpectra.resize(det.TRoiN * det.pix_map.npoints);
             }
 
             /*!

@@ -1382,7 +1382,7 @@ namespace {
                 constexpr const char* rest_pmap = "/pixel-map";
                 global::instance->get_callbacks[rest_pmap] = []([[maybe_unused]] const std::string& val) -> std::string {
                     std::ostringstream oss;
-                    const auto& pmap_p = global::instance->pixel_map;
+                    const auto& pmap_p = global::instance->pix_map;
                     if (pmap_p == nullptr)
                         throw Poco::RuntimeException("pixel map has not been set");
                     oss << *pmap_p;
@@ -1402,8 +1402,7 @@ namespace {
                         throw Poco::RuntimeException("not in config state");
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, in, PixelIndexToEp::JSON_STREAM);
-                    auto& pmap_p = gvars.pixel_map;
-                    pmap_p = std::move(pmap);
+                    gvars.pix_map = pmap->to_map();
                     return "OK";
                 };
 
@@ -1424,8 +1423,7 @@ namespace {
                     std::ifstream ifs{obj->getValue<std::string>("file")};
                     std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                     PixelIndexToEp::from(*pmap, ifs);
-                    auto& pmap_p = gvars.pixel_map;
-                    pmap_p = std::move(pmap);
+                    gvars.pix_map = pmap->to_map();
                     return "OK";
                 };
 

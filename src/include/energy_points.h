@@ -8,7 +8,8 @@ Pixel to energy point mapping
 
 #include <istream>
 #include <cassert>
-#include "pixel_index.h"
+#include <memory>
+#include "pixel_map.h"
 
 /*!
 \brief Partial energy point mapping
@@ -84,6 +85,11 @@ struct PixelIndexToEp final {
         */
         static void from(PixelIndexToEp& pmap, std::istream& in, unsigned type=FILE_STREAM);
 
+        /*!
+        \brief Convert to PixelMap
+        \return PixelMap
+        */
+        std::unique_ptr<PixelMap> to_map() const;
 };
 
 /*!
