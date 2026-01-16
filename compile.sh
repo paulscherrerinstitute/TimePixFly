@@ -3,12 +3,13 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread"
+LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc"
 
 WARN_FLAGS+=" -Wall -Wextra"
 
 if [ -z "${DEBUG}" ]; then
     SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -march=native -flto=auto"
+    SPEED_FLAGS+=" -fno-trapping-math -fno-semantic-interposition -funroll-loops -ftree-vectorize -finline-functions"
 elif [ -z "${NOOPT}" ]; then
     SPEED_FLAGS+="-Og -ggdb  -DNDEBUG -march=native"
 else
