@@ -3,6 +3,7 @@
 Unit tests
 */
 
+#include <cstdint>
 #include <set>
 #include <vector>
 #include <functional>
@@ -159,6 +160,27 @@ namespace {
     }
 
     /*!
+    \brief Inequality check
+
+    This test fails iff a==b
+    The test position counter will be incremented by one.
+
+    \param unit Test unit reference
+    \param t    Test position counter reference
+    \param a    First value
+    \param b    Second value
+    */
+    template<typename T>
+    void check_neq(const test_unit& unit, unsigned& t, const T& a, const T& b)
+    {
+        if (a == b) {
+            verbose << unit.name << ' ' << t << " failed: " << a << " == " << b << '\n';
+            test_failed(unit, t);
+        } else
+            test_succeeded(unit, t);
+    }
+
+    /*!
     \brief Equality check for double
 
     Due to numeric issues, double values are considered equal if they are within a small distance (1e-6) of each other.
@@ -292,12 +314,12 @@ namespace {
             pq.refined_index(idx, 0);
             check_eq(unit, t, idx, period_index{-1, 0, true});
             pq[idx] = period_queue_element{};
-            check_eq(unit, t, pq[idx].start_seen, false);
+            check_eq(unit, t, pq[idx].start, int64_t{0});
             pq.refined_index(idx, 0);
             check_eq(unit, t, idx, period_index{-1, 0, true});
             pq.registerStart(idx, 1);
             check_eq(unit, t, pq[idx].start, (int64_t)1);
-            check_eq(unit, t, pq[idx].start_seen, true);
+            check_neq(unit, t, pq[idx].start, int64_t{0});
             pq.refined_index(idx, 2);
             check_eq(unit, t, idx, period_index{0, 0, false});
             idx.disputed = true;

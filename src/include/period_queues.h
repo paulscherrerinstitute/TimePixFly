@@ -23,11 +23,16 @@ struct period_queue_element final {
     \brief Event reordeing queue for this period interval change
 
     The queue should be empty if the start time stamp (TDC event at the beginning of the period)
-    has been seen. In that case `start_seen` should be true.
+    has been seen. In that case, start should not be 0.
     */
     event_reorder_queue queue;
-    int64_t start = 0;                          //!< The period start time stamp in number of clock ticks
-    bool start_seen = false;                    //!< Either start is valid, or the queue, but not both
+
+    /*!
+    \brief Period start time
+    The period start time stamp in number of clock ticks. If the queue is valid, it should be 0,
+    which means the start has not been seen yet.
+    */
+    int64_t start = 0;
 
     inline period_queue_element() = default;
     inline ~period_queue_element() = default;
@@ -131,7 +136,7 @@ struct period_queues final {
             return;
 
         const auto& pqe = pqe_ptr->second;
-        if (! pqe.start_seen)
+        if (pqe.start == 0)
             return;
         
         to_refine.disputed = false;
@@ -176,9 +181,9 @@ struct period_queues final {
     {
         assert(idx.disputed);
         auto& pqe = (*this)[idx];
-        assert(! pqe.start_seen);
+        assert(pqe.start == 0);
         pqe.start = start;
-        pqe.start_seen = true;
+        assert(start != 0);
         return pqe.queue;
     }
 
