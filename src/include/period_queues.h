@@ -25,14 +25,11 @@ struct period_queue_element final {
     The queue should be empty if the start time stamp (TDC event at the beginning of the period)
     has been seen. In that case `start_seen` should be true.
     */
-    std::unique_ptr<event_reorder_queue> queue;
+    event_reorder_queue queue;
     int64_t start = 0;                          //!< The period start time stamp in number of clock ticks
     bool start_seen = false;                    //!< Either start is valid, or the queue, but not both
 
-    inline period_queue_element()
-        : queue{new event_reorder_queue{}}
-    {}
-
+    inline period_queue_element() = default;
     inline ~period_queue_element() = default;
     period_queue_element(const period_queue_element&) = delete;
     inline period_queue_element(period_queue_element&&) = default;              //!< Move constructor
@@ -182,7 +179,7 @@ struct period_queues final {
         assert(! pqe.start_seen);
         pqe.start = start;
         pqe.start_seen = true;
-        return *pqe.queue;
+        return pqe.queue;
     }
 
     /*!

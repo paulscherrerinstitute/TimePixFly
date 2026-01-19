@@ -326,7 +326,7 @@ class DataHandler final {
         // logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         // logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
         //        << " (" << std::hex << event << std::dec << ')' << log_debug;
-        queues[chipIndex][index].queue->push({toaclk, event});
+        queues[chipIndex][index].queue.push({toaclk, event});
     }
 
     /*!
