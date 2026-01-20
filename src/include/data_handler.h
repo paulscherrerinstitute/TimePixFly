@@ -15,6 +15,7 @@ Code for processing raw data stream
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
+#include "decoder.h"
 #include "logging.h"
 #include "global.h"
 #include "io_buffers.h"
@@ -37,7 +38,6 @@ namespace {
 */
 template<typename Decode>
 class DataHandler final {
-    constexpr static uint64_t tpxHeader = 861425748UL; //!< 'TPX3' as uint64_t
     #if SERVER_VERSION >= 320
         uint64_t DATA_OFFSET = 8;               //!< Start offset of event data within raw event data packet
     #else
@@ -106,9 +106,9 @@ class DataHandler final {
     {
         // logger << "readPacketHeader()" << log_trace;
         #if SERVER_VERSION >= 320
-            uint64_t header[2];
+            AsiRawStreamDecoder::Event header[2];
         #else
-            uint64_t header[1];
+            AsiRawStreamDecoder::Event header[1];
         #endif
 
         int numRead = readData(header, sizeof(header));
@@ -123,14 +123,14 @@ class DataHandler final {
         //     #endif
         //         << std::dec << log_debug;
 
-        if ((header[0] & 0xffffffffUL) != tpxHeader)
+        if (header[0].header.id != AsiRawStreamDecoder::chunk_id)
             throw DataFormatException("chunk header expected");
-        chipIndex = Decode::getBits(header[0], 39, 32);
-        chunkSize = Decode::getBits(header[0], 63, 48);
+        chipIndex = header[0].header.chip;
+        chunkSize = header[0].header.size;
         #if SERVER_VERSION >= 320
-            if (!Decode::matchesByte(header[1], 0x50))
+            if (header[1].packet_id.type != 0x50)
                 throw DataFormatException("packet id expected");
-            packetId = Decode::getBits(header[1], 47, 0);
+            packetId = header[1].packet_id.count;
             // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_debug;
         #else
             packetId = 0;
@@ -265,11 +265,11 @@ class DataHandler final {
     \param toaclk       TOA event clock ticks counter
     \param event        Raw TOA event
     */
-    inline void processEvent(unsigned chipIndex, period_type period, int64_t toaclk, uint64_t event)
+    inline void processEvent(unsigned chipIndex, period_type period, toa_event toa)
     {
         auto start = queues[chipIndex][period].start;
         // processing::processEvent(chipIndex, period, toaclk, toaclk - start, event);
-        processing::processEvent(chipIndex, period, toaclk - start, event);
+        processing::processEvent(chipIndex, period, { toa.ts - start, toa.px });
     }
     // --------------------------------------------------------------------------
 
@@ -308,7 +308,7 @@ class DataHandler final {
         auto& rq = queues[chipIndex].registerStart(index, tdcclk);
         for (; !rq.empty(); rq.pop()) {
             auto& el = rq.top();
-            processEvent(chipIndex, (tdcclk <= el.toa ? index.disputed_period : index.period), el.toa, el.event);
+            processEvent(chipIndex, (tdcclk <= (int64_t)el.toa.ts ? index.disputed_period : index.period), el.toa);
         }
         // remove old period data
         purgeQueues(chipIndex, maxPeriodQueues);
@@ -321,12 +321,12 @@ class DataHandler final {
     \param toaclk       TOA clock ticks counter
     \param event        Raw event
     */
-    inline void enqueueEvent(unsigned chipIndex, period_index index, int64_t toaclk, uint64_t event)
+    inline void enqueueEvent(unsigned chipIndex, period_index index, toa_event toa)
     {
         // logger << "enqueueEvent(" << chipIndex << ", " << index.period << ", " << toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
         // logger << chipIndex << ": enqueue: " << index.period << ' ' << toaclk
         //        << " (" << std::hex << event << std::dec << ')' << log_debug;
-        queues[chipIndex][index].queue.push({toaclk, event});
+        queues[chipIndex][index].queue.push(toa);
     }
 
     /*!
@@ -379,26 +379,27 @@ class DataHandler final {
                     bool predictorReady = (tdcHits >= 3);
 
                     while (processingByte < dataSize) {
-                        uint64_t d = *reinterpret_cast<const uint64_t*>(&content[processingByte]);
-                        if (__builtin_expect((d & 0xffffffffUL) == tpxHeader, 0)) {
+                        const auto d = *reinterpret_cast<const AsiRawStreamDecoder::Event*>(&content[processingByte]);
+                        if (__builtin_expect(d.header.id == AsiRawStreamDecoder::chunk_id, 0)) {
                             throw RuntimeException(std::string("encountered chunk header within chunk at offset ") + std::to_string(processingByte));
-                        } else if (__builtin_expect(Decode::matchesNibble(d, 0xb), 1)) {
+                        } else if (__builtin_expect(d.type.id == 0xb, 1)) {
                             if (__builtin_expect(predictorReady, 1)) {
-                                const int64_t toaclk = Decode::getToaClock(d);
+                                const uint64_t toaclk = Decode::getToaClock(d.toa);
+                                const uint16_t flatpix = Decode::flatPixel(d.toa);
                                 const double period = predictor[chipIndex].period_prediction(toaclk);
                                 auto index = queues[chipIndex].period_index_for(period);
   //                              logger << threadId << ": toaclk=" << toaclk << ", period=" << period << ", index=" << index << ", predictor=" << predictor[chipIndex] << log_debug;
                                 queues[chipIndex].refined_index(index, toaclk);
                                 hits++;
                                 if (! index.disputed)
-                                    processEvent(chipIndex, index.period, toaclk, d);
+                                    processEvent(chipIndex, index.period, {toaclk, flatpix});
                                 else
-                                    enqueueEvent(chipIndex, index, toaclk, d);
+                                    enqueueEvent(chipIndex, index, {toaclk, flatpix});
                             } else {
                                 // logger << threadId << ": skip event " << std::hex << d << std::dec << log_info;
                             }
-                        } else if (__builtin_expect(Decode::matchesNibble(d, 0x6), 0)) {
-                            const uint64_t tdcclk = Decode::getTdcClock(d);
+                        } else if (__builtin_expect(d.type.id == 0x6, 0)) {
+                            const uint64_t tdcclk = Decode::getTdcClock(d.tdc);
     //                        logger << threadId << ": tdc " << tdcclk  << " (" << std::hex << d << std::dec << ')' << log_debug;
                             if (__builtin_expect(tdcHits == 0, 0)) {
                                 predictor[chipIndex].reset(tdcclk, initialPeriod);
@@ -428,7 +429,7 @@ class DataHandler final {
                             // if (__builtin_expect(Decode::matchesByte(d, 0x71), 0)) { // end readout
                             //     stopNow();
                             // }
-                            if (__builtin_expect(Decode::matchesByte(d, 0x50), 0)) {
+                            if (__builtin_expect(d.packet_id.type == 0x50, 0)) {
                                 throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(processingByte));
                             }
                             // logger << threadId << ": unknown " << std::hex << d << std::dec << log_info;

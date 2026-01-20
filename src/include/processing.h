@@ -42,7 +42,7 @@ namespace processing {
     \param relative_toaclk  The relative TOA for the event, relative to the last TDC event
     \param event            The raw event data
     */
-    void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event);
+    void processEvent(unsigned chipIndex, const period_type period, toa_event relative_toa);
 
     // /*
     // \brief Process a TOA event

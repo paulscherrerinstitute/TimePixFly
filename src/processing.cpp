@@ -8,6 +8,7 @@ Event analysis code
 #include <cmath>
 
 #include "config_file.h"
+#include "shared_types.h"
 #include "xes_data_manager.h"
 #include "decoder.h"
 #include "processing.h"
@@ -204,7 +205,7 @@ namespace {
                 \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
                 \param event            Raw event
                 */
-                void ProcessEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
+                void ProcessEvent(unsigned chipIndex, const period_type period, toa_event relative_toa)
                 {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
 
@@ -214,14 +215,11 @@ namespace {
 
                         //const uint64_t totclk = Decode::getTotClock(event);
 
-                        const std::pair<uint64_t, uint64_t> xy = Decode::calculateXY(event);
-
-
 //                          logger << chipIndex << ": event: " << period << " (" << xy.first << ' ' << xy.second << ") " << toa << ' ' << tot
 //                        << " (" << toaclk << ' ' << totclk << std::hex << event << std::dec << ')' << log_info;
 
-                        auto index = PixelIndex::from(chipIndex, xy);
-                        Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toaclk);
+                        auto index = PixelIndex::from(chipIndex, relative_toa.px);
+                        Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toa.ts);
 
                 }
 
@@ -279,9 +277,9 @@ namespace processing {
                 analysis->PurgePeriod(chipIndex, period, final);
         }
 
-        void processEvent(unsigned chipIndex, const period_type period, int64_t relative_toaclk, uint64_t event)
+        void processEvent(unsigned chipIndex, const period_type period, toa_event relative_toa)
         {
-                analysis->ProcessEvent(chipIndex, period, relative_toaclk, event);
+                analysis->ProcessEvent(chipIndex, period, relative_toa);
         }
 
         void stop()

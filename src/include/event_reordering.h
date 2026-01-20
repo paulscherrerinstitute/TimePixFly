@@ -8,21 +8,21 @@ Code for event reordering based on event TOA
 
 #include <cstdint>
 #include "reorder_queue.h"
+#include "shared_types.h"
 
 /*!
 \brief Reorder element representation for one TOA event
 */
 struct reordering_element final {
-    int64_t toa;    //!< TOA is the reordering priority
-    uint64_t event; //!< Raw event
+    toa_event toa;  //<! TOA event data
 
     /*!
     \brief Constructor
     \param toa_     TOA of event that participated in reordering
     \param event_   Raw event that participated in reordering
     */
-    inline reordering_element(int64_t toa_, uint64_t event_) noexcept
-        : toa{toa_}, event{event_}
+    inline reordering_element(toa_event toa_) noexcept
+        : toa{toa_}
     {}
 
     inline ~reordering_element() = default;
@@ -44,7 +44,7 @@ struct toa_older_comparator final {
     */
     inline bool operator()(const reordering_element& lhs, const reordering_element& rhs) const noexcept
     {
-        return lhs.toa > rhs.toa;
+        return lhs.toa.ts > rhs.toa.ts;
     }
 };
 

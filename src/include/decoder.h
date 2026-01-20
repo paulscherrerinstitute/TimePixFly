@@ -7,11 +7,85 @@ Provide code for decoding Timepix3 raw stream data
 */
 
 #include <cassert>
+#include <cstdint>
+#include <utility>
 
 /*!
 \brief Decoder object for ASI Raw Data Stream
+See the ASI SERVAL manual "TPX3 raw file format" chapter.
 */
 struct AsiRawStreamDecoder final {
+    /*!
+    \brief Chunk header
+    */
+    struct Header {
+        uint64_t id: 32;        //<! Header ID "TPX3"
+        uint64_t chip: 8;       //<! Chip index
+        uint64_t reserved: 8;   //<! Reserved
+        uint64_t size: 16;      //<! Chunk size
+    };
+    static_assert(sizeof(Header) == sizeof(uint64_t));
+
+    static constexpr uint64_t chunk_id = 861425748UL; //!< 'TPX3' as uint64_t
+
+    /*!
+    \brief Packet ID
+    */
+    struct PacketID {
+        uint64_t count: 48;     //<! Packet counter
+        uint64_t reserved: 8;   //<! Reserved
+        uint64_t type: 8;       //<! PacketID=0x50
+    };
+    static_assert(sizeof(PacketID) == sizeof(uint64_t));
+
+    /*!
+    \brief TOA event
+    */
+    struct TOA {
+        uint64_t spidr: 16;     //<! SPIDR time (0.4096ms)
+        uint64_t FToA: 4;       //<! FToA (-1.5625ns)
+        uint64_t ToT: 10;       //<! ToT (25ns)
+        uint64_t ToA: 14;       //<! ToA (25ns)
+        uint64_t PixAddr: 16;   //<! PixAddr
+        uint64_t type: 4;       //<! TOA=0xb
+    };
+    static_assert(sizeof(TOA) == sizeof(uint64_t));
+
+    /*!
+    \brief TDC event
+    */
+    struct TDC {
+        uint64_t reserved: 5;   //<! Reserved
+        uint64_t fine_ts: 4;    //<! Fine timestamp 1-12 (260.4166ps)
+        uint64_t ts: 35;        //<! Timestamp (3.125ns)
+        uint64_t Tcount: 12;    //<! Trigger count
+        uint64_t action: 4;     //<! TDC1 rise=0xf fall=0xa, TDC2 rise=0xe fall=0xb
+        uint64_t type: 4;       //<! TDC=0x6
+    };
+    static_assert(sizeof(TDC) == sizeof(uint64_t));
+
+    /*!
+    \brief Event type
+    */
+    struct Type {
+        uint64_t data: 60;      //<! Event data
+        uint64_t id: 4;         //<! Event type id
+    };
+    static_assert(sizeof(Type) == sizeof(uint64_t));
+
+    /*!
+    \brief Event types of interest
+    */
+    union alignas(uint64_t) Event {
+        Header header;      //<! Packet header (must be first in packet)
+        PacketID packet_id; //<! Packet ID (must be after header event)
+        TOA toa;            //<! TOA
+        TDC tdc;            //<! TDC
+        Type type;          //<! TDC=0x6 or TOA=0xb
+        uint64_t raw;       //<! Event raw data
+    };
+    static_assert(sizeof(Event) == sizeof(uint64_t));
+
     /*!
     \brief Extract bits from event
 
@@ -64,6 +138,21 @@ struct AsiRawStreamDecoder final {
     }
 
     /*!
+    \brief Flat pixel relative to module/chip
+    \param data TOA event data
+    \return Flat pixel index relative to module/chip
+    */
+    [[gnu::const]]
+    inline static uint16_t flatPixel(TOA event) noexcept
+    {
+        const uint32_t encoded = event.PixAddr;
+        const auto dcol = (encoded & 0xFE00) >> 8;
+        const auto spix = (encoded & 0x01F8) >> 1;
+        const auto pix = encoded & 0x7;
+        return ((dcol + pix / 4u) << 8) + (spix + (pix & 0x3));
+    }
+
+    /*!
     \brief Convert clock ticks counter value to seconds
     \param count Clock counter value in units of clock ticks
     \return Clock value in seconds
@@ -111,19 +200,20 @@ struct AsiRawStreamDecoder final {
     \return Clock ticks counter
     */
     [[gnu::const]]
-    inline static uint64_t getTdcClock(uint64_t tdc) noexcept
+    inline static uint64_t getTdcClock(TDC event) noexcept
     {
-        const uint64_t tdcCoarse = (tdc >> 9) & 0x7ffffffffUL;
-        //     tdcCoarse = (tdc >> 9) & 0x7ffffffff
-        //     # fractional counts, values 1-12, 0.26 ns
-        //     fract = (tdc >> 5) & 0xf        
-        const uint64_t fract = (tdc >> 5) & 0xfUL;
-        //     # Bug: fract is sometimes 0 for older firmware but it should be 1 <= fract <= 12
-        //     assert 1 <= fract <= 12, f"Incorrect fractional TDC part {fract}, corrupt data: {tdc}"
-        assert((1 <= fract) && (fract <= 12));
-        //     # tdc in 640 MHz units (1.5625)
-        //     return (tdcCoarse << 1) | ((fract-1) // 6)
-        return (tdcCoarse << 1) | ((fract - 1) / 6);
+        // const uint64_t tdcCoarse = (tdc >> 9) & 0x7ffffffffUL;
+        // //     tdcCoarse = (tdc >> 9) & 0x7ffffffff
+        // //     # fractional counts, values 1-12, 0.26 ns
+        // //     fract = (tdc >> 5) & 0xf
+        // const uint64_t fract = (tdc >> 5) & 0xfUL;
+        // //     # Bug: fract is sometimes 0 for older firmware but it should be 1 <= fract <= 12
+        // //     assert 1 <= fract <= 12, f"Incorrect fractional TDC part {fract}, corrupt data: {tdc}"
+        // assert((1 <= fract) && (fract <= 12));
+        // //     # tdc in 640 MHz units (1.5625)
+        // //     return (tdcCoarse << 1) | ((fract-1) // 6)
+        // return (tdcCoarse << 1) | ((fract - 1) / 6);
+        return (event.ts << 1) | ((event.fine_ts - 1u) / 6u);
     }
 
     /*!
@@ -132,7 +222,7 @@ struct AsiRawStreamDecoder final {
     \return Clock ticks counter
     */
     [[gnu::const]]
-    inline static int64_t getToaClock(uint64_t data) noexcept
+    inline static int64_t getToaClock(TOA event) noexcept
     {
         //     # ftoa is on a 640 MHz clock
         //     # toa is on a 40 MHz clock
@@ -140,10 +230,11 @@ struct AsiRawStreamDecoder final {
         //     toa = get_bits(data, 43, 30)
         //     coarse = get_bits(data, 15, 0)        
         //     return (((coarse << 14) + toa) << 4) - ftoa
-        const int64_t ftoa = getBits(data, 19, 16);
-        const int64_t toa = getBits(data, 43, 30);
-        const int64_t coarse = getBits(data, 15, 0);
-        return (((coarse << 14) + toa) << 4) - ftoa;
+        // const int64_t ftoa = getBits(data, 19, 16);
+        // const int64_t toa = getBits(data, 43, 30);
+        // const int64_t coarse = getBits(data, 15, 0);
+        // return (((coarse << 14) + toa) << 4) - ftoa;
+        return (((event.spidr << 14) + event.ToA) << 4) - event.FToA;
     }
 
     /*!
@@ -160,7 +251,9 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static uint64_t getTotClock(uint64_t data) noexcept
     {
-        return getBits(data, 29, 20) << 4;
+        // return getBits(data, 29, 20) << 4;
+        auto event = reinterpret_cast<const TOA*>(&data);
+        return event->ToT << 4;
     }
 };  // AsiRawStreamDecoder
 
