@@ -286,6 +286,10 @@ namespace xes {
             if (cached.period == period)
                 cached.period = none;
 
+            // for final data, create an entry in any case
+            if (final)
+                data = &DataForPeriod(threadNo, period);
+
             // find the histogram data beeing filled up
             auto it = std::find_if(mdata.fill.begin(), mdata.fill.end(), [period](const auto& d) {
                 return (d->period >= period) || (d->period == none);

@@ -12,6 +12,7 @@ TODO:
 */
 
 // #include <filesystem>
+#include <cstdint>
 #include <cstdlib>
 #include <csignal>
 #include <cerrno>
@@ -1612,9 +1613,14 @@ namespace {
 
                         dataStream.close();
 
-                        const uint64_t hits = dataHandler.hitCount;
-                        logger << "time: " << time << "s, hits: " << hits << ", rate: " << (hits / time) << " hits/s\n"
-                            << "analysis spin: " << dataHandler.analyseSpinTime << "s, work: " << dataHandler.analyseTime
+                        const uint64_t ntoa = dataHandler.toaCount;
+                        const uint64_t ntdc = dataHandler.tdcCount;
+                        logger << "time: " << time << "s, hits: " << ntoa << ", toa: " << (ntoa / time) << " hits/s, rate: " << ((ntoa+ntdc) / time) << " events/s\n"
+                            << "analysis spin: " << dataHandler.analyseSpinTime << "s, work 1:" << dataHandler.analysePassOneTime
+                                                                                       << " 2:" << dataHandler.analysePassTwoTime
+                                                                                       << " 3:" << dataHandler.analysePassThreeTime
+                                                                                       << " self: " << dataHandler.analyseWorkTime
+                            << "\n         rate: " << ((ntoa / dataHandler.analyseWorkTime)) << " toa/s, " << ((ntoa+ntdc) / dataHandler.analyseWorkTime) << " events/s"
                             << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
                     }
                 } catch (Poco::Exception& ex) {
