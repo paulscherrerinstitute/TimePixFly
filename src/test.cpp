@@ -12,8 +12,6 @@ Unit tests
 #include <regex>
 #include <sstream>
 #include "global.h"
-#include "period_predictor.h"
-#include "period_queues.h"
 #include "layout.h"
 #include "energy_points.h"
 
@@ -128,17 +126,6 @@ namespace {
     }
 
     /*!
-    \brief Output operator for period_index
-    \param out Output stream
-    \param idx Abstract period index
-    \return out
-    */
-    inline decltype(verbose)& operator<<(decltype(verbose)& out, const period_index& idx)
-    {
-        return out.operator<<(idx);
-    }
-
-    /*!
     \brief Equality check
 
     This test fails iff a!=b
@@ -201,154 +188,6 @@ namespace {
             test_succeeded(unit, t);
     }
 
-    /*! Period predictor unit tests */
-    namespace period_predictor {
-        /*!
-        \brief Period predictor reset() unit test
-        \param unit Test unit
-        */
-        void predictor_reset_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_predictor p{0, 2};
-            check_eq(unit, t, p.interval_prediction(), 2.0);
-            check_eq(unit, t, p.period_prediction(6), 3.0);
-            check_eq(unit, t, p.minPoints(), (unsigned)3);
-            p.reset(1, 2);
-            check_eq(unit, t, p.interval_prediction(), 2.0);
-            check_eq(unit, t, p.period_prediction(5), 2.0);
-        }
-
-        /*!
-        \brief Period predictor update() unit test
-        \param unit Test unit
-        */
-        void predictor_update_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_predictor p{0, 2};
-            p.start_update(2);
-            check_eq(unit, t, p.interval_prediction(), 2.0);
-            check_eq(unit, t, p.period_prediction(6), 3.0);
-            p.prediction_update(5);
-            p.prediction_update(8);
-            p.prediction_update(11);
-            check_eq(unit, t, p.interval_prediction(), 3.0);
-            check_eq(unit, t, p.period_prediction(14), 5.0);
-        }
-
-        /*!
-        \brief Period predictor to_string() unit test
-        \param unit Test unit
-        */
-        void predictor_to_string_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_predictor p;
-            int64_t ts = 1;
-            unsigned m = p.numPoints();
-            for (unsigned i=0; i<m; i++, ts++)
-                p.prediction_update(ts);
-            std::string ps = p.to_string();
-            check_eq(unit, t, ps, std::string("ts: 1 2 3 4 s0 i1.000000 c0 f0"));
-        }
-    }
-
-    /*! Event reorder queue unit tests */
-    namespace event_reorder_queue {
-        /*!
-        \brief Check sorting feature of an event reorder queue
-        \param unit Test unit
-        */
-        void sorted_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::event_reorder_queue q;
-            q.push({4, 4});
-            q.push({1, 1});
-            q.push({2, 2});
-            check_eq(unit, t, q.size(), (::event_reorder_queue::size_type)3);
-            check_eq(unit, t, q.top().toa, (int64_t)1);
-            q.pop();
-            check_eq(unit, t, q.top().toa, (int64_t)2);
-            q.pop();
-            check_eq(unit, t, q.top().toa, (int64_t)4);
-            q.pop();
-            check_eq(unit, t, q.empty(), true);
-        }
-    }
-
-    /*! Period queues unit tests */
-    namespace period_queues {
-        /*!
-        \brief Period queues period_index_for() unit test
-        \param unit Test unit
-        */
-        void period_index_for_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_queues pq;
-            double d = pq.threshold / 2.0;
-            check_eq(unit, t, pq.period_index_for(1.0), period_index{0, 1, true});
-            check_eq(unit, t, pq.period_index_for(1.0 + d), period_index{0, 1, true});
-            check_eq(unit, t, pq.period_index_for(1.5), period_index{1, 1, false});
-            check_eq(unit, t, pq.period_index_for(2.0 - d), period_index{1, 2, true});
-        }
-
-        /*!
-        \brief Period queues refined_index() unit test
-        \param unit Test unit
-        */
-        void refined_index_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_queues pq;
-            double d = pq.threshold / 2.0;
-            period_index idx;
-            idx = pq.period_index_for(0.5); // undisputed index
-            check_eq(unit, t, idx, period_index{0, 0, false});
-            pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{0, 0, false});
-            idx = pq.period_index_for(d);   // disputed index
-            check_eq(unit, t, idx, period_index{-1, 0, true});
-            pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{-1, 0, true});
-            pq[idx] = period_queue_element{};
-            check_eq(unit, t, pq[idx].start, int64_t{0});
-            pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{-1, 0, true});
-            pq.registerStart(idx, 1);
-            check_eq(unit, t, pq[idx].start, (int64_t)1);
-            check_neq(unit, t, pq[idx].start, int64_t{0});
-            pq.refined_index(idx, 2);
-            check_eq(unit, t, idx, period_index{0, 0, false});
-            idx.disputed = true;
-            pq.refined_index(idx, 0);
-            check_eq(unit, t, idx, period_index{0, 0, false});
-        }
-
-        /*!
-        \brief Period queues oldest() unit test
-        \param unit Test unit
-        */
-        void purge_test(const test_unit& unit)
-        {
-            unsigned t = 0;
-            ::period_queues pq;
-            double d = pq.threshold / 2.0;
-            period_index idx = pq.period_index_for(d);
-            pq[idx] = period_queue_element{};
-            auto rq = pq.registerStart(idx, 1);
-            auto oldest = pq.oldest();
-            check_eq(unit, t, oldest->first, (period_type)0);
-            check_eq(unit, t, oldest->second.start, (int64_t)1);
-            check_eq(unit, t, rq.empty(), true);
-            check_eq(unit, t, pq.element.size(), (::period_queues::queue_type::size_type)1);
-            pq.erase(oldest);
-            check_eq(unit, t, pq.element.size(), (::period_queues::queue_type::size_type)0);
-        }
-    }
-
     /*! Pixel to energy point mapping unit tests */
     namespace pixmap {
         /*!
@@ -376,41 +215,6 @@ namespace {
     */
     void init_tests()
     {
-        tests.insert({
-            "period_predictor::predictor_reset",
-            "contructor, reset, interval_prediction, period_prediction",
-            period_predictor::predictor_reset_test
-        });
-        tests.insert({
-            "period_predictor::predictor_update",
-            "prediction_update, start_update",
-            period_predictor::predictor_update_test
-        });
-        tests.insert({
-            "period_predictor::predictor_to_string_test",
-            "constructor, prediction_update, to_string",
-            period_predictor::predictor_to_string_test
-        });
-        tests.insert({
-            "event_reorder_queue::sorted",
-            "iterator sequence",
-            event_reorder_queue::sorted_test
-        });
-        tests.insert({
-            "period_queues::period_index_for",
-            "period_index_for",
-            period_queues::period_index_for_test
-        });
-        tests.insert({
-            "period_queues::refined_index",
-            "refined_index",
-            period_queues::refined_index_test
-        });
-        tests.insert({
-            "period_queues::purge",
-            "registerStart, oldest, erase",
-            period_queues::purge_test
-        });
         tests.insert({
             "pixmap::energypoints",
             "PixelIndexToEp data structure tests",
