@@ -1600,7 +1600,7 @@ namespace {
 
                         logger << "connection from " << senderAddress.toString() << log_info;
 
-                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, initialPeriod, undisputedThreshold, maxPeriodQueues);
+                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips);
                         global::instance->stop_handlers.emplace_back([&dataHandler]() {
                             dataHandler.stopNow();
                         });

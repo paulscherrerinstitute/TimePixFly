@@ -21,8 +21,6 @@ Code for processing raw data stream
 #include "logging.h"
 #include "global.h"
 #include "io_buffers.h"
-#include "period_predictor.h"
-#include "period_queues.h"
 #include "processing.h"
 #include "thread_naming.h"
 
@@ -56,11 +54,6 @@ class DataHandler final {
     spin_lock::type memberMutex{spin_lock::init}; //!< Protection for member variables
     std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
-
-    int64_t initialPeriod;                      //!< Initial TDC period interval in clock ticks
-    std::vector<period_predictor> predictor;    //!< Per chip period predictors
-    std::vector<period_queues> queues;          //!< Per chip period interval change event reorder queues
-    unsigned maxPeriodQueues = 2;               //!< Default value for number of memorized period change intervals
 
     /*!
     \brief Check stop requested flag
@@ -473,19 +466,13 @@ public:
     \param log      Poco::Logger object for logging
     \param bufSize  IO buffer size
     \param numChips Number of TPX3 chips for the detector that generated the events
-    \param period   Initial TDC period
-    \param undisputedThreshold Ratio r of disputed period interval, [r..1-r] will be undisputed. Must be less than 0.5
-    \param maxQueues Number of recent period interval changes to remember
     */
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, int64_t period, double undisputedThreshold, unsigned maxQueues)
+    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips)
         : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize},
-          analyserThreads(numChips), initialPeriod(period), predictor(numChips), queues(numChips),
-          maxPeriodQueues(maxQueues)
+          analyserThreads(numChips)
     {
         io_buffer_pool::buffer_size = bufSize;
-        logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ", " << period << ", " << undisputedThreshold << ')' << log_trace;
-        for (auto& q : queues)
-            q.threshold = undisputedThreshold;
+        logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ')' << log_trace;
     }
 
     /*!
