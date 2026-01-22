@@ -23,19 +23,22 @@ function main()
 
     fname = args["file"]
     data = read(fname);
-    N = length(data);
-
-    if (mod(N, 8 ) != 0)
+    if (mod(length(data), 8) != 0)
         error("file length not a multiple of 8 bytes")
     end
+
+    events = reinterpret(UInt64, data)
+    data = nothing
+    N = length(events)
 
     ntoa = UInt64(0);
     ntdc = UInt64(0);
 
-    for i in 8:8:N
-        if data[i] == 0xb
+    for i in 1:N
+        t = events[i] >> 60
+        if t == 0xb
             ntoa += 1;
-        elseif data[i] == 0x6
+        elseif t == 0x6
             ntdc += 1;
         end
     end
