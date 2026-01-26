@@ -18,21 +18,11 @@ namespace {
         using Decode = AsiRawStreamDecoder;     //!< Raw stream decoder object
 
         using std::string;
-
-        using std::cout;
-        using std::endl;
         using std::ios;
-
         using std::vector;
-
-        using std::chrono::duration_cast;
         using std::chrono::high_resolution_clock;
         using std::chrono::milliseconds;
-        using std::chrono::duration;
         using clock = high_resolution_clock;    //!< Clock object
-
-        using std::remove;
-        using std::exit;
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
 
