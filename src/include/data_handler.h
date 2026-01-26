@@ -19,6 +19,7 @@ Code for processing raw data stream
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
+#include "cpu_mask.h"
 #include "decoder.h"
 #include "logging.h"
 #include "global.h"
@@ -171,6 +172,15 @@ class DataHandler final {
         double workTime = .0;
 
         try {
+            {   // set thread affinity
+                int reader_cpu = global::instance->cpu_affinity.reader_cpu;
+                if (reader_cpu >= 0) {
+                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
+                    if (rval != 0)
+                        logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
+                }
+            }
+
             do {
                 uint64_t chipIndex = 0;
                 uint64_t chunkSize = 0;
@@ -288,6 +298,15 @@ class DataHandler final {
         double workTime = .0;
 
         try {
+
+            {   // set thread affinity}
+                int analysis_cpu = global::instance->cpu_affinity.get_cpu(threadId);
+                if (analysis_cpu >= 0) {
+                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), analysis_cpu);
+                    if (rval != 0)
+                        logger << threadId << ": set affinity - " << cpu_mask::error(rval) << log_error;
+                }
+            }
 
             auto& bufferPool = *perChipBufferPool[chipIndex];
 

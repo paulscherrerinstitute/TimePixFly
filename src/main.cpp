@@ -49,6 +49,7 @@ TODO:
 #include "Poco/SyslogChannel.h"
 
 #include "config_file.h"
+#include "cpu_mask.h"
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "json_ops.h"
@@ -599,6 +600,15 @@ namespace {
                 .repeatable(false)
                 .argument("PATH")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleConfigFile)));
+            options.addOption(Option("cpu-affinity", "A")
+                .description("cpu affinity setting\n"
+                             "affinity = (a|w|r):cpu-set OR affinity;affinity\n"
+                             "cpu-set = cpu OR range OR cpu-set,cpu-set\n"
+                             "range = cpu-cpu")
+                .required(false)
+                .repeatable(false)
+                .argument("CPUSET")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleCpuAffinity)));
         }
 
         /*!
@@ -871,6 +881,20 @@ namespace {
             } catch (Poco::Exception& ex) {
                 throw InvalidArgumentException{std::string{"bad config file - "} + ex.message()};
             }
+        }
+
+        /*!
+        \brief CPU affinity setting handler
+        \param name     Option name - "cpu-affinity"
+        \param value    Option value - cpu affinity setting, like a:0-7;r:8;w:9
+        */
+        inline void handleCpuAffinity([[maybe_unused]] const std::string& name, const std::string& value)
+        {
+            logger << "handleConfigFile(" << name << ", " << value << ')' << log_trace;
+            auto& mask = global::instance->cpu_affinity;
+            cpu_mask::parse(mask, value, [](unsigned pos, const std::string& errmsg) {
+                throw InvalidArgumentException(std::string{"cpu-affinity - "} + errmsg + " at position " + std::to_string(pos));
+            });
         }
 
         /*!

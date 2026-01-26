@@ -19,6 +19,7 @@ Global configuration and control data
 
 #include "shared_types.h"
 #include "energy_points.h"
+#include "cpu_mask.h"
 
 /*!
 \brief Global configuration and control data
@@ -58,6 +59,9 @@ struct global final {
 
     // From ASI server
     detector_layout layout;                                                //!< Detector layout (retrieved from ASI server)
+
+    // From CLI arguments
+    cpu_mask::cpu_mask_t cpu_affinity;                                     //!< CPU affinity for reader,writer, analysis threads
 
     // From code
     /*!

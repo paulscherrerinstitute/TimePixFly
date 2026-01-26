@@ -22,6 +22,7 @@ Provide functionality to manage partial XES data per thread
 #include "timing.h"
 #include "xes_data_writer.h"
 #include "thread_naming.h"
+#include "cpu_mask.h"
 
 /*!
 \brief XES data manager functionality
@@ -110,6 +111,15 @@ namespace xes {
                 set_thread_name("tpx3app:writer");
 
                 try {
+                    {   // set thread affinity
+                        int writer_cpu = global::instance->cpu_affinity.writer_cpu;
+                        if (writer_cpu >= 0) {
+                            int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), writer_cpu);
+                            if (rval != 0)
+                                logger << "writer: set affinity - " << cpu_mask::error(rval) << log_error;
+                        }
+                    }
+
                     writer->start(detector);
 
                     while (true) {

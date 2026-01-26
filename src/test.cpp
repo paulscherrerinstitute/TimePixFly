@@ -204,7 +204,87 @@ namespace {
             PixelIndexToEp::from(pite, iss);
             check_eq(unit, t, (unsigned)pite.chip.size(), 1u);
         }
-    }
+    } // namespace pixmap
+
+    /*! CPU mask parsing and setting */
+    namespace cpumask {
+        /*!
+        \brief cpu_mask parsing tests
+        \param unit Test unit
+        */
+        void parse(const test_unit& unit)
+        {
+            unsigned t = 0;
+            cpu_mask::cpu_mask_t mask;
+
+            std::string test = "OK";
+            unsigned pos = 0;
+            auto fn = [&test, &pos](unsigned p, const std::string& err) {
+                test = err;
+                pos = p;
+            };
+
+            cpu_mask::parse(mask, "a:0-8;w:9;r:10", fn);
+            check_eq(unit, t, std::string{"OK"}, test);
+            check_eq(unit, t, mask.reader_cpu, 10);
+            check_eq(unit, t, mask.writer_cpu, 9);
+            check_eq(unit, t, mask.analysis_cpus.size(), size_t{9});
+            for (int i=0; i<mask.analysis_cpus.size(); i++)
+                check_eq(unit, t, mask.get_cpu(i), i);
+            // t=13
+            mask.clear();
+            cpu_mask::parse(mask, "a0-8;w:9;r:10", fn);
+            check_eq(unit, t, std::string{"colon expected"}, test);
+            check_eq(unit, t, pos, 2u); // t=15
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, ":0-8;w:9;r:10", fn);
+            check_eq(unit, t, std::string{"one of the characters a,r,w expected"}, test);
+            check_eq(unit, t, pos, 1u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0-8;:9;r:10", fn);
+            check_eq(unit, t, std::string{"one of the characters a,r,w expected"}, test);
+            check_eq(unit, t, pos, 7u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0-8;w:9;:10", fn);
+            check_eq(unit, t, std::string{"one of the characters a,r,w expected"}, test); // t=20
+            check_eq(unit, t, pos, 11u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0-8;w:9;r:", fn);
+            check_eq(unit, t, std::string{"expected number"}, test);
+            check_eq(unit, t, pos, 12u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0-;w:9;r:10", fn);
+            check_eq(unit, t, std::string{"expected number"}, test);
+            check_eq(unit, t, pos, 5u); // t=25
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0-8;w:9;w:10", fn);
+            check_eq(unit, t, std::string{"affinity can only be set once"}, test);
+            check_eq(unit, t, pos, 14u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:0,1-8;a:0;w:9;w:10", fn);
+            check_eq(unit, t, std::string{"analysis affinity already set"}, test);
+            check_eq(unit, t, pos, 9u);
+            test = "OK";
+            mask.clear();
+            cpu_mask::parse(mask, "a:1,1", fn);
+            check_eq(unit, t, std::string{"OK"}, test);
+            check_eq(unit, t, mask.reader_cpu, -1); // t=30
+            check_eq(unit, t, mask.writer_cpu, -1);
+            check_eq(unit, t, mask.get_cpu(0), 1);
+            check_eq(unit, t, mask.get_cpu(1), 1);
+            check_eq(unit, t, mask.get_cpu(2), -1);
+            test = "OK";
+            mask.clear();
+            check_eq(unit, t, mask.get_cpu(0), -1); // t=35
+        }
+    } // namespace cpumask
 
     /*!
     \brief Initialize unit tests
@@ -215,6 +295,11 @@ namespace {
             "pixmap::energypoints",
             "PixelIndexToEp data structure tests",
             pixmap::energypoints_test
+        });
+        tests.insert({
+            "cpu_mask::parse",
+            "cpu mask argument parsing",
+            cpumask::parse
         });
     }
 
