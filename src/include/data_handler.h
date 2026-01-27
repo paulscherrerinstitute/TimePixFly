@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #ifndef DATA_HANDLER_H
 #define DATA_HANDLER_H  //!< Include flag
 
@@ -75,7 +76,7 @@ class DataHandler final {
     std::thread readerThread;                   //!< Raw event data stream reader thread
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
     // std::mutex coutMutex;                    //!< Output mutex for debugging
-    spin_lock::type memberMutex{spin_lock::init}; //!< Protection for member variables
+    std::mutex memberMutex;                     //!< Protection for member variables
     std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
@@ -256,7 +257,7 @@ class DataHandler final {
             pool->finish_writing();
 
         {
-            spin_lock lock{memberMutex};
+            std::lock_guard lock{memberMutex};
             readTime += workTime;
             readSpinTime += spinTime;
         }
@@ -427,7 +428,7 @@ class DataHandler final {
             workTime += t;
             
             {
-                spin_lock lock{memberMutex};
+                std::lock_guard lock{memberMutex};
                 toaCount += toaHits;
                 tdcCount += tdcHits;
                 analyseSpinTime += spinTime;
