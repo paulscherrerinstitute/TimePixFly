@@ -3,17 +3,13 @@
 Unit tests
 */
 
-#include <cstdint>
 #include <set>
-#include <vector>
-#include <functional>
 #include <iostream>
 #include <cstring>
 #include <regex>
 #include <sstream>
+
 #include "global.h"
-#include "layout.h"
-#include "energy_points.h"
 
 namespace {
 

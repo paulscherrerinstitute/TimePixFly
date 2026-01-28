@@ -4,11 +4,9 @@ Event analysis code
 */
 
 #include <iostream>
-#include <algorithm>
 #include <cmath>
 
 #include "config_file.h"
-#include "shared_types.h"
 #include "xes_data_manager.h"
 #include "decoder.h"
 #include "processing.h"

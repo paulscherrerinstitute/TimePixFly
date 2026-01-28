@@ -12,7 +12,6 @@ TODO:
 */
 
 // #include <filesystem>
-#include <cstdint>
 #include <cstdlib>
 #include <csignal>
 #include <cerrno>
@@ -50,7 +49,6 @@ TODO:
 #include "Poco/SyslogChannel.h"
 
 #include "config_file.h"
-#include "decoder.h"
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "json_ops.h"

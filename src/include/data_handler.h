@@ -13,8 +13,6 @@ Code for processing raw data stream
 #endif
 
 #include <cstddef>
-#include <cstdint>
-#include <string>
 #include <algorithm>
 
 #include "Poco/Exception.h"
