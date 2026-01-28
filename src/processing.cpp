@@ -192,8 +192,7 @@ namespace {
                 \brief Process event
                 \param chipIndex        Chip that detected the event
                 \param period           Period number of the event
-                \param relative_toaclk  Event TOA in clock ticks relative to start of `period`
-                \param event            Raw event
+                \param relative_toa     TOA event with time in clock ticks relative to start of `period`
                 */
                 void ProcessEvent(unsigned chipIndex, const period_type period, toa_event relative_toa)
                 {

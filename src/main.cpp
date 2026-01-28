@@ -473,7 +473,7 @@ namespace {
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
         unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
-        unsigned long maxPeriodQueues = 4;              //!< Maximum number of remembered period interval changes
+        unsigned long maxPeriodQueues = 32;             //!< Maximum number of remembered period interval changes
 
     protected:
         /*!
@@ -554,7 +554,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
 
             options.addOption(Option("max-period-queues", "q")
-                .description(std::string{"maximum number of period reorder queues\ndefault: "} + std::to_string(maxPeriodQueues))
+                .description(std::string{"maximum number reorder queue elements\ndefault: "} + std::to_string(maxPeriodQueues))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -1600,7 +1600,7 @@ namespace {
 
                         logger << "connection from " << senderAddress.toString() << log_info;
 
-                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips);
+                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, maxPeriodQueues);
                         global::instance->stop_handlers.emplace_back([&dataHandler]() {
                             dataHandler.stopNow();
                         });

@@ -39,8 +39,7 @@ namespace processing {
     \brief Process a TOA event
     \param chipIndex        Event was on this chip
     \param period           Period of the event
-    \param relative_toaclk  The relative TOA for the event, relative to the last TDC event
-    \param event            The raw event data
+    \param relative_toa     TOA event, with time stamp relative to the last TDC event
     */
     void processEvent(unsigned chipIndex, const period_type period, toa_event relative_toa);
 

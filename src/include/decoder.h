@@ -19,10 +19,10 @@ struct AsiRawStreamDecoder final {
     \brief Chunk header
     */
     struct Header {
-        uint64_t id: 32;        //<! Header ID "TPX3"
-        uint64_t chip: 8;       //<! Chip index
-        uint64_t reserved: 8;   //<! Reserved
-        uint64_t size: 16;      //<! Chunk size
+        uint64_t id: 32;        //!< Header ID "TPX3"
+        uint64_t chip: 8;       //!< Chip index
+        uint64_t reserved: 8;   //!< Reserved
+        uint64_t size: 16;      //!< Chunk size
     };
     static_assert(sizeof(Header) == sizeof(uint64_t));
 
@@ -32,9 +32,9 @@ struct AsiRawStreamDecoder final {
     \brief Packet ID
     */
     struct PacketID {
-        uint64_t count: 48;     //<! Packet counter
-        uint64_t reserved: 8;   //<! Reserved
-        uint64_t type: 8;       //<! PacketID=0x50
+        uint64_t count: 48;     //!< Packet counter
+        uint64_t reserved: 8;   //!< Reserved
+        uint64_t type: 8;       //!< PacketID=0x50
     };
     static_assert(sizeof(PacketID) == sizeof(uint64_t));
 
@@ -42,12 +42,12 @@ struct AsiRawStreamDecoder final {
     \brief TOA event
     */
     struct TOA {
-        uint64_t spidr: 16;     //<! SPIDR time (0.4096ms)
-        uint64_t FToA: 4;       //<! FToA (-1.5625ns)
-        uint64_t ToT: 10;       //<! ToT (25ns)
-        uint64_t ToA: 14;       //<! ToA (25ns)
-        uint64_t PixAddr: 16;   //<! PixAddr
-        uint64_t type: 4;       //<! TOA=0xb
+        uint64_t spidr: 16;     //!< SPIDR time (0.4096ms)
+        uint64_t FToA: 4;       //!< FToA (-1.5625ns)
+        uint64_t ToT: 10;       //!< ToT (25ns)
+        uint64_t ToA: 14;       //!< ToA (25ns)
+        uint64_t PixAddr: 16;   //!< PixAddr
+        uint64_t type: 4;       //!< TOA=0xb
     };
     static_assert(sizeof(TOA) == sizeof(uint64_t));
 
@@ -55,12 +55,12 @@ struct AsiRawStreamDecoder final {
     \brief TDC event
     */
     struct TDC {
-        uint64_t reserved: 5;   //<! Reserved
-        uint64_t fine_ts: 4;    //<! Fine timestamp 1-12 (260.4166ps)
-        uint64_t ts: 35;        //<! Timestamp (3.125ns)
-        uint64_t Tcount: 12;    //<! Trigger count
-        uint64_t action: 4;     //<! TDC1 rise=0xf fall=0xa, TDC2 rise=0xe fall=0xb
-        uint64_t type: 4;       //<! TDC=0x6
+        uint64_t reserved: 5;   //!< Reserved
+        uint64_t fine_ts: 4;    //!< Fine timestamp 1-12 (260.4166ps)
+        uint64_t ts: 35;        //!< Timestamp (3.125ns)
+        uint64_t Tcount: 12;    //!< Trigger count
+        uint64_t action: 4;     //!< TDC1 rise=0xf fall=0xa, TDC2 rise=0xe fall=0xb
+        uint64_t type: 4;       //!< TDC=0x6
     };
     static_assert(sizeof(TDC) == sizeof(uint64_t));
 
@@ -68,8 +68,8 @@ struct AsiRawStreamDecoder final {
     \brief Event type
     */
     struct Type {
-        uint64_t data: 60;      //<! Event data
-        uint64_t id: 4;         //<! Event type id
+        uint64_t data: 60;      //!< Event data
+        uint64_t id: 4;         //!< Event type id
     };
     static_assert(sizeof(Type) == sizeof(uint64_t));
 
@@ -77,12 +77,12 @@ struct AsiRawStreamDecoder final {
     \brief Event types of interest
     */
     union alignas(uint64_t) Event {
-        Header header;      //<! Packet header (must be first in packet)
-        PacketID packet_id; //<! Packet ID (must be after header event)
-        TOA toa;            //<! TOA
-        TDC tdc;            //<! TDC
-        Type type;          //<! TDC=0x6 or TOA=0xb
-        uint64_t raw;       //<! Event raw data
+        Header header;      //!< Packet header (must be first in packet)
+        PacketID packet_id; //!< Packet ID (must be after header event)
+        TOA toa;            //!< TOA
+        TDC tdc;            //!< TDC
+        Type type;          //!< TDC=0x6 or TOA=0xb
+        uint64_t raw;       //!< Event raw data
     };
     static_assert(sizeof(Event) == sizeof(uint64_t));
 
@@ -139,7 +139,7 @@ struct AsiRawStreamDecoder final {
 
     /*!
     \brief Flat pixel relative to module/chip
-    \param data TOA event data
+    \param event TOA event data
     \return Flat pixel index relative to module/chip
     */
     [[gnu::const]]
@@ -196,7 +196,7 @@ struct AsiRawStreamDecoder final {
     
     /*!
     \brief Extract TDC clock from TDC event
-    \param tdc Raw TDC event
+    \param event TDC event
     \return Clock ticks counter
     */
     [[gnu::const]]
@@ -218,11 +218,11 @@ struct AsiRawStreamDecoder final {
 
     /*!
     \brief Extract TOA clock from TOA event
-    \param data Raw TOA event
+    \param event TOA event
     \return Clock ticks counter
     */
     [[gnu::const]]
-    inline static int64_t getToaClock(TOA event) noexcept
+    inline static uint64_t getToaClock(TOA event) noexcept
     {
         //     # ftoa is on a 640 MHz clock
         //     # toa is on a 40 MHz clock

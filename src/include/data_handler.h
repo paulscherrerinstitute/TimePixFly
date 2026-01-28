@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
 #ifndef DATA_HANDLER_H
 #define DATA_HANDLER_H  //!< Include flag
 
@@ -13,6 +11,11 @@ Code for processing raw data stream
 #ifndef SERVER_VERSION
     #define SERVER_VERSION 320  //!< Default ASI server version
 #endif
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <algorithm>
 
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
@@ -31,6 +34,28 @@ namespace {
     using Poco::ReadFileException;
     using Poco::DataFormatException;
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
+
+    /*!
+    \brief Reorder buffer entry
+    */
+    struct event_t final {
+        u64 ts:47;      //!< Timestamp
+        u64 is_tdc: 1;  //!< Flag 1=TDC, 0=TOA
+        u64 px: 16;     //!< Flat pixel
+    };
+
+    /*!
+     \brief Heap ordering
+     Make smaller the higher priority
+     \param a First operand
+     \param b Second operand
+     \return True if and only if a > b
+    */
+    [[gnu::const]]
+    inline bool operator<(const event_t& a, const event_t& b) noexcept
+    {
+        return a.ts > b.ts;
+    }
 }
 
 /*!
@@ -48,6 +73,7 @@ class DataHandler final {
     Logger& logger;                             //!< Poco::Logger object for logging
     io_buffer_pool_collection perChipBufferPool;//!< Per chip IO buffer pool
     const size_t bufferSize;                    //!< IO buffer size in bytes
+    const size_t reorderSize;                   //!< Size of reorder queue (heap)
     std::thread readerThread;                   //!< Raw event data stream reader thread
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
     // std::mutex coutMutex;                    //!< Output mutex for debugging
@@ -254,8 +280,8 @@ class DataHandler final {
         perChipBufferPool[chipIndex].reset(new io_buffer_pool{});
         analyzerReady.fetch_add(1, std::memory_order_release);
 
-        uint64_t tdcHits = 0u;
-        uint64_t toaHits = 0u;
+        uint64_t tdcHits = 0ul;
+        uint64_t toaHits = 0ul;
         double spinTime = .0;
         double workPassOneTime = .0;
         double workPassTwoTime = .0;
@@ -265,6 +291,10 @@ class DataHandler final {
         try {
 
             auto& bufferPool = *perChipBufferPool[chipIndex];
+
+            // Reorder buffer
+            std::vector<event_t> heap(reorderSize);
+            size_t heap_sz = 0ul;
 
             // Buffer for storing TDC event timestamps, and index of free TDC timestamp buffer entry
             std::vector<uint64_t, aligned_allocator<uint64_t>> tdc_buf(io_buffer_pool::buffer_size / sizeof(uint64_t));
@@ -285,155 +315,118 @@ class DataHandler final {
                 if (eventBuffer == nullptr) // no more data
                     goto analyser_stopped;
 
-                size_t dataSize = eventBuffer->content_size;
+                size_t content_sz = eventBuffer->content_size / sizeof(u64);
 //                    logger << threadId << ": full buffer " << eventBuffer->id
 //                                        << " chunk " << eventBuffer->chunk_size
 //                                        << " offset " << eventBuffer->content_offset
 //                                        << " size " << eventBuffer->content_size
 //                                        << " packet " << packetNumber << log_debug;
 
-                char* content = eventBuffer->content.data();
-                unsigned toa_hits = 0u; // hits in this buffer
-                unsigned tdc_hits = 0u; // hits in this buffer
+                const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)eventBuffer->content.data();
+                size_t i=0;
 
-                // ---------------------------------
-                // First pass: extract TDCs and convert TOAs
-                for (unsigned i=0; i<dataSize; i+=unsigned{sizeof(uint64_t)}) {
-                    auto& d = *reinterpret_cast<AsiRawStreamDecoder::Event*>(&content[i]);
-                    if (__builtin_expect(d.type.id == 0xb, 1)) { // TOA
-                        *reinterpret_cast<toa_event*>(&d) = { (uint64_t)Decode::getToaClock(d.toa), Decode::flatPixel(d.toa) };
-                        toa_hits++;
-                        continue;
-                    } else if (d.type.id == 0x6) {
-                        tdc_buf[tdc_hits++] = Decode::getTdcClock(d.tdc);
-                    } else if (__builtin_expect(d.header.id == AsiRawStreamDecoder::chunk_id, 0)) {
-                        throw RuntimeException(std::string("encountered chunk header within chunk at offset ") + std::to_string(i));
-                    } else if (__builtin_expect(d.packet_id.type == 0x50, 0)) {
-                        throw RuntimeException(std::string("encountered packet ID within chunk at offset ") + std::to_string(i));
+                // First stage: extract TDC/TOA events and fill up heap
+                // This stage is only active for the very first buffer(s)
+                for (; (heap_sz < reorderSize) && (i < content_sz); i++) {
+                    const auto& ev = content[i];
+                    const auto type = ev.type.id;
+                    if (type == 0xb) { // TOA
+                        heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
+                        toaHits++;
+                    } else if (type == 0x6) { // TDC
+                        heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                        tdcHits++;
                     }
-                    *reinterpret_cast<uint64_t*>(&d) = -1ul; // Max out everything except TOA
-                };
-
-                const auto t3 = wall_clock::now();
-                workPassOneTime += std::chrono::duration<double>(t3 - t2).count();
-
-                if (__builtin_expect(tdc_hits == 0u, 0)) {
-                    // Handle buffer without TDCs
-                    if (tdc_ts == 0u)
-                        throw RuntimeException("encountered initial buffer without TDCs");
-                    if (toa_hits == 0u)
-                        throw RuntimeException("encountered event buffer without events");
-
-                    // Handle TOAs for last seen TDC
-                    toa_event* toa_buf = reinterpret_cast<toa_event*>(content);
-                    unsigned toa_next = 0u;
-                    unsigned next = 0u;
-                    do {
-                        while (*reinterpret_cast<uint64_t*>(&toa_buf[next]) == -1ul)
-                            next++;
-
-                        const toa_event& toa = toa_buf[next++];
-                        uint64_t toa_ts = toa.ts;
-                        if (toa_ts >= tdc_ts)
-                            processing::processEvent(chipIndex, period, { toa_ts - tdc_ts, toa.px });
-                    } while (++toa_next != toa_hits);
-
-                    const auto t5 = wall_clock::now();
-                    workPassThreeTime += std::chrono::duration<double>(t5 - t3).count();
-
-                    goto no_toa_events;
                 }
 
-                if (__builtin_expect(tdc_ts >= tdc_buf[0], 0))
-                    throw RuntimeException("encountered event buffer that is out of sequence");
+                if ((heap_sz >= reorderSize) && (i < content_sz)) {
+                    if (tdc_ts == 0ul)
+                        std::make_heap(&heap[0], &heap[heap_sz]);
 
-                if (__builtin_expect(toa_hits != 0u, 1)) {
-                    // ---------------------------------
-                    // Second pass: sort TOAs and TDCs according to time
-                    // Maxed out data is pushed to the end
-                    std::sort(&tdc_buf[0], &tdc_buf[tdc_hits]);
+                    // Second stage: assert the presence of the last TDC time
+                    for (; (tdc_ts == 0ul) && (i < content_sz); i++) {
+                        std::pop_heap(&heap[0], &heap[heap_sz]);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            tdc_ts = el.ts;
+                        }
+                        const auto& ev = content[i];
+                        const auto type = ev.type.id;
+                        if (type == 0xb) { // TOA
+                            heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
+                            toaHits++;
+                        } else if (type == 0x6) { // TDC
+                            heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                            tdcHits++;
+                        } else {
+                            continue;
+                        }
+                        std::push_heap(&heap[0], &heap[heap_sz]);
+                    }
 
-                    toa_event* toa_buf = reinterpret_cast<toa_event*>(content);
-                    {
-                        unsigned toa_end = dataSize / sizeof(toa_event);
-                        std::sort(&toa_buf[0], &toa_buf[toa_end], [](const auto& a, const auto& b) -> bool {
-                            return a.ts < b.ts;
-                        });
-                        assert((toa_hits >= toa_end) || ((u64&)toa_buf[toa_hits] == -1ul));
-                        assert((toa_hits > 0) && ((u64&)toa_buf[toa_hits - 1ul] != -1ul));
+                    const auto t3 = wall_clock::now();
+                    workPassOneTime += std::chrono::duration<double>(t3 - t2).count();
+
+                    // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
+                    // This stage is the work horse
+                    for (; i < content_sz; i++) {
+                        std::pop_heap(&heap[0], &heap[heap_sz]);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            processing::purgePeriod(chipIndex, period);
+                            tdc_ts = el.ts;
+                            period++;
+                        } else {
+                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                        }
+                        const auto& ev = content[i];
+                        const auto type = ev.type.id;
+                        if (type == 0xb) { // TOA
+                            heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
+                            toaHits++;
+                        } else if (type == 0x6) { // TDC
+                            heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                            tdcHits++;
+                        } else {
+                            continue;
+                        }
+                        std::push_heap(&heap[0], &heap[heap_sz]);
                     }
 
                     const auto t4 = wall_clock::now();
-                    workPassTwoTime += std::chrono::duration<double>(t4 - t3).count();
-
-                    // ---------------------------------
-                    // Third pass: handle TOAs
-                    unsigned tdc_next = 0u;
-                    if (__builtin_expect(tdc_ts == 0u, 0)) { // set it to first tdc
-                        tdc_ts = tdc_buf[0];
-                        tdc_next = 1u;
-                    }
-
-                    // Drop TOAs with timestamp less than current TDC timestamp
-                    unsigned toa_next = 0u;
-                    while (toa_buf[toa_next].ts < tdc_ts) {
-                        toa_next++;
-                        if (toa_next == toa_hits)
-                            goto no_toa_events;
-                    }
-
-                    // Handle TOAs up to last TDC
-                    while (tdc_next != tdc_hits) {
-                        const toa_event& toa = toa_buf[toa_next];
-                        uint64_t toa_ts = toa.ts;
-                        assert(toa_ts >= tdc_ts);
-
-                        if (toa_ts >= tdc_buf[tdc_next]) {
-                            processing::purgePeriod(chipIndex, period + tdc_next);
-                            tdc_ts = tdc_buf[tdc_next++];
-                            continue;
-                        }
-
-                        processing::processEvent(chipIndex, period + tdc_next, { toa_ts - tdc_ts, toa.px });
-
-                        toa_next++;
-                        if (toa_next == toa_hits)
-                            goto no_toa_events;
-                    }
-
-                    // Handle TOAs for last TDC
-                    while (toa_next != toa_hits) {
-                        const toa_event& toa = toa_buf[toa_next];
-                        uint64_t toa_ts = toa.ts;
-                        assert(toa_ts >= tdc_ts);
-
-                        processing::processEvent(chipIndex, period + tdc_next, { toa_ts - tdc_ts, toa.px });
-
-                        toa_next++;
-                    }
-
-                    const auto t5 = wall_clock::now();
-                    workPassThreeTime += std::chrono::duration<double>(t5 - t4).count();
+                    workPassOneTime += std::chrono::duration<double>(t4 - t3).count();
                 }
+                // no more TOA events
 
-            no_toa_events:
                 bufferPool.put_empty_buffer(std::move(eventBuffer));
 
-                if (tdc_hits > 0) {
-                    period += tdc_hits;                 // set period counter for next buffer
-                    tdc_ts = tdc_buf[tdc_hits - 1u];    // set current tdc timestamp to last TDC
-                }
-
-                toaHits += toa_hits;
-                tdcHits += tdc_hits;
-
-                const auto t6 = wall_clock::now();
-                workTime += std::chrono::duration<double>(t6 - t2).count();
+                const auto t5 = wall_clock::now();
+                workTime += std::chrono::duration<double>(t5 - t2).count();
 
             } while(! stop());
 
         analyser_stopped:
+            const auto t1 = wall_clock::now();
+
+            // Forth stage: handle last events
+            while (heap_sz > 0ul) {
+                std::pop_heap(&heap[0], &heap[heap_sz]);
+                const auto& el = heap[--heap_sz];
+                if (el.is_tdc) {
+                    processing::purgePeriod(chipIndex, period);
+                    tdc_ts = el.ts;
+                    period++;
+                } else {
+                    processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                }
+            }
+
             processing::purgePeriod(chipIndex, period, true);
+
+            const auto t2 = wall_clock::now();
+            const auto t = std::chrono::duration<double>(t2 - t1).count();
+            workPassThreeTime += t;
+            workTime += t;
             
             {
                 spin_lock lock{memberMutex};
@@ -466,9 +459,10 @@ public:
     \param log      Poco::Logger object for logging
     \param bufSize  IO buffer size
     \param numChips Number of TPX3 chips for the detector that generated the events
+    \param queueSize Size of reorder queue (heap)
     */
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips)
-        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize},
+    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, unsigned long queueSize)
+        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize}, reorderSize{queueSize},
           analyserThreads(numChips)
     {
         io_buffer_pool::buffer_size = bufSize;
@@ -514,7 +508,7 @@ public:
     double analysePassOneTime = .0;             //!< Aggregated time used for analysing raw events, pass one
     double analysePassTwoTime = .0;             //!< Aggregated time used for analysing raw events, pass two
     double analysePassThreeTime = .0;           //!< Aggregated time used for analysing raw events, pass three
-    double analyseWorkTime = .0;
+    double analyseWorkTime = .0;                //!< Effective work time (without waiting for I/O buffers)
 };
 
 #endif // DATA_HANDLER_H
