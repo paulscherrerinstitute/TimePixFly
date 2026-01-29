@@ -170,6 +170,10 @@ class DataHandler final {
 
         double spinTime = .0;
         double workTime = .0;
+        double totalTime = .0;
+        u64 readBytes = 0ul;
+
+        const auto read_start_time = wall_clock::now();
 
         try {
             {   // set thread affinity
@@ -197,6 +201,7 @@ class DataHandler final {
                         logger << "reader: graceful connection shutdown detected" << log_debug;
                         break;
                     }
+                    readBytes += bytesRead;
                 }
 
                 while (totalBytes < chunkSize) {
@@ -223,6 +228,7 @@ class DataHandler final {
                         const int readSize = std::min(restCapacity, restData);
                         bytesRead = dataStream.receiveBytes(&data[bytesBuffered], readSize);
                         totalBytes += bytesRead;
+                        readBytes += bytesRead;
 
                         // logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes
                         //        << " total" << log_debug;
@@ -266,10 +272,14 @@ class DataHandler final {
         for (auto& pool : perChipBufferPool)
             pool->finish_writing();
 
+        totalTime = std::chrono::duration<double>{wall_clock::now() - read_start_time}.count();
+
         {
             std::lock_guard lock{memberMutex};
             readTime += workTime;
             readSpinTime += spinTime;
+            readTotalTime += totalTime;
+            byteCount += readBytes;
         }
 
         logger << "reader stopped" << log_debug;
@@ -412,7 +422,7 @@ class DataHandler final {
                     }
 
                     const auto t4 = wall_clock::now();
-                    workPassOneTime += std::chrono::duration<double>(t4 - t3).count();
+                    workPassTwoTime += std::chrono::duration<double>(t4 - t3).count();
                 }
                 // no more TOA events
 
@@ -518,10 +528,12 @@ public:
         processing::stop();
     }
 
-    uint64_t toaCount = 0u;                     //!< Number of TOA events encountered
-    uint64_t tdcCount = 0u;                     //!< Number of TDC events encountered
+    u64 toaCount = 0ul;                         //!< Number of TOA events encountered
+    u64 tdcCount = 0ul;                         //!< Number of TDC events encountered
+    u64 byteCount = 0ul;                        //!< Total bytes read
     double readSpinTime = .0;                   //!< Time used in spin loop to wait for empty IO buffers
     double readTime = .0;                       //!< Time used for reading raw event data
+    double readTotalTime = .0;                  //!< Total time spent in reader thread
     double analyseSpinTime = .0;                //!< Aggregated time used in spin loop to wait for full IO buffers
     double analysePassOneTime = .0;             //!< Aggregated time used for analysing raw events, pass one
     double analysePassTwoTime = .0;             //!< Aggregated time used for analysing raw events, pass two

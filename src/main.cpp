@@ -53,6 +53,7 @@ TODO:
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "json_ops.h"
+#include "shared_types.h"
 
 
 namespace {
@@ -81,7 +82,6 @@ namespace {
     using Poco::LogicException;
     using Poco::InvalidArgumentException;
     using Poco::RuntimeException;
-    using Poco::Dynamic::Var;
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
     #include "version.h"
@@ -1616,7 +1616,7 @@ namespace {
                         const auto t2 = wall_clock::now();
                         const double time = std::chrono::duration<double>{t2 - t1}.count();
 
-                        logger << "time: " << time << "s\n";
+                        logger << "time: " << time << "s" << log_notice;
                     } else {
                         const auto t1 = wall_clock::now();
 
@@ -1637,13 +1637,19 @@ namespace {
 
                         const uint64_t ntoa = dataHandler.toaCount;
                         const uint64_t ntdc = dataHandler.tdcCount;
-                        logger << "time: " << time << "s, hits: " << ntoa << ", toa: " << (ntoa / time) << " hits/s, rate: " << ((ntoa+ntdc) / time) << " events/s\n"
+                        const u64 readCount = (dataHandler.byteCount / sizeof(u64));
+                        const double avgAnalysisWorkTime = dataHandler.analyseWorkTime / numChips;
+                        logger << "time: " << time << "s, tdc: " << ntdc << " toa: " << ntoa << ", toa: " << (ntoa / time)
+                                                   << " toa/s, rate: " << ((ntoa+ntdc) / time) << " events/s\n"
                             << "analysis spin: " << dataHandler.analyseSpinTime << "s, work 1:" << dataHandler.analysePassOneTime
                                                                                        << " 2:" << dataHandler.analysePassTwoTime
                                                                                        << " 3:" << dataHandler.analysePassThreeTime
                                                                                        << " self: " << dataHandler.analyseWorkTime
-                            << "\n         rate: " << ((ntoa / dataHandler.analyseWorkTime)) << " toa/s, " << ((ntoa+ntdc) / dataHandler.analyseWorkTime) << " events/s"
-                            << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime << log_notice;
+                                                                                       << " avg: " << avgAnalysisWorkTime
+                            << "\n         rate: " << ((ntoa / avgAnalysisWorkTime)) << " toa/s, " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
+                            << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime
+                                                  << "s, total: " << dataHandler.readTotalTime << "s, items: " << readCount
+                                                  << ", rate: " << (readCount / dataHandler.readTotalTime) << " item/s" << log_notice;
                     }
                 } catch (Poco::Exception& ex) {
                     global::instance->last_error = ex.displayText();
