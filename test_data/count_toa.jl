@@ -43,7 +43,9 @@ function main()
         end
     end
 
-    println("length $N\ntoa $ntoa\ntdc $ntdc")
+    nevents = ntoa + ntdc
+
+    println("length $N\ntoa $ntoa\ntdc $ntdc\nevents $nevents")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
