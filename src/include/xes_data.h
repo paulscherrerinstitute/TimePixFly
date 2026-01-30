@@ -67,6 +67,9 @@ namespace xes {
                 assert(data.TDSpectra.size() == TDSpectra.size());
                 for (histo_type::size_type i=0; i<TDSpectra.size(); i++)
                     TDSpectra[i] += data.TDSpectra[i];
+                BeforeRoi += data.BeforeRoi;
+                AfterRoi += data.AfterRoi;
+                Total += data.Total;
                 return *this;
             }
 
@@ -81,6 +84,11 @@ namespace xes {
                     TDSpectra[i] += rhs.TDSpectra[i];
                     rhs.TDSpectra[i] = histo_type::value_type{};
                 }
+                BeforeRoi += rhs.BeforeRoi;
+                AfterRoi += rhs.AfterRoi;
+                Total += rhs.Total;
+                rhs.BeforeRoi = rhs.AfterRoi = rhs.Total = 0;
+                rhs.period = 0;
             }
 
             /*!

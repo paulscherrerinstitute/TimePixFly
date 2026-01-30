@@ -21,9 +21,8 @@ namespace xes {
         /*!
         \brief Write data for period
         \param data XES Data
-        \param period Which period
         */
-        virtual void write(const Data& data, period_type period) = 0;
+        virtual void write(const Data& data) = 0;
 
         /*!
         \brief Start data writing

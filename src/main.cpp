@@ -49,7 +49,6 @@ TODO:
 #include "Poco/SyslogChannel.h"
 
 #include "config_file.h"
-#include "cpu_mask.h"
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "json_ops.h"
@@ -1639,17 +1638,17 @@ namespace {
                         const uint64_t ntdc = dataHandler.tdcCount;
                         const u64 readCount = (dataHandler.byteCount / sizeof(u64));
                         const double avgAnalysisWorkTime = dataHandler.analyseWorkTime / numChips;
-                        logger << "time: " << time << "s, tdc: " << ntdc << " toa: " << ntoa << ", toa: " << (ntoa / time)
-                                                   << " toa/s, rate: " << ((ntoa+ntdc) / time) << " events/s\n"
-                            << "analysis spin: " << dataHandler.analyseSpinTime << "s, work 1:" << dataHandler.analysePassOneTime
+                        logger << "time: " << time << "s tdcs: " << ntdc << " toas: " << ntoa << " at " << (ntoa / time)
+                                                   << " toas/s rate: " << ((ntoa+ntdc) / time) << " events/s\n"
+                            << "analysis spin: " << dataHandler.analyseSpinTime << "s work 1:" << dataHandler.analysePassOneTime
                                                                                        << " 2:" << dataHandler.analysePassTwoTime
                                                                                        << " 3:" << dataHandler.analysePassThreeTime
                                                                                        << " self: " << dataHandler.analyseWorkTime
                                                                                        << " avg: " << avgAnalysisWorkTime
-                            << "\n         rate: " << ((ntoa / avgAnalysisWorkTime)) << " toa/s, " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
-                            << "\nreading spin: " << dataHandler.readSpinTime << "s, work: " << dataHandler.readTime
-                                                  << "s, total: " << dataHandler.readTotalTime << "s, items: " << readCount
-                                                  << ", rate: " << (readCount / dataHandler.readTotalTime) << " item/s" << log_notice;
+                            << "\n         rate: " << ((ntoa / avgAnalysisWorkTime)) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
+                            << "\nreading spin: " << dataHandler.readSpinTime << "s work: " << dataHandler.readTime
+                                                  << "s total: " << dataHandler.readTotalTime << "s items: " << readCount
+                                                  << " at " << (readCount / dataHandler.readTotalTime) << " items/s" << log_notice;
                     }
                 } catch (Poco::Exception& ex) {
                     global::instance->last_error = ex.displayText();

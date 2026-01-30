@@ -33,10 +33,11 @@ namespace cpu_mask {
 
     /*!
     \brief Set cpu virtual core affinity mask
+    \param tid Thread system ID from \ref get_tid()
     \param cpu Cpu virtual core, none for negative values
     \return 0 if successful, system error number otherwise
     */
-    inline int set_affinity(pthread_t tid, int cpu)
+    inline int set_affinity(pthread_t tid, int cpu) noexcept
     {
         if (cpu < 0)
             return 0;
@@ -51,7 +52,13 @@ namespace cpu_mask {
         return pthread_setaffinity_np(tid, sizeof(cpu_set), &cpu_set);
     }
 
-    inline std::string error(int err) {
+    /*!
+    \brief System error description
+    \param err System error code
+    \return Description of system error
+    */
+    inline std::string error(int err) noexcept
+    {
         return strerror(err);
     }
 
@@ -68,7 +75,7 @@ namespace cpu_mask {
         \param threadNo Analysis thread no
         \return Analysis thread CPU, or -1 if none is set
         */
-        inline int get_cpu(unsigned threadNo) noexcept
+        inline int get_cpu(unsigned threadNo) const noexcept
         {
             return (threadNo < analysis_cpus.size()) ? analysis_cpus[threadNo] : -1;
         }

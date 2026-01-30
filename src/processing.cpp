@@ -38,8 +38,7 @@ namespace {
 
                 u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
-                static constexpr period_type no_save = 2; //!< Don't save save data before this period
-                std::vector<period_type> save_point;    //!< Next period for which a file is written
+                std::vector<period_type> save_point;    //!< Next period for which a file is written, per chip
                 const Detector& detector;               //!< Reference to constant Detector data
                 const float TRoiStep_inv;               //!< 1. / TRoiStep
 
@@ -50,7 +49,7 @@ namespace {
                 */
                 inline Analysis(const Detector& det, const std::string& uri)
                         : dataManager{det, uri},
-                          save_point(det.layout.chip.size(), no_save),
+                          save_point(det.layout.chip.size(), global::instance->save_interval),
                           detector{det},
                           TRoiStep_inv{1.f/detector.TRoiStep}
                 {}
@@ -168,22 +167,17 @@ namespace {
                 void PurgePeriod(unsigned chipIndex, period_type period, bool final=false)
                 {
 //                        logger << "PurgePeriod(" << chipIndex << ", " << period << ')' << log_trace;
-//                        logger << chipIndex << ": purge period " << period << log_info;
                         if (!final) {
                                 period_type& sp = save_point[chipIndex];
                                 if (period < sp)
                                         return;
-
-                                if (sp == no_save) {
-                                        sp += global::instance->save_interval;
-                                        return;
-                                }
 
                                 dataManager.ReturnData(chipIndex, sp);
                                 sp += global::instance->save_interval;
                         } else {
                                 dataManager.ReturnData(chipIndex, period, true);
                         }
+                        // logger << chipIndex << ": purge period " << period << log_info;
                 }
 
                 /*!
@@ -197,7 +191,7 @@ namespace {
 //                        logger << "ProcessEvent(" << chipIndex << ", " << period << ", " << toaclk << ", " << relative_toaclk << ", " << std::hex << event << std::dec << ')' << log_trace;
 
                         period_type sp = save_point[chipIndex];
-                        if (period > sp)
+                        if (period >= sp)
                                 sp += global::instance->save_interval;
 
                         //const uint64_t totclk = Decode::getTotClock(event);

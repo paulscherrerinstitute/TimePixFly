@@ -36,11 +36,10 @@ namespace {
         \brief Write XES data to file
         The data is written to file {basePath}-{period}.xes
         \param data XES Data
-        \param period Which period
         */
-        inline void write(const xes::Data& data, period_type period) override
+        inline void write(const xes::Data& data) override
         {
-            const std::string path{basePath + "-" + std::to_string(period) + ".xes"};
+            const std::string path{basePath + "-" + std::to_string(data.period) + ".xes"};
             std::ofstream OutFile(path);
             if (! OutFile.good())
                 throw std::ios_base::failure("xes::FileWriter::write unable to open file - " + path);
@@ -111,15 +110,14 @@ namespace {
         }
         when: for every save_interval after start
         \param data XES Data
-        \param period Which period
         */
-        inline void write(const xes::Data& data, period_type period) override
+        inline void write(const xes::Data& data) override
         {
             const auto& TDSpectra = data.TDSpectra;
             const auto elements = TDSpectra.size();
             Poco::Net::SocketStream send{dataReceiver};
 
-            send << R"({"type":"XesData","period":)" << period
+            send << R"({"type":"XesData","period":)" << data.period
                  << R"(,"TDSpectra":[)" << TDSpectra[0];
             for (std::remove_cv_t<decltype(elements)> i=1; i<elements; i++)
                 send << ',' << TDSpectra[i];
@@ -128,7 +126,8 @@ namespace {
                  << R"(,"afterROI":)" << data.AfterRoi
                  << "}\n" << std::flush;
             data_counter++;
-            last_period = period;
+            if (data.period > last_period)
+                last_period = data.period;
         }
 
         /*!
@@ -172,10 +171,11 @@ namespace {
         DATA PACKET:
         {
             "type":"EndFrame",
-            "periods":131000,   // last_period - 3 (period predictor setup delay)
+            "periods":131000,   // last_period
             "error":"error_message"
         }
         when: at end of measurement
+        Resets \ref last_period
         */
         inline void stop(const std::string& error_message) override
         {

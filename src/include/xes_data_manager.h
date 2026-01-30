@@ -64,7 +64,6 @@ namespace xes {
             std::vector<Data*> fill;            //!< Histograms beeing filled up
             std::forward_list<Data> pool;       //!< Pool of histograms, pointed to by ready and empty
             CacheEntry cache;                   //!< Last used histogram
-            period_type last=none;              //!< Last submitted (to ready queue) period
             bool final=false;                   //!< No more data
 
             inline ModuleData() = default;      //!< Constructor
@@ -77,11 +76,12 @@ namespace xes {
             inline ModuleData(const ModuleData& other)              //!< Copy constructor
               : write{}, lock_ready{}, lock_empty{},
                 ready{other.ready}, empty{other.empty}, fill{other.fill},
-                pool{other.pool}, cache{}, last{other.last}, final{other.final}
+                pool{other.pool}, cache{}, final{other.final}
               {}
         };
 
         std::vector<ModuleData> module_data;    //!< Per module data
+        std::atomic_uint histo_submitted = 0u;  //!< Number of submitted histograms
 
         std::atomic_bool stopWriter = false;    //!< Stop data aggregate+write thread
         std::thread writerThread;               //!< Data aggregate+write thread
@@ -106,7 +106,11 @@ namespace xes {
                 double t_wait = .0;
                 double t_aggregate = .0;
                 double t_write = .0;
-                unsigned cyclic_start=0;    // module_data starting point
+                u64 n_toa = 0ul;
+                u64 n_before = 0ul;
+                u64 n_after = 0ul;
+                unsigned n_histo = 0u;
+                unsigned cyclic_start = 0u; // cycle through mdata to distribute burden evenly amongst threads
 
                 set_thread_name("tpx3app:writer");
 
@@ -125,11 +129,11 @@ namespace xes {
                     while (true) {
                         Timer t1{};
                         Data* data{nullptr};
-                        period_type period = 0;
+                        ModuleData* md{nullptr};
+                        cyclic_start = (cyclic_start + 1) % nThreads;
 
                         for (unsigned i=0; i<nThreads; i++) {
                             Data* d{nullptr};
-                            bool f = false;
                             auto& mdata = module_data[(cyclic_start + i) % nThreads];
 
                             Timer t2{};
@@ -138,11 +142,12 @@ namespace xes {
                                 while (!stopWriter) {
                                     if (! mdata.ready.empty()) {
                                         d = mdata.ready.top();
+                                        mdata.ready.pop();
                                         break;
                                     }
-                                    if ((f = mdata.final))
+                                    if (mdata.final)
                                         break;
-                                    mdata.write.wait(lock);
+                                    mdata.write.wait_for(lock, 1s);
                                 }
                                 if (stopWriter)
                                     goto regular_stop;
@@ -151,9 +156,10 @@ namespace xes {
 
                             if (d != nullptr) {
                                 if (data != nullptr) {
+                                    if (d->period > data->period)
+                                        data->period = d->period;
+                                    assert(data->period != 0);
                                     data->addResetRhs(*d);
-                                    d->period = none;
-                                    period = std::max(period, d->period);
                                     t_aggregate += t2.elapsed_reset();
                                     {
                                         std::lock_guard lock{mdata.lock_empty};
@@ -161,21 +167,28 @@ namespace xes {
                                     }
                                     t_wait += t2.elapsed();
                                 } else {
-                                    data = std::move(d);
-                                    period = data->period;
+                                    data = d;
+                                    md = &mdata;
                                 }
                             }
-                        }
+                        } // for all threads
 
                         if (data == nullptr) {
                             t_write += t1.elapsed();
                             goto regular_stop;
                         }
 
-                        writer->write(*data, period);
-
-                        //->SaveToFile(outFileName+"-"+std::to_string(period->period));
+                        // logger << "writer: period " << data->period << log_debug;
+                        writer->write(*data);
+                        n_toa += data->Total;
+                        n_before += data->BeforeRoi;
+                        n_after += data->AfterRoi;
+                        n_histo++;
                         data->Reset();
+                        {
+                            std::lock_guard lock{md->lock_empty};
+                            md->empty.push_back(data);
+                        }
 
                         t_write += t1.elapsed();
                     } // while (true)
@@ -200,7 +213,8 @@ namespace xes {
             regular_stop:
                 if (writer->data_counter == 0u)
                     global::set_error("no event data was collected");
-                logger << "output wait: " << t_wait << "s, aggregate: " << t_aggregate << "s, write: " << t_write << 's' << log_notice;
+                logger << "output histos: " << n_histo << " of " << ((double)histo_submitted / nThreads) << " wait: " << t_wait << "s agg: " << t_aggregate << "s write: " << t_write << "s toas: " << n_toa
+                              << " (after: " << n_after << " before: " << n_before << ") at " << (n_toa / t_write) << " toas/s" << log_notice;
             });
         }
 
@@ -215,8 +229,9 @@ namespace xes {
         */
         ~Manager()
         {
-            stopWriter = true;
             for (auto& mdata: module_data) {
+                std::lock_guard lock{mdata.lock_ready};
+                mdata.final = true;
                 mdata.write.notify_all();
             }
             writerThread.join();
@@ -229,7 +244,7 @@ namespace xes {
         \param period   Period
         \return Reference to per thread XES period data
         */
-        Data& DataForPeriod(unsigned threadNo, period_type period) noexcept
+        Data& DataForPeriod(unsigned threadNo, period_type period)
         {
             auto& mdata = module_data[threadNo];
 
@@ -237,6 +252,9 @@ namespace xes {
             CacheEntry& cached = mdata.cache;
             if (cached.period == period)
                 return *cached.data;
+
+            if (__builtin_expect(stopWriter, 0))
+                throw Poco::RuntimeException(global::instance->last_error);
 
             Data* data = nullptr;
 
@@ -260,6 +278,7 @@ namespace xes {
                 goto fill_cache_return;
 
             // create a new histogram
+            // NOTE: this operation MUST NOT change memory location of other data
             mdata.pool.emplace_front(detector);
             data = &mdata.pool.front();
 
@@ -284,40 +303,36 @@ namespace xes {
         */
         void ReturnData(unsigned threadNo, period_type period, bool final=false)
         {
-            auto& mdata = module_data[threadNo];
-
+            assert(period != 0);
             if (stopWriter)
                 throw Poco::RuntimeException(global::instance->last_error);
 
-            Data* data=nullptr;
+            auto& mdata = module_data[threadNo];
+            Data* data{nullptr};
 
             // clean cache
             CacheEntry& cached = mdata.cache;
             if (cached.period == period)
                 cached.period = none;
 
-            // for final data, create an entry in any case
-            if (final)
-                data = &DataForPeriod(threadNo, period);
-
             // find the histogram data beeing filled up
-            auto it = std::find_if(mdata.fill.begin(), mdata.fill.end(), [period](const auto& d) {
-                return (d->period >= period) || (d->period == none);
-            });
-            if (it == mdata.fill.end())
-                throw Poco::RuntimeException("internal error - returned data not found");
-            data = *it;
+            for (auto& d: mdata.fill) {
+                if (d->period >= period) {
+                    data = d;
+                    mdata.fill.erase(static_cast<decltype(mdata.fill)::const_iterator>(&d));
+                    break;
+                }
+            }
 
-            // remove from fill list
-            mdata.fill.erase(it);
+            if (data == nullptr)
+                throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
 
             // add to ready queue
+            histo_submitted++;
+            data->period = period;
             {
-                data->period = period;
-
                 std::lock_guard lock{mdata.lock_ready};
                 mdata.ready.push(data);
-                mdata.last = std::max(period, mdata.last);
                 mdata.final = final;
                 mdata.write.notify_one();
             }
