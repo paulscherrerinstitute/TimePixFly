@@ -5,7 +5,6 @@ Unit tests
 
 #include <set>
 #include <iostream>
-#include <cstring>
 #include <regex>
 #include <sstream>
 

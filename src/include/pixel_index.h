@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef PIXEL_INDEX_H
 #define PIXEL_INDEX_H
 

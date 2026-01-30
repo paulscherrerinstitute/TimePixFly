@@ -10,7 +10,6 @@ Provide functionality to manage partial XES data per thread
 
 #include <cstddef>
 #include <ostream>
-#include <mutex>
 #include <condition_variable>
 #include <limits>
 #include <queue>
@@ -22,7 +21,6 @@ Provide functionality to manage partial XES data per thread
 #include "timing.h"
 #include "xes_data_writer.h"
 #include "thread_naming.h"
-#include "cpu_mask.h"
 
 /*!
 \brief XES data manager functionality

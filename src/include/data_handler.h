@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #ifndef DATA_HANDLER_H
 #define DATA_HANDLER_H  //!< Include flag
 
@@ -14,12 +13,10 @@ Code for processing raw data stream
 #endif
 
 #include <cstddef>
-#include <algorithm>
 
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
-#include "cpu_mask.h"
 #include "decoder.h"
 #include "logging.h"
 #include "global.h"

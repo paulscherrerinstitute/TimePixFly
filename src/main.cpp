@@ -52,7 +52,6 @@ TODO:
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "json_ops.h"
-#include "shared_types.h"
 
 
 namespace {

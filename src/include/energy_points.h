@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ENERGY_POINTS_H
 #define ENERGY_POINTS_H
 

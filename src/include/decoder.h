@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef DECODER_H
 #define DECODER_H
 

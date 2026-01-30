@@ -9,7 +9,6 @@ Provide pixel map parsing function
 
 #include "global.h"
 #include "json_ops.h"
-#include "pixel_map.h"
 
 namespace {
 

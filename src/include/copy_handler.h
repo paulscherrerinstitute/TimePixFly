@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef COPY_HANDLER_H
 #define COPY_HANDLER_H
 

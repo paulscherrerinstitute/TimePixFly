@@ -9,8 +9,6 @@ Global configuration and control data
 */
 
 #include <utility>
-#include <functional>
-#include <string>
 #include <string_view>
 #include <variant>
 #include <atomic>
