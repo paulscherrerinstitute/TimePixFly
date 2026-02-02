@@ -43,6 +43,8 @@ TODO:
 #include <Poco/FileStream.h>
 #include <Poco/StreamCopier.h>
 
+#include "timing.h"
+
 using Poco::Net::HTTPServerResponse;
 using Poco::Net::HTTPServerRequest;
 using Poco::Net::HTTPServer;
@@ -52,7 +54,6 @@ using Poco::Net::HTTPResponse;
 using Poco::Net::HTTPServerParams;
 using Poco::Net::ServerSocket;
 using Poco::Net::StreamSocket;
-using Poco::Net::SocketOutputStream;
 using Poco::Net::SocketAddress;
 using Poco::Util::Application;
 using Poco::Util::Option;
@@ -62,15 +63,11 @@ using Poco::Util::OptionProcessor;
 using Poco::Util::HelpFormatter;
 using Poco::JSON::Parser;
 using Poco::JSON::Object;
-using Poco::JSON::Array;
 using Poco::URI;
-using Poco::FileInputStream;
-using Poco::StreamCopier;
 using Poco::RuntimeException;
 using Poco::DataFormatException;
 using Poco::InvalidArgumentException;
 using Poco::Util::UnknownOptionException;
-using Poco::Util::OptionException;
 
 namespace {
     using namespace std::chrono_literals;
@@ -375,6 +372,8 @@ namespace {
                     }
                     if (no_data)
                         continue;
+
+                    Timer t1{};
                     while (sent < fd.len) {
                         std::cout << "data sender: trying to send " << (fd.len - sent) << " after " << sent << " bytes\n";
                         int sz = con.sendBytes(&fd.data[sent], fd.len - sent);
@@ -386,6 +385,8 @@ namespace {
                         if (stop_collect.reset(false))
                             break;
                     }
+                    auto elapsed = t1.elapsed();
+                    std::cout << "sent " << (sent / 4) << " items in " << elapsed << "sitem, rate " << (sent / (4 * elapsed)) << " items/s\n";
                 }
             } while (true);
         stop_reader:
