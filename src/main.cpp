@@ -12,9 +12,11 @@ TODO:
 */
 
 // #include <filesystem>
+#include <Poco/Exception.h>
 #include <cstdlib>
 #include <csignal>
 #include <cerrno>
+#include <limits>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
@@ -51,7 +53,9 @@ TODO:
 #include "config_file.h"
 #include "data_handler.h"
 #include "copy_handler.h"
+#include "global.h"
 #include "json_ops.h"
+#include "shared_types.h"
 
 
 namespace {
@@ -482,7 +486,8 @@ namespace {
             Application::defineOptions(options);
 
             options.addOption(Option("loglevel", "l")
-                .description("log level:\nfatal,critical,error,warning,\nnotice,information,debug,trace\ndefault: critical")
+                .description("log level:\nfatal,critical,error,warning,\n"
+                             "notice,information,debug,trace\ndefault: critical")
                 .required(false)
                 .repeatable(false)
                 .argument("LEVEL")
@@ -530,7 +535,8 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFilePath)));
 
             options.addOption(Option("buf-size", "N")
-                .description(std::string{"individual data buffer byte size,\nwill be rounded up to a multiple of 8\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
+                .description(std::string{"individual data buffer byte size,\n"
+                             "will be rounded up to a multiple of 8\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -555,6 +561,14 @@ namespace {
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
+                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
+
+            options.addOption(Option("save-interval", "i")
+                .description(std::string{"writeout period in TDC periods,\n"
+                             "0 for infinite.\ndefault: "} + std::to_string(global::instance->save_interval))
+                .required(false)
+                .repeatable(false)
+                .argument("PERIODS")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("stream-to-file", "f")
@@ -592,7 +606,7 @@ namespace {
                 .description("ini style config file for arguments.\n"
                              "commandline: --xy=val\n"
                              "ini file   : xy=val\n"
-                             "The file takes precedence over previous commandline arguments, "
+                             "The file takes precedence over previous commandline arguments, \n"
                              "but the following commandline arguments take precedence over the file.")
                 .required(false)
                 .repeatable(false)
@@ -698,6 +712,13 @@ namespace {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive maximum period queues"};
                 maxPeriodQueues = num;
+            } else if (name == "save-interval") {
+                period_type max = std::numeric_limits<period_type>::max();
+                if (num == 0)
+                    num = max;
+                if ((period_type)num < 100)
+                    throw InvalidArgumentException{"save-interval should be at least 100"};
+                global::instance->save_interval = num;
             } else {
                 throw LogicException{std::string{"unknown number argument name: "} + name};
             }
