@@ -55,6 +55,7 @@ TODO:
 #include "copy_handler.h"
 #include "global.h"
 #include "json_ops.h"
+#include "logging.h"
 #include "shared_types.h"
 
 
@@ -1572,7 +1573,8 @@ namespace {
                 set_state(global::setup);
 
                 try {
-                    processing::init(layout);
+                    if (streamFilePath.empty())
+                        processing::init(layout);
 
                     logger << "listening at " << clientAddress.toString() << log_notice;
                     serverSocket.reset(new ServerSocket{clientAddress});
@@ -1635,7 +1637,18 @@ namespace {
                         const auto t2 = wall_clock::now();
                         const double time = std::chrono::duration<double>{t2 - t1}.count();
 
-                        logger << "time: " << time << "s" << log_notice;
+                        const auto items = copyHandler.writeTotalBytes / sizeof(u64);
+                        const auto ri = copyHandler.readTotalBytes / sizeof(u64);
+                        const auto wi = copyHandler.writeTotalBytes / sizeof(u64);
+                        const auto rt = copyHandler.readTime;
+                        const auto rot = copyHandler.readOpTime;
+                        const auto rat = copyHandler.readAllocTime;
+                        const auto wt = copyHandler.writeTime;
+                        const auto wot = copyHandler.writeOpTime;
+
+                        logger << "total: " << items << " items in " << time << "s at " << (items / time) << " items/s\n"
+                               << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s, alloc: " << rat << "s\n"
+                               << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
                     } else {
                         const auto t1 = wall_clock::now();
 

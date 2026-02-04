@@ -9,18 +9,18 @@ Provide raw stream to file copying code
 */
 
 #include <array>
-#include <vector>
 #include <deque>
-#include <atomic>
-#include <thread>
 #include <mutex>
+#include <condition_variable>
 #include <chrono>
 #include <fstream>
 
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
+#include "global.h"
 #include "logging.h"
+#include "thread_naming.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -29,6 +29,7 @@ namespace {
     using Poco::ReadFileException;
     using Poco::DataFormatException;
     using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
+    using namespace std::chrono_literals;
 }
 
 /*!
@@ -53,7 +54,8 @@ class CopyHandler final {
     std::thread readerThread;   //!< Raw event data reader thread
     std::thread writerThread;   //!< Raw event data writer thread
     std::mutex memberMutex;     //!< Protect member variables here
-    std::atomic<bool> stopOperation = false; //!< Stop requested flag
+    std::condition_variable data_ready;         //!< Data is ready condition
+    std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
     /*!
     \brief Check stop flag
@@ -93,47 +95,73 @@ class CopyHandler final {
         double time = .0;
         std::array<char, 8> header;
 
+        set_thread_name("tpx3app:cp-reader");
+
         try {
-            uint64_t totalBytes = 0;
+
+            {   // set thread affinity
+                int reader_cpu = global::instance->cpu_affinity.reader_cpu;
+                if (reader_cpu >= 0) {
+                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
+                    if (rval != 0)
+                        logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
+                }
+            }
 
             do {
                 const auto t1 = wall_clock::now();
 
                 int bytesRead = readBytes(header.data(), header.size());
 
+                const auto t3 = wall_clock::now();
+                readOpTime += std::chrono::duration<double>(t3 - t1).count();
+                readTotalBytes += bytesRead;
+
                 if (bytesRead == 0)
                     break;
                 if (bytesRead < (int)header.size())
                     throw ReadFileException("read incomplete header");
 
-                uint64_t value = *(uint64_t*)header.data();
+                const u64 value = *(uint64_t*)header.data();
                 if ((value & 0xffffffffUL) != 861425748UL)
                     throw DataFormatException("unknown header");
 
-                uint64_t chunk_size = value >> 48;
+                const u64 chunk_size = value >> 48;
                 logger << "chunk " << chunk_size << " bytes\n";
 
                 std::unique_ptr<std::vector<char>> data(new std::vector<char>(chunk_size + 8));
                 *(uint64_t*)data->data() = value;
 
+                const auto t4 = wall_clock::now();
+                readAllocTime += std::chrono::duration<double>(t4 - t3).count();
+
                 bytesRead = readBytes(&data->data()[8], chunk_size);
 
-                const auto t2 = wall_clock::now();
-                time += std::chrono::duration<double>(t2 - t1).count();
+                const auto t5 = wall_clock::now();
+                readOpTime += std::chrono::duration<double>(t5 - t4).count();
+                readTotalBytes += bytesRead;
 
-                totalBytes += bytesRead;
-                logger << "read " << bytesRead << " bytes, " << totalBytes << " total" << log_debug;
+                std::copy(&header[0], &header[8], &data->data()[0]);
+
+                logger << "read " << bytesRead << " bytes, " << readTotalBytes << " total" << log_debug;
 
                 if (stop())
-                    goto reader_stopped;
+                    break;
+
                 if (bytesRead < (int)chunk_size)
                     throw DataFormatException("incomplete chunk");
 
                 {
                     std::lock_guard lock{memberMutex};
                     buffers.push_back(std::move(data));
+                    data_ready.notify_one();
                 }
+
+                const auto t2 = wall_clock::now();
+                time += std::chrono::duration<double>(t2 - t1).count();
             } while (true);
+
+            buffers.emplace_back(nullptr);
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << "reader exception: " << ex.displayText() << log_critical;
@@ -142,7 +170,6 @@ class CopyHandler final {
             logger << "reader exception: " << ex.what() << log_critical;
         }
 
-    reader_stopped:
         readTime += time;
         logger << "reader stopped" << log_debug;
     }
@@ -152,36 +179,53 @@ class CopyHandler final {
     */
     void writeData()
     {
-        double time = .0;
+        set_thread_name("tpx3app:cp-writer");
 
         try {
-            uint64_t totalBytes = 0;
+            {   // set thread affinity
+                int writer_cpu = global::instance->cpu_affinity.writer_cpu;
+                if (writer_cpu >= 0) {
+                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), writer_cpu);
+                    if (rval != 0)
+                        logger << "writer: set affinity - " << cpu_mask::error(rval) << log_error;
+                }
+            }
+
+            const auto t3 = wall_clock::now();
 
             do {
                 std::unique_ptr<std::vector<char>> data;
 
                 do {
-                    std::this_thread::yield();
-                    std::lock_guard lock{memberMutex};
+                    std::unique_lock lock{memberMutex};
                     if (! buffers.empty()) {
                         data = std::move(buffers.front());
                         buffers.pop_front();
+                        break;
                     }
-                } while (!stop() && (data.get() == nullptr));
+                    data_ready.wait_for(lock, 1s);
+                } while (!stop());
 
                 if (stop())
-                    goto writer_stopped;
+                    break;
+
+                if (data == nullptr)
+                    break;
 
                 const auto t1 = wall_clock::now();
                 streamFile.write(data->data(), data->size());
                 const auto t2 = wall_clock::now();
-                time += std::chrono::duration<double>(t2 - t1).count();
-                totalBytes += data->size();
-                logger << "write " << data->size() << " bytes, " << totalBytes << " total" << log_debug;
+                writeOpTime += std::chrono::duration<double>(t2 - t1).count();
+                writeTotalBytes += data->size();
+                logger << "write " << data->size() << " bytes, " << writeTotalBytes << " total" << log_debug;
 
                 if (! streamFile)
                     throw ReadFileException("writer error");
             } while (true);
+
+            const auto t4 = wall_clock::now();
+            writeTime += std::chrono::duration<double>(t4 - t3).count();
+
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << "reader exception: " << ex.displayText() << log_critical;
@@ -190,8 +234,6 @@ class CopyHandler final {
             logger << "reader exception: " << ex.what() << log_critical;
         }
 
-    writer_stopped:
-        writeTime += time;
         logger << "writer stopped" << log_debug;
     }
 
@@ -234,8 +276,13 @@ public:
         writerThread.join();
     }
 
-    double readTime = .0;   //!< Time used by raw event data reading thread
-    double writeTime = .0;  //!< Time used by raw event data writing thread
+    double readOpTime = .0;     //!< Time used for synchronous read operations
+    double readAllocTime = .0;  //!< Time for allocating buffers
+    double readTime = .0;       //!< Time used by raw event data reading thread
+    double writeTime = .0;      //!< Time used by raw event data writing thread
+    double writeOpTime = .0;    //!< Time used for write operation
+    u64 readTotalBytes = 0ul;   //!< Total bytes read
+    u64 writeTotalBytes = 0ul;  //!< Total bytes written
 };
 
 #endif // COPY_HANDLER_H
