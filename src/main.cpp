@@ -573,7 +573,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
 
             options.addOption(Option("stream-to-file", "f")
-                .description("stream to file")
+                .description("stream to file, \"none\" for read only")
                 .required(false)
                 .repeatable(false)
                 .argument("PATH")

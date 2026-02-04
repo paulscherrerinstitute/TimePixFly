@@ -56,6 +56,7 @@ class CopyHandler final {
     std::mutex memberMutex;     //!< Protect member variables here
     std::condition_variable data_ready;         //!< Data is ready condition
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
+    bool readOnly;              //!< Don't write, just read
 
     /*!
     \brief Check stop flag
@@ -151,7 +152,7 @@ class CopyHandler final {
                 if (bytesRead < (int)chunk_size)
                     throw DataFormatException("incomplete chunk");
 
-                {
+                if (! readOnly) {
                     std::lock_guard lock{memberMutex};
                     buffers.push_back(std::move(data));
                     data_ready.notify_one();
@@ -247,6 +248,7 @@ public:
     CopyHandler(StreamSocket& socket, const std::string& path, Logger& log)
         : dataStream{socket}, streamFile(path), logger{log}
     {
+        readOnly = (path == "none");
         logger << "CopyHandler(" << socket.address().toString() << ", " << path << ')' << log_trace;
     }
 
@@ -264,7 +266,8 @@ public:
     void run_async()
     {
         readerThread = std::thread([this]{this->readData();});
-        writerThread = std::thread([this]{this->writeData();});
+        if (! readOnly)
+            writerThread = std::thread([this]{this->writeData();});
     }
 
     /*!
@@ -273,7 +276,8 @@ public:
     void await()
     {
         readerThread.join();
-        writerThread.join();
+        if (! readOnly)
+            writerThread.join();
     }
 
     double readOpTime = .0;     //!< Time used for synchronous read operations
