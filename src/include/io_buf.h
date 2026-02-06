@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <cassert>
 #include <vector>
+#include <chrono>
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -14,6 +15,7 @@
 #include "Poco/Exception.h"
 
 namespace iobuf {
+    using namespace std::chrono_literals;
     inline int container_size = 4 * sysconf(_SC_PAGE_SIZE);
 
     struct container_t final {
