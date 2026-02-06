@@ -61,7 +61,7 @@ namespace iobuf {
     };
 
     struct jar_t final {
-        container_t const container;
+        container_t container;
         jar_t* next;                // singly linked list, if level==container_size => next is set
         std::atomic<unsigned> done; // done count, if done==nthreads => next was consumed
         int level;                  // protect with lock and condvar
@@ -78,22 +78,24 @@ namespace iobuf {
     };
 
     struct reservation_t final {
-        jar_t* const jar;   // singly linked list
-        const int start;
-        const int end;
+        jar_t* jar;   // singly linked list
+        int start;
+        int end;
     };
 
 
+    inline reservation_t initial_reservation = {nullptr, 0, 0};
 
     class collection_t final {
         static constexpr unsigned num_initial_containers = 8u;
         std::mutex free_lock;
         std::vector<std::unique_ptr<jar_t>> level_list;
-        jar_t* head;    // singly linked free list
-        jar_t* tail;    // singly linked free list
-        jar_t* first;   // initial write
-        jar_t* final;   // final data
-        const unsigned nthreads;
+        jar_t* head;            // singly linked free list
+        jar_t* tail;            // singly linked free list
+        jar_t* first;           // initial write
+        jar_t* final;           // final data
+        std::atomic<bool> stop; // stop operation immediately
+        const unsigned nthreads;// number of reader threads
 
         inline int await_data(jar_t* jar, int level)
         {
@@ -101,7 +103,7 @@ namespace iobuf {
             do {
                 if (jar->level != level)
                     return jar->level;
-                if (jar == final)
+                if ((jar == final) || stop.load(std::memory_order_consume))
                     return 0;
                 jar->level_cond.wait_for(lock, 1s);
             } while (true);
@@ -120,6 +122,11 @@ namespace iobuf {
             final = nullptr;
         }
 
+        inline void stop_now()
+        {
+            stop.store(true, std::memory_order_release);
+        }
+
         inline reservation_t write_reservation(const reservation_t& reservation, int size)
         {
             jar_t* jar = reservation.jar;
@@ -130,7 +137,7 @@ namespace iobuf {
                 assert(first);
                 return {first, 0, container_size};
             }
-            if (!size) {
+            if (!size || stop.load(std::memory_order_consume)) {
                 // finished
                 {
                     std::lock_guard lock{jar->level_lock};
