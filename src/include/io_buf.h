@@ -264,7 +264,7 @@ namespace iobuf {
                     level_list.emplace_back(new jar_t);
                     free = level_list.back().get();
                 } else {
-                    free->next = nullptr;h, no mo
+                    free->next = nullptr;
                 }
                 assert(free && !free->next && !free->done && !free->level);
                 {
