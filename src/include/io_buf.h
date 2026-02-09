@@ -3,6 +3,11 @@
 #ifndef IO_BUF_H
 #define IO_BUF_H
 
+/*!
+\file
+Provide a single produce, multiple consumer I/O buffer implementation
+*/
+
 #include <cstddef>
 #include <atomic>
 #include <memory>
@@ -17,14 +22,24 @@
 
 #include "Poco/Exception.h"
 
+/*!
+\brief I/O Buffer implementation
+*/
 namespace iobuf {
     using namespace std::chrono_literals;
-    inline int container_size = 4 * sysconf(_SC_PAGE_SIZE);
+    inline int container_size = 4 * sysconf(_SC_PAGE_SIZE); //!< Fixed I/O buffer size
 
+    /*!
+    \brief Data container
+    The data is page size aligned can be pinned down in memory.
+    */
     struct container_t final {
-        [[gnu::aligned(256/8)]] char* data;
-        bool pinned;
+        [[gnu::aligned(256/8)]] char* data; //!< Aligned data
+        bool pinned;                        //!< Is the data pinned down in memory?
 
+        /*!
+        \brief Create unpinned data container
+        */
         inline container_t()
             : pinned{false}
         {
@@ -33,11 +48,18 @@ namespace iobuf {
                 throw Poco::SystemException("internal - mmap failed", errno);
         }
 
+        /*!
+        \brief Destructor
+        */
         inline ~container_t() noexcept
+
         {
             munmap(data, container_size);
         }
 
+        /*!
+        \brief Pin data down in memory
+        */
         inline void pin()
         {
             if (pinned)
@@ -51,6 +73,9 @@ namespace iobuf {
             pinned = true;
         }
 
+        /*!
+        \brief Remove memory pin
+        */
         inline void unpin()
         {
             if (!pinned)
@@ -63,54 +88,90 @@ namespace iobuf {
         }
     };
 
+    /*!
+    \brief Linked data containers with thread snyhronization infrastructure and fill level
+    */
     struct jar_t final {
-        container_t container;
-        jar_t* next;                // singly linked list, if level==container_size => next is set
-        std::atomic<unsigned> done; // done count, if done==nthreads => next was consumed
-        int level;                  // protect with lock and condvar
-        std::mutex level_lock;
-        std::condition_variable level_cond;
+        container_t container;              //!< Data container
+        jar_t* next;                        //!< Singly linked list, if level==container_size => next is set
+        std::atomic<unsigned> done;         //!< Threads done count, if done==nthreads => next was consumed
+        int level;                          //!< Fill level
+        std::mutex level_lock;              //!< Protect fill level
+        std::condition_variable level_cond; //!< For awaiting fill level changes
 
+        /*!
+        \brief Construct a new unlinked jar with fill level 0
+        */
         jar_t() noexcept
             : next{nullptr}, done{0u}, level{0}
         {}
 
-        explicit jar_t(jar_t* next_) noexcept
+        /*!
+        \brief Construct a new linked jar with fill level 0
+        \param next_ Link to next jar
+        */
+        inline explicit jar_t(jar_t* next_) noexcept
             : next{next_}, done{0u}, level{0}
         {}
     };
 
+    /*!
+    \brief Output operator for a jar
+    \param os Output stream
+    \param jar Jar to print into the stream
+    \tparam out Output stream type
+    \return Output stream
+    */
     template<typename out>
     out& operator<<(out& os, const jar_t& jar)
     {
         return os << "(jar " << &jar << " next=" << jar.next << " done=" << jar.done << " level=" << jar.level << ')';
     }
 
+    /*!
+    \brief Thread reservation for jar content
+    */
     struct reservation_t final {
-        jar_t* jar;   // singly linked list
-        int start;
-        int end;
+        jar_t* jar; //!< Jar in question, no reservation if null
+        int start;  //!< Reservation start level
+        int end;    //!< Reservation end level
     };
 
-    inline reservation_t initial_reservation = {nullptr, 0, 0};
+    inline reservation_t initial_reservation = {nullptr, 0, 0}; //!< Initially there is no reservation
 
+    /*!
+    \brief Reservation output operator
+    \param os Output stream
+    \param res Reservation to print into the output stream
+    \tparam out Output stream type
+    \return Output stream
+    */
     template<typename out>
     out& operator<<(out& os, const reservation_t& res)
     {
         return os << "(res " << &res.jar << " start=" << res.start << " end=" << res.end << ')';
     }
 
+    /*!
+    \brief Collection of data containers for one producer and a fixed number of consumers
+    */
     class collection_t final {
-        static constexpr unsigned num_initial_containers = 8u;
-        std::mutex free_lock;
-        std::vector<std::unique_ptr<jar_t>> level_list;
-        jar_t* head;                    // singly linked free list
-        jar_t* tail;                    // singly linked free list
-        jar_t* first;                   // initial write
-        std::atomic<jar_t*> final_jar;  // final data
-        std::atomic<bool> stop_flag;    // stop operation immediately
-        const unsigned nthreads;        // number of reader threads
+        static constexpr unsigned num_initial_containers = 8u;  //!< Initial amount of jars
+        std::mutex free_lock;                                   //!< Protect free list of empty, reusable jars
+        std::vector<std::unique_ptr<jar_t>> level_list;         //!< Vector of data jars
+        jar_t* head;                                            //!< Head of singly linke free list
+        jar_t* tail;                                            //!< Tail of singly linked free list
+        jar_t* first;                                           //!< Initially used jar
+        std::atomic<jar_t*> final_jar;                          //!< The final jar that was filled up
+        std::atomic<bool> stop_flag;                            //!< Irregular stop
+        const unsigned nthreads;                                //!< Number of consumer threads
 
+        /*!
+        \brief Await jar fill level change
+        \param jar For this jar
+        \param level Old fill level
+        \return Changed fill level
+        */
         inline int await_data(jar_t* jar, int level)
         {
             assert(jar);
@@ -125,7 +186,12 @@ namespace iobuf {
         }
 
     public:
-        explicit collection_t(unsigned threads)
+        /*!
+        \brief Create data container collection for a fixed number of consumer threads
+        All threads must consume each container
+        \param threads Number of consumer threads 
+        */
+        inline explicit collection_t(unsigned threads)
             : final_jar{nullptr}, stop_flag{false}, nthreads{threads}
         {
             level_list.resize(num_initial_containers);
@@ -133,16 +199,30 @@ namespace iobuf {
                 p.reset(new jar_t);
             head = level_list[1].get();
             for (unsigned i=1u; i<num_initial_containers-1u; i++)
+
                 level_list[i]->next = level_list[i+1].get();
             tail = level_list[num_initial_containers-1u].get();
             first = level_list[0].get();
         }
 
+        /*!
+        \brief Irregular stop
+        */
         inline void stop_now()
         {
             stop_flag.store(true, std::memory_order_release);
         }
 
+        /*!
+        \brief Get a write reservation for the single producer thread.
+
+        This will take an empty jar from the free list, or create a new jar.
+        \param consumed Reservation that has been consumed, or `initial_reservation`<br/>
+            If the consumed reservation has `start == end`, that signals the final
+            jar was filled up and no more calls are allowed.
+        \return New reservation<br/>
+            If `end == 0`, no more calls are allowed.
+        */
         inline reservation_t write_reservation(const reservation_t& consumed)
         {
             jar_t* jar = consumed.jar;
@@ -180,11 +260,11 @@ namespace iobuf {
                     }
                 }
                 if (!free) {
-                    // create new container
+                    // create new containerh, no mo
                     level_list.emplace_back(new jar_t);
                     free = level_list.back().get();
                 } else {
-                    free->next = nullptr;
+                    free->next = nullptr;h, no mo
                 }
                 assert(free && !free->next && !free->done && !free->level);
                 {
@@ -204,6 +284,15 @@ namespace iobuf {
             return {jar, end, container_size};
         }
 
+        /*!
+        \brief Get a read reservation for one of the consumer threads
+
+            This will link the link the jar to the free list, if all threads are done with it.
+        \param consumed Reservation that has been consumed, or `initial_reservation`<br/>
+            If `end == container_size`, the thread is done with the jar.
+        \return New reservation<br/>
+            If `end == 0`, no mor data is produced, and no more calls are allowed.
+        */
         inline reservation_t read_reservation(const reservation_t& consumed)
         {
             jar_t* jar = consumed.jar;
