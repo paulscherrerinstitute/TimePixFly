@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef IO_BUF_H
+#define IO_BUF_H
+
 #include <cstddef>
 #include <atomic>
 #include <memory>
@@ -77,33 +80,45 @@ namespace iobuf {
         {}
     };
 
+    template<typename out>
+    out& operator<<(out& os, const jar_t& jar)
+    {
+        return os << "(jar " << &jar << " next=" << jar.next << " done=" << jar.done << " level=" << jar.level << ')';
+    }
+
     struct reservation_t final {
         jar_t* jar;   // singly linked list
         int start;
         int end;
     };
 
-
     inline reservation_t initial_reservation = {nullptr, 0, 0};
+
+    template<typename out>
+    out& operator<<(out& os, const reservation_t& res)
+    {
+        return os << "(res " << &res.jar << " start=" << res.start << " end=" << res.end << ')';
+    }
 
     class collection_t final {
         static constexpr unsigned num_initial_containers = 8u;
         std::mutex free_lock;
         std::vector<std::unique_ptr<jar_t>> level_list;
-        jar_t* head;            // singly linked free list
-        jar_t* tail;            // singly linked free list
-        jar_t* first;           // initial write
-        jar_t* final;           // final data
-        std::atomic<bool> stop; // stop operation immediately
-        const unsigned nthreads;// number of reader threads
+        jar_t* head;                    // singly linked free list
+        jar_t* tail;                    // singly linked free list
+        jar_t* first;                   // initial write
+        std::atomic<jar_t*> final_jar;  // final data
+        std::atomic<bool> stop_flag;    // stop operation immediately
+        const unsigned nthreads;        // number of reader threads
 
         inline int await_data(jar_t* jar, int level)
         {
+            assert(jar);
             std::unique_lock lock{jar->level_lock};
             do {
                 if (jar->level != level)
                     return jar->level;
-                if ((jar == final) || stop.load(std::memory_order_consume))
+                if ((jar == final_jar.load(std::memory_order_consume)) || stop_flag.load(std::memory_order_consume))
                     return 0;
                 jar->level_cond.wait_for(lock, 1s);
             } while (true);
@@ -111,39 +126,43 @@ namespace iobuf {
 
     public:
         explicit collection_t(unsigned threads)
-            : nthreads{threads}
+            : final_jar{nullptr}, stop_flag{false}, nthreads{threads}
         {
             level_list.resize(num_initial_containers);
+            for (auto& p : level_list)
+                p.reset(new jar_t);
             head = level_list[1].get();
             for (unsigned i=1u; i<num_initial_containers-1u; i++)
                 level_list[i]->next = level_list[i+1].get();
             tail = level_list[num_initial_containers-1u].get();
             first = level_list[0].get();
-            final = nullptr;
         }
 
         inline void stop_now()
         {
-            stop.store(true, std::memory_order_release);
+            stop_flag.store(true, std::memory_order_release);
         }
 
-        inline reservation_t write_reservation(const reservation_t& reservation, int size)
+        inline reservation_t write_reservation(const reservation_t& consumed)
         {
-            jar_t* jar = reservation.jar;
-            const auto end = reservation.start + size;
-            assert((end >= reservation.start) && (end <= container_size));
+            jar_t* jar = consumed.jar;
+            const auto end = consumed.end;
+            assert((end >= consumed.start) && (end <= container_size));
             if (!jar) {
                 // initial container
                 assert(first);
                 return {first, 0, container_size};
             }
-            if (!size || stop.load(std::memory_order_consume)) {
+            if ((consumed.start == end) || stop_flag.load(std::memory_order_consume)) {
                 // finished
                 {
                     std::lock_guard lock{jar->level_lock};
-                    final = jar;
+                    final_jar.store(jar, std::memory_order_release);
                     jar->level_cond.notify_all();
                 }
+                // std::ostringstream oss;
+                // oss << "final=" << *jar << ", end=" << end << '\n';
+                // std::cout << oss.str();
                 return {jar, end, 0};
             }
             if (end == container_size) {
@@ -159,12 +178,13 @@ namespace iobuf {
                                 tail = nullptr;
                         }
                     }
-                    free->next = nullptr;
                 }
                 if (!free) {
                     // create new container
                     level_list.emplace_back(new jar_t);
                     free = level_list.back().get();
+                } else {
+                    free->next = nullptr;
                 }
                 assert(free && !free->next && !free->done && !free->level);
                 {
@@ -184,14 +204,16 @@ namespace iobuf {
             return {jar, end, container_size};
         }
 
-        inline reservation_t read_reservation(const reservation_t& reservation)
+        inline reservation_t read_reservation(const reservation_t& consumed)
         {
-            jar_t* jar = reservation.jar;
-            const auto end = reservation.end;
+            jar_t* jar = consumed.jar;
+            const auto end = consumed.end;
+            int level;
             if (!jar) {
                 // initial container
                 assert(first);
-                return {first, 0, await_data(first, 0)};
+                level = await_data(first, 0);
+                return {first, 0, level};
             } else if (end == container_size) {
                 // finished with container
                 jar_t* next = jar->next;
@@ -210,11 +232,15 @@ namespace iobuf {
                         tail = jar;
                     }
                 }
-                return {next, 0, await_data(next, 0)};
+                level = await_data(next, 0);
+                return {next, 0, level};
             }
             // not jet finished with container
             assert((end > 0) && (end < container_size));
-            return {jar, end, await_data(jar, end)};
+            level = await_data(jar, end);
+            return {jar, end, level};
         }
     };
 } // namespace iobuf
+
+#endif // ifndef IO_BUF_H

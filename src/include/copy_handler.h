@@ -82,8 +82,9 @@ class CopyHandler final {
                 }
             }
 
+            int bytesRead;
             Timer timer;
-            iobuf::reservation_t reservation = queue.write_reservation(iobuf::initial_reservation, iobuf::container_size);
+            iobuf::reservation_t reservation = queue.write_reservation(iobuf::initial_reservation);
 
             do {
                 assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
@@ -92,16 +93,20 @@ class CopyHandler final {
 
                 timer.set();
 
-                int bytesRead = readBytes(&data[reservation.start], amount);
+                bytesRead = readBytes(&data[reservation.start], amount);
 
-                readOpTime += timer.elapsed_reset();
+                readOpTime += timer.elapsed();
                 readTotalBytes += bytesRead;
                 
-                if (! readOnly)
-                    reservation = queue.write_reservation(reservation, bytesRead);
+                logger << "read " << bytesRead << " bytes, " << readTotalBytes << " total" << log_debug;
+
+                if (! readOnly) {
+                    reservation.end = reservation.start + bytesRead;
+                    reservation = queue.write_reservation(reservation);
+                }
 
                 readTime += timer.elapsed();
-            } while (reservation.end);
+            } while (bytesRead);
 
         } catch (Poco::Exception& ex) {
             stopNow();
@@ -146,7 +151,7 @@ class CopyHandler final {
 
                 streamFile.write(data, amount);
 
-                writeOpTime += timer.elapsed_reset();
+                writeOpTime += timer.elapsed();
                 writeTotalBytes += amount;
 
                 logger << "write " << amount << " bytes, " << writeTotalBytes << " total" << log_debug;
@@ -161,10 +166,10 @@ class CopyHandler final {
 
         } catch (Poco::Exception& ex) {
             stopNow();
-            logger << "reader exception: " << ex.displayText() << log_critical;
+            logger << "writer exception: " << ex.displayText() << log_critical;
         } catch (std::exception& ex) {
             stopNow();
-            logger << "reader exception: " << ex.what() << log_critical;
+            logger << "writer exception: " << ex.what() << log_critical;
         }
 
         logger << "writer stopped" << log_debug;
@@ -213,7 +218,6 @@ public:
     }
 
     double readOpTime = .0;     //!< Time used for synchronous read operations
-    double readAllocTime = .0;  //!< Time for allocating buffers
     double readTime = .0;       //!< Time used by raw event data reading thread
     double writeTime = .0;      //!< Time used by raw event data writing thread
     double writeOpTime = .0;    //!< Time used for write operation

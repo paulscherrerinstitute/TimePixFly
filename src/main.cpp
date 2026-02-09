@@ -1642,12 +1642,11 @@ namespace {
                         const auto wi = copyHandler.writeTotalBytes / sizeof(u64);
                         const auto rt = copyHandler.readTime;
                         const auto rot = copyHandler.readOpTime;
-                        const auto rat = copyHandler.readAllocTime;
                         const auto wt = copyHandler.writeTime;
                         const auto wot = copyHandler.writeOpTime;
 
                         logger << "total: " << items << " items in " << time << "s at " << (items / time) << " items/s\n"
-                               << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s, alloc: " << rat << "s\n"
+                               << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
                                << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
                     } else {
                         const auto t1 = wall_clock::now();

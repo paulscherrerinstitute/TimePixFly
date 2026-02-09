@@ -386,7 +386,10 @@ namespace {
                             break;
                     }
                     auto elapsed = t1.elapsed();
-                    std::cout << "sent " << (sent / 4) << " items in " << elapsed << "sitem, rate " << (sent / (4 * elapsed)) << " items/s\n";
+                    auto items = sent / sizeof(uint64_t);
+                    std::cout << "sent " << items << " items in " << elapsed << "sitem, rate " << (items / elapsed) << " items/s\n";
+
+                    con.shutdown();
                 }
             } while (true);
         stop_reader:
