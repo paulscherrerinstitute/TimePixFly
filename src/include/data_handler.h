@@ -17,12 +17,13 @@ Code for processing raw data stream
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
-#include "decoder.h"
+#include "subreservation.h"
 #include "logging.h"
 #include "global.h"
-#include "io_buffers.h"
+#include "io_buf.h"
 #include "processing.h"
 #include "thread_naming.h"
+#include "timing.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -53,7 +54,7 @@ namespace {
     {
         return a.ts > b.ts;
     }
-}
+} // namespace
 
 /*!
 \brief Handler object for processing a raw data stream
@@ -68,8 +69,7 @@ class DataHandler final {
 
     StreamSocket& dataStream;                   //!< Raw event data stream receiving end
     Logger& logger;                             //!< Poco::Logger object for logging
-    io_buffer_pool_collection perChipBufferPool;//!< Per chip IO buffer pool
-    const size_t bufferSize;                    //!< IO buffer size in bytes
+    iobuf::collection_t databuf;                //!< IO data buffer pool
     const size_t reorderSize;                   //!< Size of reorder queue (heap)
     std::thread readerThread;                   //!< Raw event data stream reader thread
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
@@ -91,7 +91,7 @@ class DataHandler final {
     \brief Read from raw event data stream into buffer
     \param buf Byte buffer
     \param size Number of bytes to read
-    \return Number of bytes effectively read
+    \return Number of bytes effectively read, 0 for no more data
     */
     int readData(void* buf, int size)
     {
@@ -105,10 +105,13 @@ class DataHandler final {
                 if (numRead == 0)
                     break;
             } catch (Poco::TimeoutException&) {
-                ;
+                if (global::instance->stop_collect) {
+                    stopNow();
+                    return 0;
+                }
             }
             numBytes += numRead;
-        } while ((numBytes < size) && !global::instance->stop_collect);
+        } while (numBytes < size);
 
         return numBytes;
     }
@@ -167,10 +170,7 @@ class DataHandler final {
 
         double spinTime = .0;
         double workTime = .0;
-        double totalTime = .0;
         u64 readBytes = 0ul;
-
-        const auto read_start_time = wall_clock::now();
 
         try {
             {   // set thread affinity
@@ -182,79 +182,31 @@ class DataHandler final {
                 }
             }
 
+            int bytesRead;
+            Timer timer;
+            iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
+
             do {
-                uint64_t chipIndex = 0;
-                uint64_t chunkSize = 0;
-                uint64_t packetId = 0;
-                uint64_t totalBytes = DATA_OFFSET;
-                int bytesRead;
+                assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
+                char* data = reservation.jar->container.data;
+                auto amount = reservation.end - reservation.start;
 
-                {
-                    const auto t1 = wall_clock::now();
-                    bytesRead = readPacketHeader(chipIndex, chunkSize, packetId);
-                    const auto t2 = wall_clock::now();
-                    workTime += std::chrono::duration<double>(t2 - t1).count();
-                    if (bytesRead == 0) {
-                        logger << "reader: graceful connection shutdown detected" << log_debug;
-                        break;
-                    }
-                    readBytes += bytesRead;
-                }
+                timer.set();
 
-                while (totalBytes < chunkSize) {
-                    auto& bufferPool = *perChipBufferPool[chipIndex];
+                bytesRead = readData(&data[reservation.start], amount);
+                // bytesRead will be 0 here if there's no more data or stop_collect is true
 
-                    const auto t1 = wall_clock::now();
+                workTime += timer.elapsed_reset();
+                readBytes += bytesRead;
+                
+                // logger << "read " << bytesRead << " bytes, " << readBytes << " total" << log_debug;
 
-                    auto eventBuffer = bufferPool.get_empty_buffer();
-                    if (eventBuffer == nullptr)
-                        throw LogicException("received nullptr as empty buffer");
-                    if (eventBuffer->content_size != 0)
-                        throw LogicException("empty buffer has content");
+                reservation.end = reservation.start + bytesRead;
+                reservation = databuf.write_reservation(reservation);
 
-                    const auto t2 = wall_clock::now();
+                spinTime += timer.elapsed();
+            } while (bytesRead);
 
-                    char* data = eventBuffer->content.data();
-                    eventBuffer->content_offset = totalBytes;
-                    eventBuffer->chunk_size = chunkSize;
-
-                    do {
-                        const int bytesBuffered = eventBuffer->content_size;
-                        const int restCapacity = bufferSize - bytesBuffered;
-                        const int restData = chunkSize - totalBytes;
-                        const int readSize = std::min(restCapacity, restData);
-                        bytesRead = dataStream.receiveBytes(&data[bytesBuffered], readSize);
-                        totalBytes += bytesRead;
-                        readBytes += bytesRead;
-
-                        // logger << "read " << bytesRead << " bytes into buffer " << eventBuffer->id << ", " << totalBytes
-                        //        << " total" << log_debug;
-
-                        eventBuffer->content_size += bytesRead;
-
-                        if (bytesRead <= 0)
-                            throw ReadFileException("no bytes received");
-                        if (bytesRead == readSize)
-                            break;
-                        if (stop())
-                            goto reader_stopped;
-                    } while (true);
-
-                    const auto t3 = wall_clock::now();
-
-                    // {
-                    //     auto logproxy = logger << "  data[0..32] = ";
-                    //     logproxy << std::hex;
-                    //     for (int i=0; i<4; i++)
-                    //         logproxy << *reinterpret_cast<uint64_t*>(&data[i*8]) << "  ";
-                    //     logproxy << std::dec << log_debug;
-                    // }
-                    bufferPool.put_nonempty_buffer({ packetId, std::move(eventBuffer) });
-
-                    spinTime += std::chrono::duration<double>{t2 - t1}.count();
-                    workTime += std::chrono::duration<double>{t3 - t2}.count();
-                }
-            } while (true);
         } catch (Poco::Exception& ex) {
             stopNow();
             logger << "reader exception: " << ex.displayText() << log_critical;
@@ -265,17 +217,12 @@ class DataHandler final {
             global::set_error(std::string{"reader: "} + ex.what());
         }
 
-    reader_stopped:
-        for (auto& pool : perChipBufferPool)
-            pool->finish_writing();
-
-        totalTime = std::chrono::duration<double>{wall_clock::now() - read_start_time}.count();
-
+        // reader stopped
         {
             std::lock_guard lock{memberMutex};
             readTime += workTime;
             readSpinTime += spinTime;
-            readTotalTime += totalTime;
+            readTotalTime += (workTime + spinTime);
             byteCount += readBytes;
         }
 
@@ -293,16 +240,12 @@ class DataHandler final {
 
         const unsigned chipIndex = threadId;
 
-        perChipBufferPool[chipIndex].reset(new io_buffer_pool{});
-        analyzerReady.fetch_add(1, std::memory_order_release);
-
         uint64_t tdcHits = 0ul;
         uint64_t toaHits = 0ul;
         double spinTime = .0;
         double workPassOneTime = .0;
         double workPassTwoTime = .0;
         double workPassThreeTime = .0;
-        double workTime = .0;
 
         try {
 
@@ -315,44 +258,45 @@ class DataHandler final {
                 }
             }
 
-            auto& bufferPool = *perChipBufferPool[chipIndex];
-
             // Reorder buffer
             std::vector<event_t> heap(reorderSize);
             size_t heap_sz = 0ul;
 
-            // Buffer for storing TDC event timestamps, and index of free TDC timestamp buffer entry
-            std::vector<uint64_t, aligned_allocator<uint64_t>> tdc_buf(io_buffer_pool::buffer_size / sizeof(uint64_t));
+            // Last seen TDC event timestamp
             uint64_t tdc_ts = 0u;
 
             // Period counter
             period_type period = 0u;
 
-            do {
+            // End of data packet
+            unsigned packet_end = 0u;
 
-                const auto t1 = wall_clock::now();
+            Timer timer;
 
-                auto [packetNumber, eventBuffer] = bufferPool.get_nonempty_buffer();
+            iobuf::reservation_t reservation = databuf.read_reservation(iobuf::initial_reservation);
 
-                const auto t2 = wall_clock::now();
-                spinTime += std::chrono::duration<double>(t2 - t1).count();
+            spinTime += timer.elapsed_reset();
 
-                if (eventBuffer == nullptr) // no more data
-                    goto analyser_stopped;
+            while (reservation.end) {
+                assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
+                char* data = reservation.jar->container.data;
+                const auto data_start = reservation.start / sizeof(u64);
+                const auto data_end = reservation.end / sizeof(u64);
 
-                size_t content_sz = eventBuffer->content_size / sizeof(u64);
 //                    logger << threadId << ": full buffer " << eventBuffer->id
 //                                        << " chunk " << eventBuffer->chunk_size
 //                                        << " offset " << eventBuffer->content_offset
 //                                        << " size " << eventBuffer->content_size
 //                                        << " packet " << packetNumber << log_debug;
 
-                const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)eventBuffer->content.data();
-                size_t i=0;
+                const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)data;
+                auto i = data_start;
+
+                // search for packet header with correct chip
 
                 // First stage: extract TDC/TOA events and fill up heap
                 // This stage is only active for the very first buffer(s)
-                for (; (heap_sz < reorderSize) && (i < content_sz); i++) {
+                for (; (heap_sz < reorderSize) && (i < data_end); i++) {
                     const auto& ev = content[i];
                     const auto type = ev.type.id;
                     if (type == 0xb) { // TOA
@@ -364,12 +308,12 @@ class DataHandler final {
                     }
                 }
 
-                if ((heap_sz >= reorderSize) && (i < content_sz)) {
+                if ((heap_sz >= reorderSize) && (i < data_end)) {
                     if (tdc_ts == 0ul)
                         std::make_heap(&heap[0], &heap[heap_sz]);
 
                     // Second stage: assert the presence of the last TDC time
-                    for (; (tdc_ts == 0ul) && (i < content_sz); i++) {
+                    for (; (tdc_ts == 0ul) && (i < data_end); i++) {
                         std::pop_heap(&heap[0], &heap[heap_sz]);
                         const auto& el = heap[--heap_sz];
                         if (el.is_tdc) {
@@ -389,12 +333,11 @@ class DataHandler final {
                         std::push_heap(&heap[0], &heap[heap_sz]);
                     }
 
-                    const auto t3 = wall_clock::now();
-                    workPassOneTime += std::chrono::duration<double>(t3 - t2).count();
+                    workPassOneTime += timer.elapsed_reset();
 
                     // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
                     // This stage is the work horse
-                    for (; i < content_sz; i++) {
+                    for (; i < data_end; i++) {
                         std::pop_heap(&heap[0], &heap[heap_sz]);
                         const auto& el = heap[--heap_sz];
                         if (el.is_tdc) {
@@ -418,20 +361,14 @@ class DataHandler final {
                         std::push_heap(&heap[0], &heap[heap_sz]);
                     }
 
-                    const auto t4 = wall_clock::now();
-                    workPassTwoTime += std::chrono::duration<double>(t4 - t3).count();
+                    workPassTwoTime += timer.elapsed_reset();
                 }
                 // no more TOA events
 
-                bufferPool.put_empty_buffer(std::move(eventBuffer));
+                reservation = databuf.read_reservation(reservation);
 
-                const auto t5 = wall_clock::now();
-                workTime += std::chrono::duration<double>(t5 - t2).count();
-
-            } while(! stop());
-
-        analyser_stopped:
-            const auto t1 = wall_clock::now();
+                spinTime += timer.elapsed_reset();
+            }
 
             // Forth stage: handle last events
             while (heap_sz > 0ul) {
@@ -448,11 +385,8 @@ class DataHandler final {
 
             processing::purgePeriod(chipIndex, period, true);
 
-            const auto t2 = wall_clock::now();
-            const auto t = std::chrono::duration<double>(t2 - t1).count();
-            workPassThreeTime += t;
-            workTime += t;
-            
+            workPassThreeTime += timer.elapsed();
+            auto workTime = workPassOneTime + workPassTwoTime + workPassThreeTime;
             {
                 std::lock_guard lock{memberMutex};
                 toaCount += toaHits;
@@ -486,12 +420,11 @@ public:
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned long numChips, unsigned long queueSize)
-        : dataStream{socket}, logger{log}, perChipBufferPool{numChips}, bufferSize{bufSize}, reorderSize{queueSize},
+    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned numChips, unsigned long queueSize)
+        : dataStream{socket}, logger{log}, databuf{numChips}, reorderSize{queueSize},
           analyserThreads(numChips)
     {
-        io_buffer_pool::buffer_size = bufSize;
-        logger << "DataHandler(" << socket.address().toString() << ", " << bufSize << ", " << numChips << ')' << log_trace;
+        logger << "DataHandler(" << socket.address().toString() << ", " << numChips << ", " << queueSize << ')' << log_trace;
     }
 
     /*!
@@ -499,7 +432,7 @@ public:
     */
     void stopNow()
     {
-        stopOperation.store(true, std::memory_order_release);
+        databuf.stop_now();
     }
 
     /*!
