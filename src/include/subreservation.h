@@ -3,6 +3,8 @@
 #ifndef SUBRESERVATION_H
 #define SUBRESERVATION_H
 
+#include <cstring>
+
 #include <Poco/Exception.h>
 
 #include "decoder.h"
@@ -11,9 +13,9 @@
 using Poco::RuntimeException;
 
 namespace iobuf {
-    struct subreservation final {
+    struct subreservation_t final {
         constexpr static u64 event_size = sizeof(u64);
-        const int container_max_events;
+        inline const static int container_max_events = iobuf::container_size / event_size;
         const u64 chip;     // fixed chip number
         u64 pkgid;          // next expected pkg id
         iobuf::jar_t* jar;  // null->initial subreservation
@@ -22,9 +24,17 @@ namespace iobuf {
         int consume;        // amount to consume
         enum { INIT, SEARCH, CHECK_ID, DATA } state;
 
-        inline subreservation(u64 chip_no)
-            : container_max_events(iobuf::container_size / event_size), chip{chip_no}, pkgid{0ul}, jar{nullptr}, pos{0}, rest{0}, state{INIT}
+        inline subreservation_t(u64 chip_no)
+            : chip{chip_no}, pkgid{0ul}, jar{nullptr}, pos{0}, rest{0}, state{INIT}
         {}
+
+        inline subreservation_t(subreservation_t&&) noexcept = default;
+
+        subreservation_t& operator=(subreservation_t&& other) noexcept
+        {
+            std::memcpy((void*)this, &other, sizeof(*this));
+            return *this;
+        }
 
         // return continue immediately flag
         inline bool data(int from, int to)
@@ -64,7 +74,7 @@ namespace iobuf {
 
         inline bool check_id(int from, int to)
         {
-            assert((state == CHECK_ID) && (rest > 0));
+            assert(state == CHECK_ID);
             int idx = from + pos;
             assert(idx <= to);
 
@@ -94,21 +104,28 @@ namespace iobuf {
             const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)jar->container.data;
 
             do {
-                assert(content[idx].header.id == AsiRawStreamDecoder::chunk_id);
-                assert(content[idx].header.size % event_size == 0);
+                if (content[idx].header.id != AsiRawStreamDecoder::chunk_id)
+                    throw RuntimeException{"expected header has no TPX3 id"};
+                if (content[idx].header.size % event_size != 0)
+                    throw RuntimeException{"chunk size not a multiple of the event size"};
+
                 const int size = content[idx].header.size / event_size;
-                assert(size > 0);
+
+                #if SERVER_VERSION >= 320
+                    if (size <= 3)
+                #else
+                    if (size <= 2)
+                #endif
+                        throw RuntimeException{"encountered bogus chunk size"};
 
                 if (content[idx].header.chip == chip) {
                     pos += 1;
                     #if SERVER_VERSION >= 320
                         rest = size - 2;
-                        assert(rest > 0);
                         state = CHECK_ID;
                         return check_id(from, to);
                     #else
                         rest = size - 1;
-                        assert(rest > 0);
                         state = DATA;
                         return data(from, to);
                     #endif            

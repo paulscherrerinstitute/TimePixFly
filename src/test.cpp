@@ -8,7 +8,12 @@ Unit tests
 #include <regex>
 #include <sstream>
 
+#include <Poco/Exception.h>
+
+#include "decoder.h"
 #include "global.h"
+#include "io_buf.h"
+#include "subreservation.h"
 
 namespace {
 
@@ -285,6 +290,84 @@ namespace {
         }
     } // namespace cpumask
 
+    namespace iobuf {
+        ::iobuf::jar_t jar;
+        ::iobuf::reservation_t reservation = {&jar, 0, ::iobuf::container_size};
+
+        /*!
+        \brief cpu_mask parsing tests
+        \param unit Test unit
+        */
+        void subreservation(const test_unit& unit)
+        {
+            using Event = AsiRawStreamDecoder::Event;
+            using ::iobuf::subreservation_t;
+            const auto& chunk_id = AsiRawStreamDecoder::chunk_id;
+            Event* data = (Event*)jar.container.data;
+            subreservation_t subreservation(1);
+
+            unsigned t = 0;
+            data[0].header = {0};
+            try {
+                subreservation.update(reservation);
+                test_failed(unit, t);
+            } catch (Poco::RuntimeException& ex) {
+                check_eq(unit, t, ex.message(), std::string{"expected header has no TPX3 id"});
+            } catch (...) {
+                test_failed(unit, t);
+            }
+            // t=1
+            data[0].header = {chunk_id, 1, 0, 0};
+            try {
+                subreservation.update(reservation);
+                test_failed(unit, t);
+            } catch (Poco::RuntimeException& ex) {
+                check_eq(unit, t, ex.message(), std::string{"encountered bogus chunk size"});
+            }
+            // t=2
+            data[0].header = {chunk_id, 0, 0, 2};
+            try {
+                subreservation.update(reservation);
+                test_failed(unit, t);
+            } catch (Poco::RuntimeException& ex) {
+                check_eq(unit, t, ex.message(), std::string{"chunk size not a multiple of the event size"});
+            } catch (...) {
+                test_failed(unit, t);
+            }
+            // t=3
+            subreservation = subreservation_t{1};
+            data[0].header = {chunk_id, 1, 0, 4*sizeof(u64)};
+            data[1].packet_id = {3, 0, 0x50};
+            try {
+                subreservation.update(reservation);
+                test_failed(unit, t);
+            } catch (Poco::RuntimeException& ex) {
+                check_eq(unit, t, ex.message(), std::string{"unable to handle reordered chunk, expected id 0, but got id 3"});
+            } catch (...) {
+                test_failed(unit, t);
+            }
+            check_eq(unit, t, subreservation.state, subreservation.CHECK_ID);
+            // t=5
+            data[1].packet_id = {0, 0, 0x50};
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation.pos, 2);
+            check_eq(unit, t, subreservation.consume, 2);
+            // t=8
+            data[4].header = {chunk_id, 0, 0, 4*sizeof(u64)};
+            data[8].header = {chunk_id, 1, 0, 4*sizeof(u64)};
+            data[9].packet_id = {1, 0, 0x50};
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation.pos, 10);
+            check_eq(unit, t, subreservation.consume, 2);
+            // t=11 - border before header
+            // t=xx - border after header
+            // t=xx - border after chunk id
+            // t=xx - border within data
+        }
+    } // namespace iobuf
+
     /*!
     \brief Initialize unit tests
     */
@@ -299,6 +382,11 @@ namespace {
             "cpu_mask::parse",
             "cpu mask argument parsing",
             cpumask::parse
+        });
+        tests.insert({
+            "iobuf::subreservation",
+            "subreservation type",
+            iobuf::subreservation
         });
     }
 

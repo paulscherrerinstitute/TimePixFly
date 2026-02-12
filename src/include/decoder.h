@@ -8,6 +8,10 @@
 Provide code for decoding Timepix3 raw stream data
 */
 
+#ifndef SERVER_VERSION
+    #define SERVER_VERSION 320  //!< Default ASI server version
+#endif
+
 #include <cassert>
 #include <utility>
 
