@@ -1677,10 +1677,12 @@ namespace {
                                                                                        << " self: " << dataHandler.analyseWorkTime
                                                                                        << " avg: " << avgAnalysisWorkTime
                             << "\n         self rate: " << (ntoa / avgAnalysisWorkTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
-                            << "\n         rate: " << (ntoa / avgAnalysisTime) << " toas/s" << ((ntoa+ntdc) / avgAnalysisTime) << " events/s"
+                            << "\n         rate: " << (ntoa / avgAnalysisTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisTime) << " events/s"
                             << "\nreading spin: " << dataHandler.readSpinTime << "s work: " << dataHandler.readTime
                                                   << "s total: " << dataHandler.readTotalTime << "s items: " << readCount
-                                                  << " at " << (readCount / dataHandler.readTotalTime) << " items/s" << log_notice;
+                                                  << " at " << (readCount / dataHandler.readTotalTime) << " items/s"
+                                                  << ", " << (ntoa / dataHandler.readTotalTime) << " toas/s"
+                                                  << ", " << ((ntoa+ntdc) / dataHandler.readTotalTime) << " events/s" << log_notice;
                     }
                 } catch (Poco::Exception& ex) {
                     global::instance->last_error = ex.displayText();
