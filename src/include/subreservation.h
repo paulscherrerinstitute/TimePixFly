@@ -24,7 +24,7 @@ namespace iobuf {
         enum { INIT, SEARCH, CHECK_ID, DATA } state;
 
         inline subreservation_t(u64 chip_no)
-            : chip{chip_no}, pkgid{0ul}, jar{nullptr}, pos{0}, rest{0}, state{INIT}
+            : chip{chip_no}, pkgid{0ul}, jar{nullptr}, pos{0}, rest{0}, consume{0}, state{INIT}
         {}
 
         inline subreservation_t(subreservation_t&&) noexcept = default;
@@ -153,7 +153,7 @@ namespace iobuf {
                     rest = 0;
                     consume = 0;
                     state = SEARCH;
-                    // fall throgh
+                    [[fallthrough]];
                 case SEARCH:
                     assert(jar && res.jar && (pos >= 0));
                     if (pos >= amount) {
