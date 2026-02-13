@@ -8,10 +8,6 @@
 Code for processing raw data stream
 */
 
-#ifndef SERVER_VERSION
-    #define SERVER_VERSION 320  //!< Default ASI server version
-#endif
-
 #include <cstddef>
 
 #include "Poco/Exception.h"
@@ -117,51 +113,6 @@ class DataHandler final {
     }
 
     /*!
-    \brief Read packet header from raw event data stream
-    \param chipIndex    Chip number reference
-    \param chunkSize    Raw event data packet chunk size reference
-    \param packetId     Raw event data packet number reference
-    \return Number of bytes effectively read
-    */
-    int readPacketHeader(uint64_t& chipIndex, uint64_t& chunkSize, uint64_t& packetId)
-    {
-        // logger << "readPacketHeader()" << log_trace;
-        #if SERVER_VERSION >= 320
-            AsiRawStreamDecoder::Event header[2];
-        #else
-            AsiRawStreamDecoder::Event header[1];
-        #endif
-
-        int numRead = readData(header, sizeof(header));
-        if (numRead == 0)
-            return 0;
-        if (numRead != sizeof(header))
-            throw ReadFileException(std::string("unable to read packet header") + std::to_string(numRead));
-
-        // logger << "packed header: " << std::hex << header[0]
-        //     #if SERVER_VERSION >= 320
-        //         << ' ' << header[1]
-        //     #endif
-        //         << std::dec << log_debug;
-
-        if (header[0].header.id != AsiRawStreamDecoder::chunk_id)
-            throw DataFormatException("chunk header expected");
-        chipIndex = header[0].header.chip;
-        chunkSize = header[0].header.size;
-        #if SERVER_VERSION >= 320
-            if (header[1].packet_id.type != 0x50)
-                throw DataFormatException("packet id expected");
-            packetId = header[1].packet_id.count;
-            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << ", packetId " << packetId << log_debug;
-        #else
-            packetId = 0;
-            // logger << "packet header: chipIndex " << chipIndex << ", chunkSize " << chunkSize << log_info;
-        #endif
-
-        return numRead;
-    }
-
-    /*!
     \brief Code for raw event data reader thread
     */
     void readData()
@@ -247,6 +198,8 @@ class DataHandler final {
         double workPassTwoTime = .0;
         double workPassThreeTime = .0;
 
+        analyzerReady++;
+
         try {
 
             {   // set thread affinity}
@@ -268,57 +221,37 @@ class DataHandler final {
             // Period counter
             period_type period = 0u;
 
-            // End of data packet
-            unsigned packet_end = 0u;
-
             Timer timer;
 
             iobuf::reservation_t reservation = databuf.read_reservation(iobuf::initial_reservation);
+            iobuf::subreservation_t subreservation{chipIndex};
 
             spinTime += timer.elapsed_reset();
 
             while (reservation.end) {
                 assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
                 char* data = reservation.jar->container.data;
-                const auto data_start = reservation.start / sizeof(u64);
-                const auto data_end = reservation.end / sizeof(u64);
+                subreservation.update(reservation);
 
-//                    logger << threadId << ": full buffer " << eventBuffer->id
-//                                        << " chunk " << eventBuffer->chunk_size
-//                                        << " offset " << eventBuffer->content_offset
-//                                        << " size " << eventBuffer->content_size
-//                                        << " packet " << packetNumber << log_debug;
+                while (subreservation.rest) {
+                    assert(subreservation.consume > 0);
+                    const auto data_start = reservation.start / sizeof(u64) + subreservation.pos;
+                    const auto data_end = data_start + subreservation.consume;
 
-                const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)data;
-                auto i = data_start;
+    //                    logger << threadId << ": full buffer " << eventBuffer->id
+    //                                        << " chunk " << eventBuffer->chunk_size
+    //                                        << " offset " << eventBuffer->content_offset
+    //                                        << " size " << eventBuffer->content_size
+    //                                        << " packet " << packetNumber << log_debug;
 
-                // search for packet header with correct chip
+                    const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)data;
+                    auto i = data_start;
 
-                // First stage: extract TDC/TOA events and fill up heap
-                // This stage is only active for the very first buffer(s)
-                for (; (heap_sz < reorderSize) && (i < data_end); i++) {
-                    const auto& ev = content[i];
-                    const auto type = ev.type.id;
-                    if (type == 0xb) { // TOA
-                        heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
-                        toaHits++;
-                    } else if (type == 0x6) { // TDC
-                        heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
-                        tdcHits++;
-                    }
-                }
+                    // search for packet header with correct chip
 
-                if ((heap_sz >= reorderSize) && (i < data_end)) {
-                    if (tdc_ts == 0ul)
-                        std::make_heap(&heap[0], &heap[heap_sz]);
-
-                    // Second stage: assert the presence of the last TDC time
-                    for (; (tdc_ts == 0ul) && (i < data_end); i++) {
-                        std::pop_heap(&heap[0], &heap[heap_sz]);
-                        const auto& el = heap[--heap_sz];
-                        if (el.is_tdc) {
-                            tdc_ts = el.ts;
-                        }
+                    // First stage: extract TDC/TOA events and fill up heap
+                    // This stage is only active for the very first buffer(s)
+                    for (; (heap_sz < reorderSize) && (i < data_end); i++) {
                         const auto& ev = content[i];
                         const auto type = ev.type.id;
                         if (type == 0xb) { // TOA
@@ -327,43 +260,68 @@ class DataHandler final {
                         } else if (type == 0x6) { // TDC
                             heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
                             tdcHits++;
-                        } else {
-                            continue;
                         }
-                        std::push_heap(&heap[0], &heap[heap_sz]);
                     }
 
-                    workPassOneTime += timer.elapsed_reset();
+                    if ((heap_sz >= reorderSize) && (i < data_end)) {
+                        if (tdc_ts == 0ul)
+                            std::make_heap(&heap[0], &heap[heap_sz]);
 
-                    // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
-                    // This stage is the work horse
-                    for (; i < data_end; i++) {
-                        std::pop_heap(&heap[0], &heap[heap_sz]);
-                        const auto& el = heap[--heap_sz];
-                        if (el.is_tdc) {
-                            processing::purgePeriod(chipIndex, period);
-                            tdc_ts = el.ts;
-                            period++;
-                        } else {
-                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                        // Second stage: assert the presence of the last TDC time
+                        for (; (tdc_ts == 0ul) && (i < data_end); i++) {
+                            std::pop_heap(&heap[0], &heap[heap_sz]);
+                            const auto& el = heap[--heap_sz];
+                            if (el.is_tdc) {
+                                tdc_ts = el.ts;
+                            }
+                            const auto& ev = content[i];
+                            const auto type = ev.type.id;
+                            if (type == 0xb) { // TOA
+                                heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
+                                toaHits++;
+                            } else if (type == 0x6) { // TDC
+                                heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                                tdcHits++;
+                            } else {
+                                continue;
+                            }
+                            std::push_heap(&heap[0], &heap[heap_sz]);
                         }
-                        const auto& ev = content[i];
-                        const auto type = ev.type.id;
-                        if (type == 0xb) { // TOA
-                            heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
-                            toaHits++;
-                        } else if (type == 0x6) { // TDC
-                            heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
-                            tdcHits++;
-                        } else {
-                            continue;
+
+                        workPassOneTime += timer.elapsed_reset();
+
+                        // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
+                        // This stage is the work horse
+                        for (; i < data_end; i++) {
+                            std::pop_heap(&heap[0], &heap[heap_sz]);
+                            const auto& el = heap[--heap_sz];
+                            if (el.is_tdc) {
+                                processing::purgePeriod(chipIndex, period);
+                                tdc_ts = el.ts;
+                                period++;
+                            } else {
+                                processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                            }
+                            const auto& ev = content[i];
+                            const auto type = ev.type.id;
+                            if (type == 0xb) { // TOA
+                                heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
+                                toaHits++;
+                            } else if (type == 0x6) { // TDC
+                                heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                                tdcHits++;
+                            } else {
+                                continue;
+                            }
+                            std::push_heap(&heap[0], &heap[heap_sz]);
                         }
-                        std::push_heap(&heap[0], &heap[heap_sz]);
+
+                        workPassTwoTime += timer.elapsed_reset();
                     }
+                    // no more TOA events
 
-                    workPassTwoTime += timer.elapsed_reset();
-                }
-                // no more TOA events
+                    subreservation.update(reservation);
+                } // while reservation is not fully processed
 
                 reservation = databuf.read_reservation(reservation);
 
@@ -420,7 +378,7 @@ public:
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */
-    DataHandler(StreamSocket& socket, Logger& log, unsigned long bufSize, unsigned numChips, unsigned long queueSize)
+    DataHandler(StreamSocket& socket, Logger& log, unsigned numChips, unsigned long queueSize)
         : dataStream{socket}, logger{log}, databuf{numChips}, reorderSize{queueSize},
           analyserThreads(numChips)
     {

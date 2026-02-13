@@ -15,7 +15,6 @@ using Poco::RuntimeException;
 namespace iobuf {
     struct subreservation_t final {
         constexpr static u64 event_size = sizeof(u64);
-        inline const static int container_max_events = iobuf::container_size / event_size;
         const u64 chip;     // fixed chip number
         u64 pkgid;          // next expected pkg id
         iobuf::jar_t* jar;  // null->initial subreservation
@@ -143,7 +142,7 @@ namespace iobuf {
             const int rstart = res.start / event_size;
             const int rend = res.end / event_size;
             const int amount = rend - rstart;
-            assert((rstart >= 0) && (amount > 0) && (rend <= container_max_events));
+            assert((rstart >= 0) && (amount > 0) && (rend <= (int)(iobuf::container_size / event_size)));
             jar = res.jar;
             bool more = false;
 

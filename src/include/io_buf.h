@@ -27,7 +27,17 @@ Provide a single produce, multiple consumer I/O buffer implementation
 */
 namespace iobuf {
     using namespace std::chrono_literals;
-    inline int container_size = 4 * sysconf(_SC_PAGE_SIZE); //!< Fixed I/O buffer size
+
+    /*!
+    I/O buffer size
+
+    WARNING:
+    Set this value before using any of the classes in this namespace,
+    and do NOT change it afterwards!
+
+    This value is assumed to be constant within the iobuf code.
+    */
+    inline int container_size = 8 * sysconf(_SC_PAGE_SIZE);
 
     /*!
     \brief Data container

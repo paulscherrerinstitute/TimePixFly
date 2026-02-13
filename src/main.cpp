@@ -450,7 +450,7 @@ namespace {
     */
     class Tpx3App final : public Application {
 
-        constexpr static unsigned DEFAULT_BUFFER_SIZE = 1024;   //!< Default IO buffer size
+        constexpr static unsigned DEFAULT_BUFFER_SIZE = 8 * 4096;   //!< Default IO buffer size
         // constexpr static unsigned DEFAULT_NUM_ANALYSERS = 6;
 
         Logger& logger;                 //!< Poco::Logger object
@@ -475,7 +475,7 @@ namespace {
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
         unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
-        unsigned long maxPeriodQueues = 32;             //!< Maximum number of remembered period interval changes
+        unsigned long reorderQueueSize = 64;            //!< Number of elements in the event reorder queue
 
     protected:
         /*!
@@ -537,7 +537,7 @@ namespace {
 
             options.addOption(Option("buf-size", "N")
                 .description(std::string{"individual data buffer byte size,\n"
-                             "will be rounded up to a multiple of 8\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
+                             "will be rounded up to a multiple of the system page_size\ndefault: "} + std::to_string(DEFAULT_BUFFER_SIZE))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -557,8 +557,8 @@ namespace {
                 .argument("T")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
 
-            options.addOption(Option("max-period-queues", "q")
-                .description(std::string{"maximum number reorder queue elements\ndefault: "} + std::to_string(maxPeriodQueues))
+            options.addOption(Option("reorder-queue-size", "q")
+                .description(std::string{"number of reorder queue elements\ndefault: "} + std::to_string(reorderQueueSize))
                 .required(false)
                 .repeatable(false)
                 .argument("NUM")
@@ -702,17 +702,18 @@ namespace {
                 throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
             }
             if (name == "buf-size") {
-                if (num < 8)
+                if (num < 1024)
                     throw InvalidArgumentException{"buffer size too small"};
-                bufferSize = (num + 7ul) & ~7ul;
+                auto page_size = sysconf(_SC_PAGE_SIZE);
+                bufferSize = ((num + page_size - 1) / page_size) * page_size;
             } else if (name == "initial-period") {
                 if (num < 1)
                     throw InvalidArgumentException{"non-positive initial TDC period"};
                 initialPeriod = num;
-            } else if (name == "max-period-queues") {
-                if (num < 1)
-                    throw InvalidArgumentException{"non-positive maximum period queues"};
-                maxPeriodQueues = num;
+            } else if (name == "reorder-queue-size") {
+                if (num < 16)
+                    throw InvalidArgumentException{"reorder queue size is too small"};
+                reorderQueueSize = num;
             } else if (name == "save-interval") {
                 period_type max = std::numeric_limits<period_type>::max();
                 if (num == 0)
@@ -1200,6 +1201,7 @@ namespace {
             if (global::instance->stop)
                 return rval;
 
+            iobuf::container_size = bufferSize;
             bool server_mode = global::instance->server_mode;
 
             // ----------------------- get detector server data -----------------------
@@ -1653,7 +1655,7 @@ namespace {
 
                         logger << "connection from " << senderAddress.toString() << log_info;
 
-                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, bufferSize, numChips, maxPeriodQueues);
+                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, numChips, reorderQueueSize);
                         global::instance->stop_handlers.emplace_back([&dataHandler]() {
                             dataHandler.stopNow();
                         });
