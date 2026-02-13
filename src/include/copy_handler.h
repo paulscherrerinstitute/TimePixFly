@@ -20,12 +20,6 @@ Provide raw stream to file copying code
 
 namespace {
     using Poco::Net::StreamSocket;
-    using Poco::LogicException;
-    using Poco::RuntimeException;
-    using Poco::ReadFileException;
-    using Poco::DataFormatException;
-    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
-    using namespace std::chrono_literals;
 }
 
 /*!
@@ -157,7 +151,7 @@ class CopyHandler final {
                 logger << "write " << amount << " bytes, " << writeTotalBytes << " total" << log_debug;
 
                 if (! streamFile)
-                    throw ReadFileException("writer error");
+                    throw Poco::ReadFileException("writer error");
 
                 reservation = queue.read_reservation(reservation);
 

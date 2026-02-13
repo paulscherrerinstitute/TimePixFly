@@ -23,11 +23,6 @@ Code for processing raw data stream
 
 namespace {
     using Poco::Net::StreamSocket;
-    using Poco::LogicException;
-    using Poco::RuntimeException;
-    using Poco::ReadFileException;
-    using Poco::DataFormatException;
-    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock object
 
     /*!
     \brief Reorder buffer entry

@@ -84,8 +84,6 @@ namespace {
     using Poco::URI;
     using Poco::LogicException;
     using Poco::InvalidArgumentException;
-    using Poco::RuntimeException;
-    using wall_clock = std::chrono::high_resolution_clock;  //!< Clock type
 
     #include "version.h"
 
@@ -1337,7 +1335,7 @@ namespace {
             global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
                 if (val == "true") {
                     std::exit(EXIT_FAILURE);
-                    throw Poco::LogicException("should be unreachable");
+                    throw LogicException("should be unreachable");
                 }
                 throw Poco::DataFormatException("only 'true' is accepted as 'kill' value");
             };
@@ -1626,7 +1624,7 @@ namespace {
                     dataStream.setReceiveTimeout(global::instance->collect_timeout);
 
                     if (! streamFilePath.empty()) {
-                        const auto t1 = wall_clock::now();
+                        Timer timer;
 
                         CopyHandler copyHandler(dataStream, streamFilePath, logger);
                         global::instance->stop_handlers.emplace_back([&copyHandler]() {
@@ -1636,8 +1634,7 @@ namespace {
                         copyHandler.run_async();
                         copyHandler.await();
 
-                        const auto t2 = wall_clock::now();
-                        const double time = std::chrono::duration<double>{t2 - t1}.count();
+                        const double time = timer.elapsed();
 
                         const auto items = copyHandler.writeTotalBytes / sizeof(u64);
                         const auto ri = copyHandler.readTotalBytes / sizeof(u64);
@@ -1651,7 +1648,7 @@ namespace {
                                << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
                                << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
                     } else {
-                        const auto t1 = wall_clock::now();
+                        Timer timer;
 
                         logger << "connection from " << senderAddress.toString() << log_info;
 
@@ -1663,8 +1660,7 @@ namespace {
                         dataHandler.run_async();
                         dataHandler.await();
 
-                        const auto t2 = wall_clock::now();
-                        const double time = std::chrono::duration<double>{t2 - t1}.count();
+                        const double time = timer.elapsed();
 
                         dataStream.close();
 
@@ -1672,6 +1668,7 @@ namespace {
                         const uint64_t ntdc = dataHandler.tdcCount;
                         const u64 readCount = (dataHandler.byteCount / sizeof(u64));
                         const double avgAnalysisWorkTime = dataHandler.analyseWorkTime / numChips;
+                        const double avgAnalysisTime = (dataHandler.analyseWorkTime + dataHandler.analyseSpinTime) / numChips;
                         logger << "time: " << time << "s tdcs: " << ntdc << " toas: " << ntoa << " at " << (ntoa / time)
                                                    << " toas/s rate: " << ((ntoa+ntdc) / time) << " events/s\n"
                             << "analysis spin: " << dataHandler.analyseSpinTime << "s work 1:" << dataHandler.analysePassOneTime
@@ -1679,7 +1676,8 @@ namespace {
                                                                                        << " 3:" << dataHandler.analysePassThreeTime
                                                                                        << " self: " << dataHandler.analyseWorkTime
                                                                                        << " avg: " << avgAnalysisWorkTime
-                            << "\n         rate: " << ((ntoa / avgAnalysisWorkTime)) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
+                            << "\n         self rate: " << (ntoa / avgAnalysisWorkTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
+                            << "\n         rate: " << (ntoa / avgAnalysisTime) << " toas/s" << ((ntoa+ntdc) / avgAnalysisTime) << " events/s"
                             << "\nreading spin: " << dataHandler.readSpinTime << "s work: " << dataHandler.readTime
                                                   << "s total: " << dataHandler.readTotalTime << "s items: " << readCount
                                                   << " at " << (readCount / dataHandler.readTotalTime) << " items/s" << log_notice;
