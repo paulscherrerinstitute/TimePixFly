@@ -348,7 +348,7 @@ namespace {
             }
             check_eq(unit, t, subreservation.state, subreservation.CHECK_ID);
             // t=5
-            data[1].packet_id = {0, 0, 0x50};
+            data[1].packet_id = {0, 0, 0x50};   // packet id=0
             subreservation.update(reservation);
             check_eq(unit, t, subreservation.state, subreservation.DATA);
             check_eq(unit, t, subreservation.pos, 2);
@@ -356,15 +356,49 @@ namespace {
             // t=8
             data[4].header = {chunk_id, 0, 0, 4*sizeof(u64)};
             data[8].header = {chunk_id, 1, 0, 4*sizeof(u64)};
-            data[9].packet_id = {1, 0, 0x50};
+            data[9].packet_id = {1, 0, 0x50};   // packet id=1
             subreservation.update(reservation);
             check_eq(unit, t, subreservation.state, subreservation.DATA);
             check_eq(unit, t, subreservation.pos, 10);
             check_eq(unit, t, subreservation.consume, 2);
             // t=11 - border before header
-            // t=xx - border after header
-            // t=xx - border after chunk id
-            // t=xx - border within data
+            reservation.end = 12*sizeof(u64);
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.SEARCH);
+            check_eq(unit, t, subreservation.pos, 0);
+            check_eq(unit, t, subreservation.rest, 0);
+            check_eq(unit, t, subreservation.consume, 0);
+            // t=15 - border after header
+            reservation.end = 1*sizeof(u64);
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.CHECK_ID);
+            check_eq(unit, t, subreservation.pos, -2);
+            check_eq(unit, t, subreservation.rest, 0);
+            // t=18 - border after chunk id
+            data[0].packet_id = {2, 0, 0x50};   // packet id=2
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation.pos, -2);
+            check_eq(unit, t, subreservation.rest, 0);
+            // t=21 - border within data
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation.pos, 0);
+            check_eq(unit, t, subreservation.rest, 2);
+            check_eq(unit, t, subreservation.consume, 1);
+            // t=25
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation.pos, -1);
+            check_eq(unit, t, subreservation.rest, 0);
+            check_eq(unit, t, subreservation.consume, 0);
+            // t=29
+            subreservation.update(reservation);
+            check_eq(unit, t, subreservation.state, subreservation.DATA);
+            check_eq(unit, t, subreservation. pos, 0);
+            check_eq(unit, t, subreservation.rest, 1);
+            check_eq(unit, t, subreservation.consume, 1);
+            // t=33
         }
     } // namespace iobuf
 
@@ -470,5 +504,5 @@ int main(int argc, char *argv[])
     for (const auto& res : failed_tests)
         std::cout << "FAILED: " << res.unit->name << ' ' << res.num << '\n';
 
-    return 0;
+    return failed_tests.empty() ? 0 : 1;
 }
