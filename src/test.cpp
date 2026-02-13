@@ -336,7 +336,7 @@ namespace {
             }
             // t=3
             subreservation = subreservation_t{1};
-            data[0].header = {chunk_id, 1, 0, 4*sizeof(u64)};
+            data[0].header = {chunk_id, 1, 0, 3*sizeof(u64)};
             data[1].packet_id = {3, 0, 0x50};
             try {
                 subreservation.update(reservation);
@@ -354,8 +354,8 @@ namespace {
             check_eq(unit, t, subreservation.pos, 2);
             check_eq(unit, t, subreservation.consume, 2);
             // t=8
-            data[4].header = {chunk_id, 0, 0, 4*sizeof(u64)};
-            data[8].header = {chunk_id, 1, 0, 4*sizeof(u64)};
+            data[4].header = {chunk_id, 0, 0, 3*sizeof(u64)};
+            data[8].header = {chunk_id, 1, 0, 3*sizeof(u64)};
             data[9].packet_id = {1, 0, 0x50};   // packet id=1
             subreservation.update(reservation);
             check_eq(unit, t, subreservation.state, subreservation.DATA);

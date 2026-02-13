@@ -112,27 +112,26 @@ namespace iobuf {
                 const int size = content[idx].header.size / event_size;
 
                 #if SERVER_VERSION >= 320
-                    if (size <= 3)
-                #else
                     if (size <= 2)
+                #else
+                    if (size <= 1)
                 #endif
                         throw RuntimeException{"encountered bogus chunk size"};
 
                 if (content[idx].header.chip == chip) {
                     pos += 1;
                     #if SERVER_VERSION >= 320
-                        rest = size - 2;
+                        rest = size - 1;
                         state = CHECK_ID;
                         return check_id(from, to);
                     #else
-                        rest = size - 1;
                         state = DATA;
                         return data(from, to);
                     #endif            
                 }
             
-                pos += size;
-                idx += size;
+                pos += size + 1;
+                idx += size + 1;
             } while (idx < to);
 
             pos = idx - to;
