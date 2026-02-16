@@ -81,6 +81,7 @@ namespace {
     std::string layout_name;                    //!< Layout info file in json format (as from the ASI server)
     int premature_stall = -1;                   //!< Stall data sending before sending everything
     unsigned number_of_chips = 8;               //!< Default value for number of detector chips
+    bool use_mmap = false;                      //!< Use mmap to read file
     bool no_data = false;                       //!< Don't send event data
 
     /*!
@@ -296,9 +297,11 @@ namespace {
     \brief Wrap mmapped file data
     */
     struct file_data final {
-        char* data;     //!< File data pointer
-        size_t len;     //!< Data length
-        file_desc fd;   //!< File descriptor
+        char* data;             //!< File data pointer
+        size_t len;             //!< Data length
+        file_desc fd;           //!< File descriptor
+        std::vector<char> buf;  //!< Data buffer
+        constexpr static size_t BUF_SIZE = 4 * 1024 * 1024; //!< Data buffer size
 
         /*!
         \brief Copy constructor
@@ -311,12 +314,17 @@ namespace {
             if (fstat(fd.fd, &file_status) < 0)
                 throw Poco::RuntimeException(std::string("stat failed: ") + std::strerror(errno));
             len = file_status.st_size;
-            if (! (data = (char *)mmap(nullptr, len, PROT_READ, MAP_PRIVATE
-                #ifdef MAP_POPULATE
-                | MAP_POPULATE
-                #endif
-                , fd.fd, 0)))
-                throw Poco::RuntimeException(std::string("mmap failed: ") + std::strerror(errno));
+            if (use_mmap) {
+                if (! (data = (char *)mmap(nullptr, len, PROT_READ, MAP_PRIVATE
+                    #ifdef MAP_POPULATE
+                    | MAP_POPULATE
+                    #endif
+                    , fd.fd, 0)))
+                    throw Poco::RuntimeException(std::string("mmap failed: ") + std::strerror(errno));
+            } else {
+                buf.reserve(BUF_SIZE);
+                data = buf.data();
+            }
         }
 
         /*!
@@ -324,7 +332,21 @@ namespace {
         */
         ~file_data() noexcept
         {
-            munmap(data, len);
+            if (use_mmap)
+                munmap(data, len);
+        }
+
+        const char* read_bytes(size_t& size, size_t after)
+        {
+            if (size > BUF_SIZE)
+                size = BUF_SIZE;
+            if (use_mmap)
+                return &data[after];
+            int nbytes = read(fd.fd, data, size);
+            if (nbytes < 0)
+                throw Poco::SystemException("read failed", errno);
+            size = nbytes;
+            return data;
         }
     };
 
@@ -373,12 +395,21 @@ namespace {
                     if (no_data)
                         continue;
 
+                    unsigned stall_count = 0u;
                     Timer t1{};
                     while (sent < fd.len) {
-                        std::cout << "data sender: trying to send " << (fd.len - sent) << " after " << sent << " bytes\n";
-                        int sz = con.sendBytes(&fd.data[sent], fd.len - sent);
+                        auto send_size = fd.len - sent;
+                        std::cout << "data sender: trying to send " << send_size << " after " << sent << " bytes\n";
+                        const char* data = fd.read_bytes(send_size, sent);
+                        int sz = con.sendBytes(data, send_size);
                         std::cout << "data sender: sent " << sz << " bytes\n";
                         sent += sz;
+
+                        if (sz <= 0) {
+                            if (++stall_count >= 32u)
+                                throw RuntimeException("sender stalled");
+                        } else
+                            stall_count = 0u;
 
                         if (stop_server)
                             goto stop_reader;
@@ -786,8 +817,10 @@ namespace {
         \param value Option value
         */
         inline void handle_bool(const std::string& name, [[maybe_unused]] const std::string& value)
-        { 
-            if (name == "no-data") {
+        {
+            if (name == "use-mmap") {
+                use_mmap = true;
+            } else if (name == "no-data") {
                 no_data = true;
             }
         }
@@ -840,6 +873,10 @@ namespace {
             .repeatable(false)
             .argument("JSON")
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_string}));
+        args.addOption(Option{"use-mmap", "m"}
+            .description("use mmap to read file")
+            .repeatable(false)
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
         args.addOption(Option{"premature-stall", "s"}
             .description("premature stall of data sending, 0-before connect/1-after connect/2-after header")
             .repeatable(false)
