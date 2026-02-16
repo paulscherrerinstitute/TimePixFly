@@ -132,7 +132,7 @@ class DataHandler final {
             Timer timer;
             iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
 
-            do {
+            while (reservation.end) {
                 assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
                 char* data = reservation.jar->container.data;
                 auto amount = reservation.end - reservation.start;
@@ -151,7 +151,7 @@ class DataHandler final {
                 reservation = databuf.write_reservation(reservation);
 
                 spinTime += timer.elapsed();
-            } while (bytesRead);
+            }
 
         } catch (Poco::Exception& ex) {
             stopNow();

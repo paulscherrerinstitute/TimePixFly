@@ -111,9 +111,9 @@ namespace iobuf {
                 const int size = content[idx].header.size / event_size;
 
                 #if SERVER_VERSION >= 320
-                    if (size <= 2)
+                    if (size < 2)
                 #else
-                    if (size <= 1)
+                    if (size < 1)
                 #endif
                         throw RuntimeException{"encountered bogus chunk size"};
 
