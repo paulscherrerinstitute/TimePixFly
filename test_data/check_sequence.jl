@@ -24,7 +24,7 @@ function main()
     fname = args["file"]
     data = read(fname);
     if (mod(length(data), 8) != 0)
-        error("file length not a multiple of 8 bytes")
+        throw(ArgumentError("file length not a multiple of 8 bytes"))
     end
 
     events = reinterpret(UInt64, data)
@@ -40,20 +40,28 @@ function main()
     pkg_ids = Dict{UInt64, UInt64}()
 
     i = UInt64(1)
-    while i < N
-        if (events[i] & header_mask) != header_id
-            error("expected chunk header at $i")
+    while i <= N
+        hid = events[i] & header_mask
+        if hid != header_id
+            throw(DomainError(hid, "offset $i: expected chunk header $header_id"))
         end
         chip = (events[i] >> 32) & 0xff
         size = events[i] >> 48
+        if size % sizeof(UInt64) != 0
+            throw(DomainError(size, "offset $i: bogus byte size for chunk $id"))
+        end
+        size = div(size, sizeof(UInt64))
+        if size < 2
+            throw(DomainError(size, "offset $i: chunk size too small"))
+        end
         id = events[i+1] & id_mask
         expect = get(pkg_ids, chip, 0)
         if expect != id
-            error("expected chunk id $expect instead of $id")
+            throw(DomainError(id, "offset $i: expected chunk id $expect instead of $id"))
         else
             pkg_ids[chip] = id + 1
         end
-        i += div(size, sizeof(UInt64)) + 1
+        i += size + 1
     end
 
     println("Sequence numbers:")
