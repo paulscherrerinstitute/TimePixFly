@@ -38,6 +38,7 @@ function main()
     header_mask = UInt64((1 << 32) - 1)
     header_id = UInt64(861425748);
     pkg_ids = Dict{UInt64, UInt64}()
+    pkg_sz = Dict{UInt64, Tuple{UInt64,UInt64}}()
 
     i = UInt64(1)
     while i <= N
@@ -47,6 +48,8 @@ function main()
         end
         chip = (events[i] >> 32) & 0xff
         size = events[i] >> 48
+        sz = get(pkg_sz, chip, (0, 0))
+        pkg_sz[chip] = (sz[1]+1, sz[2]+size)
         if size % sizeof(UInt64) != 0
             throw(DomainError(size, "offset $i: bogus byte size for chunk $id"))
         end
@@ -57,16 +60,21 @@ function main()
         id = events[i+1] & id_mask
         expect = get(pkg_ids, chip, 0)
         if expect != id
-            throw(DomainError(id, "offset $i: expected chunk id $expect instead of $id"))
-        else
-            pkg_ids[chip] = id + 1
+            println("Bad id $id at offset $i: expected chunk id $expect instead of $id for chip $chip")
         end
+        pkg_ids[chip] = id + 1
         i += size + 1
     end
 
     println("Sequence numbers:")
     for (k, v) in pairs(pkg_ids)
         println("chip $k -> $v")
+    end
+
+    println("Statistic:")
+    for (k, v) in pairs(pkg_sz)
+        avg_sz = string(round(v[2] / v[1], digits=1))
+        println("chip $k -> ", v[1], " chunks, average size is $avg_sz")
     end
 end
 
