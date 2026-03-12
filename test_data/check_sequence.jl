@@ -73,7 +73,7 @@ function main()
 
     println("Statistic:")
     for (k, v) in pairs(pkg_sz)
-        avg_sz = string(round(v[2] / v[1], digits=1))
+        avg_sz = string(div(round(v[2] / v[1], digits=1), sizeof(UInt)))
         println("chip $k -> ", v[1], " chunks, average size is $avg_sz")
     end
 end
