@@ -105,6 +105,12 @@ namespace {
         return _mm256_or_si256(ts, lastbit);
     }
 
+    /*!
+    \brief Decode raw event vector
+    \param events Event vector to be decoded
+    \param toa_or_tdc One bit per vector element used as a flag
+    \return Decoded event_t event vector
+    */
     [[gnu::const]]
     inline __m256i decode(__m256i events, int& toa_or_tdc) noexcept
     {
@@ -141,14 +147,76 @@ namespace {
         ));
     }
 
-    // class event_iterator final {
+    /*!
+    \brief Iterator over events
+    */
+    class event_iterator final {
+        static constexpr unsigned mask = ~0x3u;         //!< For alignment to 4
+        const __m256i* data;                            //!< Raw event vector data
+        alignas(sizeof(__m256i)) event_t current[4];    //!< Current event_t vector
+        int toa_or_tdc;                                 //!< "is_event" flags for current vector elements
+        unsigned cur;                                   //!< Next position in current vector
+        unsigned pos;                                   //!< Raw event position in data
+        unsigned end;                                   //!< One past last raw event in data
 
-    //   public:
-    //     event_iterator(const iobuf::reservation_t& reservation)
-    //     {
+      public:
+        /*!
+        \brief Constructor
+        Set state and load current vector if cur is not zero
+        \param reservation Read reservation
+        \param subreservation Read subreservation
+        */
+        event_iterator(const iobuf::reservation_t& reservation, const iobuf::subreservation_t& subreservation) noexcept
+        {
+            assert(subreservation.content);
+            data = (__m256i*)subreservation.content;
+            pos = reservation.start / sizeof(u64) + subreservation.pos;
+            end = pos + subreservation.consume;
+            unsigned start = pos & mask;
+            cur = pos - start;
+            pos = start;
+            assert(pos + cur <= end);
 
-    //     }
-    // };
+            if (cur != 0)
+                _mm256_store_epi64(current, decode(_mm256_load_si256(&data[pos >> 2]), toa_or_tdc));
+
+            toa_or_tdc >>= cur;
+        }
+
+        /*!
+        \brief Get next event, if possible
+        \param event Set this to the next event, if possible
+        \return It was possible
+        */
+        bool next(event_t& event) noexcept
+        {
+            // Load if cur == 0
+            assert(cur < 4);
+
+            while (pos + cur < end) {
+
+                if (cur == 0)
+                    _mm256_store_epi64(current, decode(_mm256_load_si256(&data[pos >> 2]), toa_or_tdc));
+
+                bool is_event = (toa_or_tdc & 1);
+                toa_or_tdc >>= 1;
+
+                if (is_event)
+                    event = current[cur];
+
+                if (++cur == 4) {
+                    pos += 4;
+                    cur = 0;
+                }
+
+                if (is_event)
+                    return true;
+            }
+
+            return false;
+        }
+    }; // event_iterator
+
 } // namespace
 
 /*!
