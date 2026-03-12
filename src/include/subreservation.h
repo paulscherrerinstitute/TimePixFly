@@ -17,14 +17,14 @@ namespace iobuf {
         constexpr static u64 event_size = sizeof(u64);
         const u64 chip;     // fixed chip number
         u64 pkgid;          // next expected pkg id
-        iobuf::jar_t* jar;  // null->initial subreservation
+        const AsiRawStreamDecoder::Event* content; // null->initial subreservation
         int pos;            // current relative (to start) position if > 0, or for CHEHECK_ID/DATA: -rest if < 0
         int rest;           // 0->no more data in reservation
         int consume;        // amount to consume
         enum { INIT, SEARCH, CHECK_ID, DATA } state;
 
         inline subreservation_t(u64 chip_no)
-            : chip{chip_no}, pkgid{0ul}, jar{nullptr}, pos{0}, rest{0}, consume{0}, state{INIT}
+            : chip{chip_no}, pkgid{0ul}, content{nullptr}, pos{0}, rest{0}, consume{0}, state{INIT}
         {}
 
         inline subreservation_t(subreservation_t&&) noexcept = default;
@@ -83,7 +83,6 @@ namespace iobuf {
                 return false;
             }
 
-            const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)jar->container.data;
             if (content[idx].packet_id.count != pkgid)
                 throw RuntimeException{std::string{"unable to handle reordered chunk, expected id "} + std::to_string(pkgid) + ", but got id " + std::to_string(content[pos].packet_id.count)};
 
@@ -99,8 +98,6 @@ namespace iobuf {
             assert((state == SEARCH) && (rest == 0));
             int idx = from + pos;
             assert(idx < to);
-
-            const AsiRawStreamDecoder::Event* content = (const AsiRawStreamDecoder::Event*)jar->container.data;
 
             do {
                 if (content[idx].header.id != AsiRawStreamDecoder::chunk_id)
@@ -139,11 +136,12 @@ namespace iobuf {
 
         inline void update(const iobuf::reservation_t& res)
         {
+            assert(res.jar);
             const int rstart = res.start / event_size;
             const int rend = res.end / event_size;
             const int amount = rend - rstart;
             assert((rstart >= 0) && (amount > 0) && (rend <= (int)(iobuf::container_size / event_size)));
-            jar = res.jar;
+            content = (AsiRawStreamDecoder::Event*)res.jar->container.data;
             bool more = false;
 
             do {
@@ -155,7 +153,7 @@ namespace iobuf {
                     state = SEARCH;
                     [[fallthrough]];
                 case SEARCH:
-                    assert(jar && res.jar && (pos >= 0));
+                    assert(content && (pos >= 0));
                     if (pos >= amount) {
                         pos -= amount;
                         return;
