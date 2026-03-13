@@ -11,9 +11,9 @@ if [ -z "${DEBUG}" ]; then
     SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -march=native -flto=auto"
     SPEED_FLAGS+=" -fno-trapping-math -fno-semantic-interposition -funroll-loops -ftree-vectorize -finline-functions"
 elif [ -z "${NOOPT}" ]; then
-    SPEED_FLAGS+="-Og -ggdb  -DNDEBUG -march=native"
+    SPEED_FLAGS+="-Og -ggdb -DNDEBUG -march=native"
 else
-    SPEED_FLAGS+="-O0 -ggdb"
+    SPEED_FLAGS+="-O0 -ggdb -march=native"
 fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS"
