@@ -74,6 +74,7 @@ function strip_target() {
 
 case "$TARGET" in
     "tpx3app")
+        echo "building target tpx3app version $VERSION"
         cmd="${CXX} -I src/include src/main.cpp src/processing.cpp src/xes_data_writer.cpp src/global.cpp src/energy_points.cpp src/pixel_map.cpp -std=c++17 ${CXXFLAGS} ${LDFLAGS} -o tpx3app"
         echo "$cmd"
         eval "$cmd"
