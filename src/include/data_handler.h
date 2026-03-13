@@ -54,7 +54,7 @@ namespace {
     \return TOA flat pixel position vector
     */
     [[gnu::const]]
-    __m256i toapos(__m256i events) noexcept
+    inline __m256i toapos(__m256i events) noexcept
     {
         const static __m256i dcol_mask = _mm256_set1_epi64x(0x0fe00ull);
         const static __m256i spix_mask = _mm256_set1_epi64x(0x001f8ull);
@@ -75,7 +75,7 @@ namespace {
     \return TOA clock vector
     */
     [[gnu::const]]
-    __m256i toaclk(__m256i events) noexcept
+    inline __m256i toaclk(__m256i events) noexcept
     {
         static const __m256i spidr_mask = _mm256_set1_epi64x(0xffffull);
         static const __m256i toa_mask = _mm256_set1_epi64x(0x3fff0ull);
@@ -94,7 +94,7 @@ namespace {
     \return TDC clock vector
     */
     [[gnu::const]]
-    __m256i tdcclk(__m256i events) noexcept
+    inline __m256i tdcclk(__m256i events) noexcept
     {
         static const __m256i six = _mm256_set1_epi64x(0x60ull);
         static const __m256i fine_mask = _mm256_set1_epi64x(0xf0ull);
@@ -132,7 +132,7 @@ namespace {
         }
         __m256i tdc_ev = res;
         if (num_tdc) {
-            tdc_ev = _mm256_set1_epi64x(1ull << 47);    // TDC flag
+            tdc_ev = _mm256_set1_epi64x(1ull << 47);    // is_tdc flag
             tdc_ev = _mm256_or_si256(tdc_ev, tdcclk(events));
         }
         res = _mm256_castpd_si256(_mm256_blendv_pd(
@@ -166,7 +166,7 @@ namespace {
         \param reservation Read reservation
         \param subreservation Read subreservation
         */
-        event_iterator(const iobuf::reservation_t& reservation, const iobuf::subreservation_t& subreservation) noexcept
+        inline event_iterator(const iobuf::reservation_t& reservation, const iobuf::subreservation_t& subreservation) noexcept
         {
             assert(subreservation.content);
             data = (__m256i*)subreservation.content;
@@ -188,7 +188,7 @@ namespace {
         \param event Set this to the next event, if possible
         \return It was possible
         */
-        bool next(event_t& event) noexcept
+        inline bool next(event_t& event) noexcept
         {
             // Load if cur == 0
             assert(cur < 4);
@@ -245,7 +245,7 @@ class DataHandler final {
     \brief Check stop requested flag
     \return True if stop was requested
     */
-    bool stop() const
+    inline bool stop() const noexcept
     {
         return stopOperation.load(std::memory_order_consume);
     }
@@ -256,7 +256,7 @@ class DataHandler final {
     \param size Number of bytes to read
     \return Number of bytes effectively read, 0 for no more data
     */
-    int readData(void* buf, int size)
+    inline int readData(void* buf, int size)
     {
         // logger << "readData(" << buf << ", " << size << ')' << log_trace;
         int numBytes = 0;
@@ -282,7 +282,7 @@ class DataHandler final {
     /*!
     \brief Code for raw event data reader thread
     */
-    void readData()
+    inline void readData()
     {
         set_thread_name("tpx3app:reader");
 
@@ -352,7 +352,7 @@ class DataHandler final {
     \brief Code for analyzer thread
     \param threadId Thread number, must correspond to chip number
     */
-    void analyseData(unsigned threadId)
+    inline void analyseData(unsigned threadId)
     {
         set_thread_name("tpx3app:analyze");
 
@@ -401,91 +401,63 @@ class DataHandler final {
 
                 while (subreservation.rest) {
                     assert(subreservation.consume > 0);
-                    const auto data_start = reservation.start / sizeof(u64) + subreservation.pos;
-                    const auto data_end = data_start + subreservation.consume;
-
-    //                    logger << threadId << ": full buffer " << eventBuffer->id
-    //                                        << " chunk " << eventBuffer->chunk_size
-    //                                        << " offset " << eventBuffer->content_offset
-    //                                        << " size " << eventBuffer->content_size
-    //                                        << " packet " << packetNumber << log_debug;
-
-                    const AsiRawStreamDecoder::Event* content = subreservation.content;
-                    auto i = data_start;
-
-                    // search for packet header with correct chip
+                    event_iterator events(reservation, subreservation);
+                    event_t ev;
 
                     // First stage: extract TDC/TOA events and fill up heap
                     // This stage is only active for the very first buffer(s)
-                    for (; (heap_sz < reorderSize) && (i < data_end); i++) {
-                        const auto& ev = content[i];
-                        const auto type = ev.type.id;
-                        if (type == 0xb) { // TOA
-                            heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
-                            toaHits++;
-                        } else if (type == 0x6) { // TDC
-                            heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
+                    while(heap_sz < reorderSize) {
+                        if (! events.next(ev)) {
+                            goto no_more_events;
+                            workPassOneTime += timer.elapsed_reset();
+                        }
+                        heap[heap_sz++] = ev;
+                        std::push_heap(&heap[0], &heap[heap_sz]);
+                    }
+
+                    while (tdc_ts == 0ul) {
+                        std::pop_heap(&heap[0], &heap[heap_sz]);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            tdc_ts = el.ts;
                             tdcHits++;
+                        } else {
+                            toaHits++;
                         }
+                        if (! events.next(ev)) {
+                            workPassOneTime += timer.elapsed_reset();
+                            goto no_more_events;
+                        }
+                        heap[heap_sz++] = ev;
+                        std::push_heap(&heap[0], &heap[heap_sz]);
                     }
 
-                    if ((heap_sz >= reorderSize) && (i < data_end)) {
-                        if (tdc_ts == 0ul)
-                            std::make_heap(&heap[0], &heap[heap_sz]);
+                    workPassOneTime += timer.elapsed_reset();
 
-                        // Second stage: assert the presence of the last TDC time
-                        for (; (tdc_ts == 0ul) && (i < data_end); i++) {
-                            std::pop_heap(&heap[0], &heap[heap_sz]);
-                            const auto& el = heap[--heap_sz];
-                            if (el.is_tdc) {
-                                tdc_ts = el.ts;
-                            }
-                            const auto& ev = content[i];
-                            const auto type = ev.type.id;
-                            if (type == 0xb) { // TOA
-                                heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
-                                toaHits++;
-                            } else if (type == 0x6) { // TDC
-                                heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
-                                tdcHits++;
-                            } else {
-                                continue;
-                            }
-                            std::push_heap(&heap[0], &heap[heap_sz]);
+                    // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
+                    // This stage is the work horse
+                    do {
+                        std::pop_heap(&heap[0], &heap[heap_sz]);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            tdcHits++;
+                            processing::purgePeriod(chipIndex, period);
+                            tdc_ts = el.ts;
+                            period++;
+                        } else {
+                            toaHits++;
+                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                         }
+                        if (! events.next(ev))
+                            break;
+                        heap[heap_sz++] = ev;
+                        std::push_heap(&heap[0], &heap[heap_sz]);
+                    } while (true);
 
-                        workPassOneTime += timer.elapsed_reset();
-
-                        // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
-                        // This stage is the work horse
-                        for (; i < data_end; i++) {
-                            std::pop_heap(&heap[0], &heap[heap_sz]);
-                            const auto& el = heap[--heap_sz];
-                            if (el.is_tdc) {
-                                processing::purgePeriod(chipIndex, period);
-                                tdc_ts = el.ts;
-                                period++;
-                            } else {
-                                processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
-                            }
-                            const auto& ev = content[i];
-                            const auto type = ev.type.id;
-                            if (type == 0xb) { // TOA
-                                heap[heap_sz++] = { Decode::getToaClock(ev.toa), 0ul, Decode::flatPixel(ev.toa) };
-                                toaHits++;
-                            } else if (type == 0x6) { // TDC
-                                heap[heap_sz++] = { Decode::getTdcClock(ev.tdc), 1ul, 0ul };
-                                tdcHits++;
-                            } else {
-                                continue;
-                            }
-                            std::push_heap(&heap[0], &heap[heap_sz]);
-                        }
-
-                        workPassTwoTime += timer.elapsed_reset();
-                    }
+                    workPassTwoTime += timer.elapsed_reset();
                     // no more TOA events
 
+                  no_more_events:
                     subreservation.update(reservation);
                 } // while reservation is not fully processed
 
@@ -499,10 +471,12 @@ class DataHandler final {
                 std::pop_heap(&heap[0], &heap[heap_sz]);
                 const auto& el = heap[--heap_sz];
                 if (el.is_tdc) {
+                    tdcHits++;
                     processing::purgePeriod(chipIndex, period);
                     tdc_ts = el.ts;
                     period++;
                 } else {
+                    toaHits++;
                     processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                 }
             }
@@ -544,7 +518,7 @@ public:
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */
-    DataHandler(StreamSocket& socket, Logger& log, unsigned numChips, unsigned long queueSize)
+    inline DataHandler(StreamSocket& socket, Logger& log, unsigned numChips, unsigned long queueSize)
         : dataStream{socket}, logger{log}, databuf{numChips}, reorderSize{queueSize},
           analyserThreads(numChips)
     {
@@ -554,7 +528,7 @@ public:
     /*!
     \brief Request for all threads to stop
     */
-    void stopNow()
+    inline void stopNow() noexcept
     {
         databuf.stop_now();
     }
@@ -562,7 +536,7 @@ public:
     /*!
     \brief Start a raw event data analyser thread for each chip, and one raw event data reader thread
     */
-    void run_async()
+    inline void run_async()
     {
         for (unsigned i=0; i<analyserThreads.size(); i++)
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
@@ -574,7 +548,7 @@ public:
     /*!
     \brief Wait for completion of reader and analyzer threads
     */
-    void await()
+    inline void await()
     {
         readerThread.join();
         for (auto& thread : analyserThreads)
