@@ -65,7 +65,11 @@ namespace iobuf {
 
         {
             munmap(data, container_size);
+            unpin();
         }
+
+        container_t(const container_t&) = delete;               //!< no copying
+        container_t& operator=(const container_t&) = delete;    //!< no copying
 
         /*!
         \brief Pin data down in memory
@@ -112,7 +116,7 @@ namespace iobuf {
         /*!
         \brief Construct a new unlinked jar with fill level 0
         */
-        jar_t() noexcept
+        inline jar_t() noexcept
             : next{nullptr}, done{0u}, level{0}
         {}
 
@@ -133,7 +137,7 @@ namespace iobuf {
     \return Output stream
     */
     template<typename out>
-    out& operator<<(out& os, const jar_t& jar)
+    inline out& operator<<(out& os, const jar_t& jar)
     {
         return os << "(jar " << &jar << " next=" << jar.next << " done=" << jar.done << " level=" << jar.level << ')';
     }
@@ -157,7 +161,7 @@ namespace iobuf {
     \return Output stream
     */
     template<typename out>
-    out& operator<<(out& os, const reservation_t& res)
+    inline out& operator<<(out& os, const reservation_t& res)
     {
         return os << "(res " << &res.jar << " start=" << res.start << " end=" << res.end << ')';
     }
@@ -218,7 +222,7 @@ namespace iobuf {
         /*!
         \brief Irregular stop
         */
-        inline void stop_now()
+        inline void stop_now() noexcept
         {
             stop_flag.store(true, std::memory_order_release);
         }
