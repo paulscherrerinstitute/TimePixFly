@@ -9,8 +9,13 @@ Code for processing raw data stream
 */
 
 #include <cstddef>
-#include <immintrin.h>
-#include <popcntintrin.h>
+
+#if defined(__AVX2__)
+    #include <immintrin.h>
+    #include <popcntintrin.h>
+#else
+    #error "This code requires AVX2 support"
+#endif
 
 #include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
@@ -48,6 +53,7 @@ namespace {
         return a.ts > b.ts;
     }
 
+    #if defined(__AVX2__)
     /*!
     \brief Extract TOA position
     \param events Event vector
@@ -216,6 +222,7 @@ namespace {
             return false;
         }
     }; // event_iterator
+    #endif
 
 } // namespace
 
