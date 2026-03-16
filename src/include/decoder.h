@@ -25,7 +25,7 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief Chunk header
     */
-    struct Header {
+    struct alignas(u64) Header {
         u64 id: 32;        //!< Header ID "TPX3"
         u64 chip: 8;       //!< Chip index
         u64 reserved: 8;   //!< Reserved
@@ -38,7 +38,7 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief Packet ID
     */
-    struct PacketID {
+    struct alignas(u64) PacketID {
         u64 count: 48;     //!< Packet counter
         u64 reserved: 8;   //!< Reserved
         u64 type: 8;       //!< PacketID=0x50
@@ -48,7 +48,7 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief TOA event
     */
-    struct TOA {
+    struct alignas(u64) TOA {
         u64 spidr: 16;     //!< SPIDR time (0.4096ms)
         u64 FToA: 4;       //!< FToA (-1.5625ns)
         u64 ToT: 10;       //!< ToT (25ns)
@@ -61,7 +61,7 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief TDC event
     */
-    struct TDC {
+    struct alignas(u64) TDC {
         u64 reserved: 5;   //!< Reserved
         u64 fine_ts: 4;    //!< Fine timestamp 1-12 (260.4166ps)
         u64 ts: 35;        //!< Timestamp (3.125ns)
@@ -74,7 +74,7 @@ struct AsiRawStreamDecoder final {
     /*!
     \brief Event type
     */
-    struct Type {
+    struct alignas(u64) Type {
         u64 data: 60;      //!< Event data
         u64 id: 4;         //!< Event type id
     };
@@ -89,7 +89,7 @@ struct AsiRawStreamDecoder final {
         TOA toa;            //!< TOA
         TDC tdc;            //!< TDC
         Type type;          //!< TDC=0x6 or TOA=0xb
-        u64 raw;       //!< Event raw data
+        u64 raw;            //!< Event raw data
     };
     static_assert(sizeof(Event) == sizeof(u64));
 
@@ -153,10 +153,12 @@ struct AsiRawStreamDecoder final {
     inline static u16 flatPixel(TOA event) noexcept
     {
         const u32 encoded = event.PixAddr;
-        const auto dcol = (encoded & 0xFE00) >> 8;
+        // const auto dcol = (encoded & 0xFE00) >> 8;
+        const auto dcol = (encoded & 0xFE00);
         const auto spix = (encoded & 0x01F8) >> 1;
-        const auto pix = encoded & 0x7;
-        return ((dcol + pix / 4u) << 8) + (spix + (pix & 0x3));
+        // const auto pix = encoded & 0x7;
+        // return ((dcol + pix / 4u) << 8) + (spix + (encoded & 0x3));
+        return dcol | ((encoded & 0x4) << 6) | spix | (encoded & 0x3);
     }
 
     /*!
@@ -220,7 +222,8 @@ struct AsiRawStreamDecoder final {
         // //     # tdc in 640 MHz units (1.5625)
         // //     return (tdcCoarse << 1) | ((fract-1) // 6)
         // return (tdcCoarse << 1) | ((fract - 1) / 6);
-        return (event.ts << 1) | ((event.fine_ts - 1u) / 6u);
+        //return (event.ts << 1) | ((event.fine_ts - 1u) / 6u);
+        return (event.ts << 1) | (event.fine_ts > 6 ? 1 : 0);
     }
 
     /*!
@@ -241,7 +244,7 @@ struct AsiRawStreamDecoder final {
         // const int64_t toa = getBits(data, 43, 30);
         // const int64_t coarse = getBits(data, 15, 0);
         // return (((coarse << 14) + toa) << 4) - ftoa;
-        return (((event.spidr << 14) + event.ToA) << 4) - event.FToA;
+        return ((event.spidr << 18) + (event.ToA << 4)) - event.FToA;
     }
 
     /*!

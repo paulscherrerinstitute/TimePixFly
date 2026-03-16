@@ -3,10 +3,16 @@
 Unit tests
 */
 
+#include <ostream>
 #include <set>
 #include <iostream>
 #include <regex>
 #include <sstream>
+
+#if defined(__AVX2__)
+    #include <immintrin.h>
+    #include "avx2_decoder.h"
+#endif
 
 #include <Poco/Exception.h>
 
@@ -14,6 +20,7 @@ Unit tests
 #include "global.h"
 #include "io_buf.h"
 #include "subreservation.h"
+#include "event_type.h"
 
 namespace {
 
@@ -53,6 +60,18 @@ namespace {
     std::set<test_unit, test_unit::less> tests; //!< Set of all tests
     std::vector<test_result> failed_tests;      //!< List of failed tests
     std::vector<test_result> successful_tests;  //!< List of successful tests
+
+    /*!
+    \brief Output
+    \param out Output stream
+    \param ev Event
+    \return Output stream
+    \tparam stream Output stream type
+    */
+    inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
+    {
+        return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
+    }
 
     /*!
     \brief Verbose output abstraction object
@@ -402,6 +421,48 @@ namespace {
         }
     } // namespace iobuf
 
+    #if defined(__AVX2__)
+        namespace decode {
+            /*!
+            \brief AVX2 raw event decoding
+            \param unit Test unit
+            */
+            void avx2(const test_unit& unit)
+            {
+                using Event = AsiRawStreamDecoder::Event;
+                using Header = AsiRawStreamDecoder::Header;
+                using TDC = AsiRawStreamDecoder::TDC;
+                using TOA = AsiRawStreamDecoder::TOA;
+                constexpr u64 chunk_id = AsiRawStreamDecoder::chunk_id;
+
+                alignas(sizeof(__m256i)) Event raw_events[] = {
+                    { .header = {chunk_id, 3, 0, 8}},
+                    { .packet_id = {1, 0, 0x50}},
+                    { .tdc = {0, 6, 100, 0, 0xf, 0x6}},
+                    { .toa = {10, 10, 10, 10, 0x011f, 0xb}}
+                };
+                auto event_vec = _mm256_load_epi64(raw_events);
+
+                alignas(sizeof(__m256i)) event_t decoded_events[4];
+                int toa_or_tdc;
+                _mm256_store_epi64(decoded_events, avx2::decode(event_vec, toa_or_tdc));
+
+                unsigned t=0;
+                check_eq(unit, t, toa_or_tdc, 0b1100);
+                check_eq(unit, t, decoded_events[2], event_t{
+                    AsiRawStreamDecoder::getTdcClock(raw_events[2].tdc),
+                    1,
+                    0
+                });
+                check_eq(unit, t, decoded_events[3], event_t{
+                    AsiRawStreamDecoder::getToaClock(raw_events[3].toa),
+                    0,
+                    AsiRawStreamDecoder::flatPixel(raw_events[3].toa)
+                });
+            }
+        }
+    #endif
+
     /*!
     \brief Initialize unit tests
     */
@@ -422,6 +483,13 @@ namespace {
             "subreservation type",
             iobuf::subreservation
         });
+        #if defined(__AVX2__)
+            tests.insert({
+                "decode::avx2",
+                "avx2 raw event decoding",
+                decode::avx2
+            });
+        #endif
     }
 
     /*!

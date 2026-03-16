@@ -7,16 +7,24 @@ LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc
 
 WARN_FLAGS+=" -Wall -Wextra"
 
-if [ -z "${DEBUG}" ]; then
-    SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -march=native -flto=auto"
-    SPEED_FLAGS+=" -fno-trapping-math -fno-semantic-interposition -funroll-loops -ftree-vectorize -finline-functions"
-elif [ -z "${NOOPT}" ]; then
-    SPEED_FLAGS+="-Og -ggdb -DNDEBUG -march=native"
+if [ -n "${GENERIC}" ]; then
+    NATIVE_FLAGS=""
 else
-    SPEED_FLAGS+="-O0 -ggdb -march=native"
+    NATIVE_FLAGS="-march=native"
 fi
 
-CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS"
+if [ -z "${DEBUG}" ]; then
+    SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -flto=auto"
+    SPEED_FLAGS+=" -fno-trapping-math -fno-semantic-interposition -funroll-loops -ftree-vectorize -finline-functions"
+    TEST_FLAGS=" -Og"
+elif [ -z "${NOOPT}" ]; then
+    SPEED_FLAGS+="-Og -ggdb -DNDEBUG"
+    TEST_FLAGS+=" -Og"
+else
+    SPEED_FLAGS+="-O0 -ggdb"
+fi
+
+CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS $NATIVE_FLAGS"
 
 # Simplify compilation for Christian Appels Appel computer ;-)
 # If $POCO_DIR/include is a directory, take POCO_DIR as base,
@@ -42,7 +50,7 @@ if [ "$(uname)" == "Darwin" ]; then
     fi
 fi
 
-TEST_FLAGS+=" -Og -ggdb -march=native"
+TEST_FLAGS+=" -ggdb $NATIVE_FLAGS"
 
 test -f README.md || { echo "This command must be executed from the git top directory"; exit 1; }
 
@@ -120,6 +128,7 @@ case "$TARGET" in
         echo "    LDFLAGS      extra linker flags"
         echo "    SPEED_FLAGS  extra optimization flags"
         echo "    WARN_FLAGS   extra warning flags"
+        echo "    GENERIC      omit -march=native flag"
         echo "    STRIP        strip executable"
         echo "    DEBUG        debug friendly flags"
         echo "    NOOPT        no optimization (with DEBUG)"
