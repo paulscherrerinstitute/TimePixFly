@@ -10,7 +10,11 @@ Code for processing raw data stream
 
 #include <cstddef>
 
-#if defined(__AVX2__)
+#if defined(__AVX2__) && !defined(NOAVX_DECODE)
+    #define USE_AVX2_DECODE
+#endif
+
+#if defined(USE_AVX2_DECODE)
     #include "avx2_decoder.h"
 #else
     #include "decoder.h"
@@ -44,7 +48,7 @@ namespace {
         return a.ts > b.ts;
     }
 
-    #if defined(__AVX2__)
+    #if defined(USE_AVX2_DECODE)
         /*!
         \brief Iterator over events
         */
@@ -114,7 +118,7 @@ namespace {
                 return false;
             }
         }; // event_iterator
-    #else // not defined(__AVX2__)
+    #else // not defined(USE_AVX2_DECODE)
         /*!
         \brief Iterator over events
         */
@@ -159,7 +163,7 @@ namespace {
                 return false;
             }
         }; // event_iterator
-    #endif // not defined(__AVX2__)
+    #endif // not defined(USE_AVX2_DECODE)
 
 } // namespace
 
