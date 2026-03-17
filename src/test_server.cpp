@@ -14,6 +14,7 @@ TODO:
 #include <netdb.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -348,6 +349,15 @@ namespace {
             size = nbytes;
             return data;
         }
+
+        void rewind()
+        {
+            if (! use_mmap) {
+                auto res = lseek(fd.fd, 0, SEEK_SET);
+                if (res < 0)
+                    throw Poco::SystemException("rewind failed", errno);
+            }
+        }
     };
 
     /*!
@@ -421,6 +431,7 @@ namespace {
                     std::cout << "sent " << items << " items in " << elapsed << "sitem, rate " << (items / elapsed) << " items/s\n";
 
                     con.shutdown();
+                    fd.rewind();
                 }
             } while (true);
         stop_reader:
