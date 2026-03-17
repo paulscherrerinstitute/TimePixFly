@@ -265,7 +265,7 @@ class DataHandler final {
                 workTime += timer.elapsed_reset();
                 readBytes += bytesRead;
                 
-                // logger << "read " << bytesRead << " bytes, " << readBytes << " total" << log_debug;
+                // logger << "read " << bytesRead << " bytes of " << amount << log_debug;
 
                 reservation.end = reservation.start + bytesRead;
                 reservation = databuf.write_reservation(reservation);
