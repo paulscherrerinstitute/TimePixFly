@@ -65,7 +65,7 @@ namespace avx2 {
     {
         static const __m256i six = _mm256_set1_epi64x(0xc0ull);
         static const __m256i fine_mask = _mm256_set1_epi64x(0x1e0ull);
-        static const __m256i ts_mask = _mm256_set1_epi64x(0x1ffffffffeull);
+        static const __m256i ts_mask = _mm256_set1_epi64x(0xffffffffeull);
         const auto fine = _mm256_and_si256(events, fine_mask);
         const auto lastbit = _mm256_srli_epi64(_mm256_cmpgt_epi64(fine, six), 63);
         const auto ts = _mm256_and_si256(_mm256_srli_epi64(events, 8), ts_mask);
