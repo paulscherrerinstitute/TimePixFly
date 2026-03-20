@@ -56,7 +56,7 @@ if [ "$(uname)" == "Darwin" ]; then
     fi
 fi
 
-TEST_FLAGS+=" -ggdb $NATIVE_FLAGS"
+TEST_FLAGS+=" -ggdb $WARN_FLAGS $NATIVE_FLAGS"
 
 test -f README.md || { echo "This command must be executed from the git top directory"; exit 1; }
 

@@ -100,7 +100,7 @@ namespace {
         \param not_quiet    True if output should not be hidden
         */
         inline explicit verbose_type(Stream& s, bool not_quiet) noexcept
-            : out(s), output(not_quiet)
+            : output(not_quiet), out(s)
         {}
 
         inline ~verbose_type() = default;
@@ -197,7 +197,7 @@ namespace {
     \param b    Second value
     */
     template<>
-    void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)
+    [[maybe_unused]] void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)
     {
         constexpr static double threshold = 1e-6;
         if ((a <= b - threshold) || (a >= b + threshold)) {
@@ -252,7 +252,7 @@ namespace {
             check_eq(unit, t, mask.reader_cpu, 10);
             check_eq(unit, t, mask.writer_cpu, 9);
             check_eq(unit, t, mask.analysis_cpus.size(), size_t{9});
-            for (int i=0; i<mask.analysis_cpus.size(); i++)
+            for (int i=0; i<(int)mask.analysis_cpus.size(); i++)
                 check_eq(unit, t, mask.get_cpu(i), i);
             // t=13
             mask.clear();
@@ -326,7 +326,7 @@ namespace {
             subreservation_t subreservation(1);
 
             unsigned t = 0;
-            data[0].header = {0};
+            data[0].header = {};
             try {
                 subreservation.update(reservation);
                 test_failed(unit, t);
@@ -430,9 +430,6 @@ namespace {
             void avx2(const test_unit& unit)
             {
                 using Event = AsiRawStreamDecoder::Event;
-                using Header = AsiRawStreamDecoder::Header;
-                using TDC = AsiRawStreamDecoder::TDC;
-                using TOA = AsiRawStreamDecoder::TOA;
                 constexpr u64 chunk_id = AsiRawStreamDecoder::chunk_id;
 
                 alignas(sizeof(__m256i)) Event raw_events[] = {
@@ -442,13 +439,12 @@ namespace {
                     { .toa = {10, 10, 10, 10, 0x011f, 0xb}}
                 };
                 auto event_vec = _mm256_load_epi64(raw_events);
-
                 alignas(sizeof(__m256i)) event_t decoded_events[4];
-                int toa_or_tdc;
-                _mm256_store_epi64(decoded_events, avx2::decode(event_vec, toa_or_tdc));
+                _mm256_store_si256((__m256i*)decoded_events, avx2::decode(event_vec));
 
                 unsigned t=0;
-                check_eq(unit, t, toa_or_tdc, 0b1100);
+                check_eq(unit, t, decoded_events[0], event_t{0,0,0});
+                check_eq(unit, t, decoded_events[1], event_t{0,0,0});
                 check_eq(unit, t, decoded_events[2], event_t{
                     AsiRawStreamDecoder::getTdcClock(raw_events[2].tdc),
                     1,
