@@ -24,10 +24,10 @@ else
     SPEED_FLAGS+="-O0 -ggdb"
 fi
 
-if [ -n "${NOAVX_DECODE}" ]; then
-    AVX_FLAGS="-DNOAVX_DECODE"
-else
+if [ -n "${AVX_DECODE}" ]; then
     AVX_FLAGS=""
+else
+    AVX_FLAGS="-DNOAVX_DECODE"
 fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS $NATIVE_FLAGS $AVX_FLAGS"
@@ -135,7 +135,7 @@ case "$TARGET" in
         echo "    SPEED_FLAGS  extra optimization flags"
         echo "    WARN_FLAGS   extra warning flags"
         echo "    GENERIC      omit -march=native flag"
-        echo "    NOAVX_DECODE omit special avx2 decoder"
+        echo "    AVX_DECODE   use special avx2 decoder"
         echo "    STRIP        strip executable"
         echo "    DEBUG        debug friendly flags"
         echo "    NOOPT        no optimization (with DEBUG)"
