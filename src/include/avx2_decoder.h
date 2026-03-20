@@ -75,30 +75,27 @@ namespace avx2 {
     /*!
     \brief Decode raw event vector
     \param events Event vector to be decoded
-    \param toa_or_tdc One bit per vector element used as a flag
-    \return Decoded event_t event vector
+    \return Decoded event_t event vector (element 0 for unknown)
     */
     [[gnu::const]]
-    inline __m256i decode(__m256i events, int& toa_or_tdc) noexcept
+    inline __m256i decode(__m256i events) noexcept
     {
         static const __m256i toa_type = _mm256_set1_epi64x(0xbull);
         static const __m256i tdc_type = _mm256_set1_epi64x(0x6ull);
         const auto type = _mm256_srli_epi64(events, 60);
         const auto toa_mask = _mm256_cmpeq_epi64(type, toa_type);
         const auto tdc_mask = _mm256_cmpeq_epi64(type, tdc_type);
-        const auto mask = _mm256_or_si256(toa_mask, tdc_mask);
-        toa_or_tdc = _mm256_movemask_pd(_mm256_castsi256_pd(mask));
-        int num_toa = _mm_popcnt_u64(_mm256_movemask_pd(_mm256_castsi256_pd(toa_mask)));
-        int num_tdc = _mm_popcnt_u64(_mm256_movemask_pd(_mm256_castsi256_pd(tdc_mask)));
+        int has_toa = _mm256_movemask_pd(_mm256_castsi256_pd(toa_mask));
+        int has_tdc = _mm256_movemask_pd(_mm256_castsi256_pd(tdc_mask));
         __m256i res = _mm256_setzero_si256();
         __m256i toa_ev = res;
-        if (num_toa) {
+        if (has_toa) {
             toa_ev = toaclk(events);
             auto toa_pos = toapos(events);
             toa_ev = _mm256_or_si256(toa_ev, _mm256_slli_epi64(toa_pos, 48));
         }
         __m256i tdc_ev = res;
-        if (num_tdc) {
+        if (has_tdc) {
             tdc_ev = _mm256_set1_epi64x(1ull << 47);    // is_tdc flag
             tdc_ev = _mm256_or_si256(tdc_ev, tdcclk(events));
         }

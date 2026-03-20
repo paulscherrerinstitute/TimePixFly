@@ -12,10 +12,22 @@
 /*!
 \brief Event type
 */
-struct event_t final {
+struct alignas(u64) event_t final {
     u64 ts:47;      //!< Timestamp
     u64 is_tdc: 1;  //!< Flag 1=TDC, 0=TOA
     u64 px: 16;     //!< Flat pixel
+
+    /*!
+    \brief Check for validity
+    Invalid events have all zero bits
+    \param event Event
+    \return true iff valid
+    */
+    [[gnu::const]]
+    inline static bool valid(const event_t& event) noexcept
+    {
+        return *(u64*)&event != u64{0};
+    }
 };
 
 static_assert(sizeof(event_t) == sizeof(u64));

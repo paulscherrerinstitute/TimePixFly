@@ -56,7 +56,6 @@ namespace {
             static constexpr unsigned mask = ~0x3u;         //!< For alignment to 4
             const __m256i* data;                            //!< Raw event vector data
             alignas(sizeof(__m256i)) event_t current[4];    //!< Current event_t vector
-            int toa_or_tdc;                                 //!< "is_event" flags for current vector elements
             unsigned cur;                                   //!< Next position in current vector
             unsigned pos;                                   //!< Raw event position in data
             unsigned end;                                   //!< One past last raw event in data
@@ -80,9 +79,7 @@ namespace {
                 assert(pos + cur <= end);
 
                 if (cur != 0)
-                    _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2]), toa_or_tdc));
-
-                toa_or_tdc >>= cur;
+                    _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
             }
 
             /*!
@@ -98,20 +95,16 @@ namespace {
                 while (pos + cur < end) {
 
                     if (cur == 0)
-                        _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2]), toa_or_tdc));
+                        _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
 
-                    bool is_event = (toa_or_tdc & 1);
-                    toa_or_tdc >>= 1;
-
-                    if (is_event)
-                        event = current[cur];
+                    event = current[cur];
 
                     if (++cur == 4) {
                         pos += 4;
                         cur = 0;
                     }
 
-                    if (is_event)
+                    if (event_t::valid(event))
                         return true;
                 }
 
