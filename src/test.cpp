@@ -438,7 +438,7 @@ namespace {
                     { .tdc = {0, 6, 100, 0, 0xf, 0x6}},
                     { .toa = {10, 10, 10, 10, 0x011f, 0xb}}
                 };
-                auto event_vec = _mm256_load_epi64(raw_events);
+                auto event_vec = _mm256_load_si256((__m256i*)raw_events);
                 alignas(sizeof(__m256i)) event_t decoded_events[4];
                 _mm256_store_si256((__m256i*)decoded_events, avx2::decode(event_vec));
 
