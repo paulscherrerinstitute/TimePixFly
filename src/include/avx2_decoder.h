@@ -34,7 +34,7 @@ namespace avx2 {
         spix = _mm256_add_epi64(spix, _mm256_and_si256(encoded, pix2_mask));
         const auto pix = _mm256_and_si256(encoded, pix1_mask);
         dcol = _mm256_add_epi64(dcol, _mm256_slli_epi64(pix, 6));
-        return _mm256_or_epi64(spix, dcol);
+        return _mm256_or_si256(spix, dcol);
     }
 
     /*!

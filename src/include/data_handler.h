@@ -79,7 +79,7 @@ namespace {
                 assert(pos + cur <= end);
 
                 if (cur != 0)
-                    _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
+                    _mm256_store_si256((__m256i*)current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
             }
 
             /*!
@@ -95,7 +95,7 @@ namespace {
                 while (pos + cur < end) {
 
                     if (cur == 0)
-                        _mm256_store_epi64(current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
+                        _mm256_store_si256((__m256i*)current, avx2::decode(_mm256_load_si256(&data[pos >> 2])));
 
                     event = current[cur];
 
