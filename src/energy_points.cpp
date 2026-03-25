@@ -3,8 +3,6 @@
 Provide pixel map parsing function
 */
 
-#include <limits>
-
 #include "Poco/Exception.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/PrintHandler.h"
