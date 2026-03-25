@@ -3,6 +3,8 @@
 Provide pixel map parsing function
 */
 
+#include <limits>
+
 #include "Poco/Exception.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/PrintHandler.h"
@@ -198,8 +200,10 @@ std::unique_ptr<PixelMap> PixelIndexToEp::to_map() const
             const auto& p2ep = fpix[p].part;
 
             for (std::size_t e=0; e<p2ep.size(); e++) {
-                pmap->mapping.push_back(MapDest{p2ep[e].energy_point, p2ep[e].weight});
-                idx++;
+                if (p2ep[e].weight != .0f) {
+                    pmap->mapping.push_back(MapDest{p2ep[e].energy_point, p2ep[e].weight});
+                    idx++;
+                }
             }
 
             pix++;
