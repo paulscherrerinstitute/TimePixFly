@@ -4,7 +4,8 @@
 #define EVENT_TYPE_H
 
 /*!
-\file Provide event type for analysis code
+\file
+Provide event type for analysis code
 */
 
 #include "shared_types.h"

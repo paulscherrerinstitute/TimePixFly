@@ -101,7 +101,7 @@ namespace {
 
     The file contains lines in the form
 
-    chip flatPixel energyPoint0 weight0 [energyPoint1 weight1 ...]
+    chip flatPixel energyPoint0 energyPoint1 .. weight0 weight1 ..
 
     \param pmap Set this mapping to what was defined in XESPointsFile
     \param in file input stream
@@ -155,11 +155,10 @@ namespace {
             for (unsigned m=0; m<numEnergyPoints; m++) {
                 EpPart part{};
                 part.energy_point = parse<unsigned>(s, posN[2+m]);
+                part.weight = parse<float>(s, posN[2+numEnergyPoints+m]);
                 pmap.npoints = std::max(pmap.npoints, part.energy_point);
                 pixel.part.push_back(std::move(part));
             }
-            for (unsigned m=0; m<numEnergyPoints; m++)
-                pixel.part[m].weight = parse<float>(s, posN[2+numEnergyPoints+m]);
         }
 
         pmap.npoints += 1;

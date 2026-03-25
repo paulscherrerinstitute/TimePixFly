@@ -3,6 +3,8 @@
 Unit tests
 */
 
+#include "energy_points.h"
+#include "pixel_map.h"
 #include <ostream>
 #include <set>
 #include <iostream>
@@ -16,7 +18,6 @@ Unit tests
 
 #include <Poco/Exception.h>
 
-#include "decoder.h"
 #include "global.h"
 #include "io_buf.h"
 #include "subreservation.h"
@@ -66,11 +67,32 @@ namespace {
     \param out Output stream
     \param ev Event
     \return Output stream
-    \tparam stream Output stream type
     */
     inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
     {
         return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
+    }
+
+    /*!
+    \brief Output
+    \param out Output stream
+    \param ep Energy point part
+    \return Output stream
+    */
+    inline std::ostream& operator<<(std::ostream& out, const EpPart& ep)
+    {
+        return out << "ep{" << ep.energy_point << ", " << ep.weight << '}';
+    }
+
+    /*!
+    \brief Output
+    \param out Output stream
+    \param md Map destination
+    \return Output stream
+    */
+    inline std::ostream& operator<<(std::ostream& out, const MapDest& md)
+    {
+        return out << "md{" << md.energy_point << ", " << md.weight << '}';
     }
 
     /*!
@@ -142,6 +164,33 @@ namespace {
     {
         successful_tests.push_back({&unit, t});
         t++;
+    }
+
+    /*!
+    \brief Check last test result
+    \param unit Test unit of the last test
+    \return True iff test succeeded
+    */
+    bool last_ok(const test_unit& unit) noexcept
+    {
+        unsigned t = 0;
+        bool state = false;
+        if (! successful_tests.empty()) {
+            auto& test = successful_tests.back();
+            if (test.unit == &unit) {
+                t = test.num;
+                state = true;
+            }
+        }
+        if (! failed_tests.empty()) {
+            auto& test = failed_tests.back();
+            if (test.unit == &unit) {
+                if (! state)
+                    return false;
+                return t > test.num;
+            }
+        }
+        return state;
     }
 
     /*!
@@ -221,11 +270,33 @@ namespace {
             ::detector_layout layout{chip_size, chip_size, {{{0,0}}}};
             gvar.layout = layout;
 
-            std::string ep {"0,0,0,1.0\n0,0,1,1.0"};
+            std::string ep {"0,0,0,1,.8,.2\n0,1,0,1,.2,.8\n"};
             std::istringstream iss{ep};
 
             PixelIndexToEp::from(pite, iss);
+            check_eq(unit, t, pite.npoints, 2u);
+            check_eq(unit, t, pite.chip.size(), 1ul);
+            if (! last_ok(unit))
+                return;
+            check_eq(unit, t, pite.chip[0].flat_pixel.size(), 256ul*256ul);
+            if (! last_ok(unit))
+                return;
+            check_eq(unit, t, pite.chip[0].flat_pixel[1].part.size(), 2ul);
+            if (! last_ok(unit))
+                return;
             check_eq(unit, t, (unsigned)pite.chip.size(), 1u);
+            check_eq(unit, t, pite.at({0,1}).part[1], EpPart{1,.8});
+
+            auto pm = pite.to_map();
+            bool first = true;
+            for (auto& p : (*pm)[{0, 0}]) {
+                check_eq(unit, t, p, first ? MapDest{0, .8} : MapDest{1, .2});
+                first = !first;
+            }
+            for (auto& p : (*pm)[{0, 1}]) {
+                check_eq(unit, t, p, first ? MapDest{0, .2} : MapDest{1, .8});
+                first = !first;
+            }
         }
     } // namespace pixmap
 
@@ -310,8 +381,8 @@ namespace {
     } // namespace cpumask
 
     namespace iobuf {
-        ::iobuf::jar_t jar;
-        ::iobuf::reservation_t reservation = {&jar, 0, ::iobuf::container_size};
+        ::iobuf::jar_t jar;     //!< Data jar
+        ::iobuf::reservation_t reservation = {&jar, 0, ::iobuf::container_size};    //!< Reservation
 
         /*!
         \brief cpu_mask parsing tests

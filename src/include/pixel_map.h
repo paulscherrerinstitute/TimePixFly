@@ -20,6 +20,18 @@ struct MapDest final {
 };
 
 /*!
+\brief Inequality test
+\param a First
+\param b Second
+\return true iff a != b
+*/
+inline bool operator!=(const MapDest& a, const MapDest& b) noexcept
+{
+    return (a.energy_point != b.energy_point)
+        || (a.weight != b.weight);
+}
+
+/*!
 \brief Pixel to energy point mapping
 This map can be produced by `PixelIndexToEp::to_map()`
 */

@@ -8,19 +8,14 @@
 Code for processing raw data stream
 */
 
-#include <cstddef>
-
 #if defined(__AVX2__) && !defined(NOAVX_DECODE)
     #define USE_AVX2_DECODE
 #endif
 
 #if defined(USE_AVX2_DECODE)
     #include "avx2_decoder.h"
-#else
-    #include "decoder.h"
 #endif
 
-#include "Poco/Exception.h"
 #include "Poco/Net/StreamSocket.h"
 
 #include "subreservation.h"
@@ -455,7 +450,6 @@ public:
     \brief Constructor
     \param socket   Raw event data stream receiving end
     \param log      Poco::Logger object for logging
-    \param bufSize  IO buffer size
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */

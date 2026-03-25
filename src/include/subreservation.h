@@ -3,9 +3,11 @@
 #ifndef SUBRESERVATION_H
 #define SUBRESERVATION_H
 
+/*!
+\file
+Provide subreservation within reservation functionality
+*/
 #include <cstring>
-
-#include <Poco/Exception.h>
 
 #include "decoder.h"
 #include "io_buf.h"
@@ -13,29 +15,63 @@
 using Poco::RuntimeException;
 
 namespace iobuf {
-    struct subreservation_t final {
-        constexpr static u64 event_size = sizeof(u64);
-        const u64 chip;     // fixed chip number
-        u64 pkgid;          // next expected pkg id
-        const AsiRawStreamDecoder::Event* content; // null->initial subreservation
-        int pos;            // current relative (to start) position if > 0, or for CHEHECK_ID/DATA: -rest if < 0
-        int rest;           // 0->no more data in reservation
-        int consume;        // amount to consume
-        enum { INIT, SEARCH, CHECK_ID, DATA } state;
 
+    /*!
+    \brief Subreservation
+
+    Provide subranges related to a specific chip within a reservation
+    */
+    struct subreservation_t final {
+        constexpr static u64 event_size = sizeof(u64);  //!< Size of an event
+        const u64 chip;                                 //!< Fixed chip number
+        u64 pkgid;                                      //!< Next expected pkg id
+        const AsiRawStreamDecoder::Event* content;      //!< Event data null->initial subreservation
+        int pos;                                        //!< Current relative (to start) position if > 0, or for CHEHECK_ID/DATA: -rest if < 0
+        int rest;                                       //!< Rest data 0->no more data in reservation
+        int consume;                                    //!< Amount to consume
+
+        /*!
+        \brief Current parser state
+        */
+        enum {
+            INIT,       //!< Uninitialized subreservation
+            SEARCH,     //!< Look for packet header
+            CHECK_ID,   //!< Check packet id
+            DATA        //!< Return data range
+        } state;
+
+        /*!
+        \brief Initializer
+        \param chip_no Provide subranges for this chip
+        */
         inline subreservation_t(u64 chip_no)
             : chip{chip_no}, pkgid{0ul}, content{nullptr}, pos{0}, rest{0}, consume{0}, state{INIT}
         {}
 
+        /*!
+        \brief Move constructor
+        */
         inline subreservation_t(subreservation_t&&) noexcept = default;
 
+        /*!
+        \brief Move assignment
+        \param other Temporary object
+        \return Subreservation
+        */
         subreservation_t& operator=(subreservation_t&& other) noexcept
         {
             std::memcpy((void*)this, &other, sizeof(*this));
             return *this;
         }
 
-        // return continue immediately flag
+        /*!
+        \brief Return range
+
+        Use pos to store rest accross reservation
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
         inline bool data(int from, int to)
         {
             assert((state == DATA) && (rest > 0));
@@ -71,6 +107,14 @@ namespace iobuf {
             return false;
         }
 
+        /*!
+        \brief Check packet id
+
+        Use pos to store rest accross reservation
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
         inline bool check_id(int from, int to)
         {
             assert(state == CHECK_ID);
@@ -92,6 +136,12 @@ namespace iobuf {
             return data(from, to);
         }
 
+        /*!
+        \brief Look for packet header
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
         inline bool search_pkg(int from, int to)
         {
             // pos points to package header
@@ -134,6 +184,12 @@ namespace iobuf {
             return false;
         }
 
+        /*!
+        \brief Update subreservation
+        
+        Set rest to 0 if all data in the reservation has been consumed
+        \param res Reservation
+        */
         inline void update(const iobuf::reservation_t& res)
         {
             assert(res.jar);

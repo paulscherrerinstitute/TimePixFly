@@ -53,10 +53,8 @@ TODO:
 #include "config_file.h"
 #include "data_handler.h"
 #include "copy_handler.h"
-#include "global.h"
 #include "json_ops.h"
 #include "logging.h"
-#include "shared_types.h"
 
 
 namespace {

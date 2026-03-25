@@ -337,6 +337,12 @@ namespace {
                 munmap(data, len);
         }
 
+        /*!
+        \brief Read bytes
+        \param size This many bytes
+        \param after After so many bytes
+        \return Pointer to data
+        */
         const char* read_bytes(size_t& size, size_t after)
         {
             if (size > BUF_SIZE)
@@ -350,6 +356,9 @@ namespace {
             return data;
         }
 
+        /*!
+        \brief Rewind read position
+        */
         void rewind()
         {
             if (! use_mmap) {

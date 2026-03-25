@@ -22,6 +22,18 @@ struct EpPart final {
 };
 
 /*!
+\brief Inequality test
+\param a First
+\param b Second
+\return true iff a != b
+*/
+inline bool operator!=(const EpPart& a, const EpPart& b) noexcept
+{
+        return (a.energy_point != b.energy_point)
+            || (a.weight != b.weight);
+}
+
+/*!
 \brief Flat pixel to energy point mapping
 */
 struct FlatPixelToEp final {
