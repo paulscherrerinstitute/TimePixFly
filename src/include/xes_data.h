@@ -21,7 +21,7 @@ namespace xes {
             const Detector* detector = nullptr; //!< This data refers to detector
 
     //  Modified type of vector to check speed in the XAS mode (when there is no division of pixels over a few points)
-            using histo_type = std::vector<int>;    //!< Histogram type
+            using histo_type = std::vector<float>;    //!< Histogram type
             // using histo_type = std::vector<float>;
             histo_type TDSpectra;           //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
@@ -107,7 +107,7 @@ namespace xes {
             */
             inline void Reset() noexcept
             {
-                std::fill(TDSpectra.begin(), TDSpectra.end(), 0);
+                std::fill(TDSpectra.begin(), TDSpectra.end(), histo_type::value_type{});
                 BeforeRoi = AfterRoi = Total = 0;
                 period = 0;
             }
