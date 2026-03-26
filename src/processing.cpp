@@ -94,6 +94,7 @@ namespace {
 
                                 //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
                                 data.TDSpectra[TimePoint * detector.pix_map.npoints + part.energy_point] += part.weight; // / clb;
+                                //data.Energy += part.weight;   // DEBUG ENERGY
                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                         //      logger << index.chip << ": " << TOT << " outside of ToT ROI " << detector.TOTRoiStart << '-' << detector.TOTRoiEnd << log_debug;

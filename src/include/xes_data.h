@@ -28,6 +28,7 @@ namespace xes {
             int BeforeRoi = 0;              //!< Number of events before roi
             int AfterRoi = 0;               //!< Number of events after roi
             int Total = 0;                  //!< Total events handled
+            // float Energy = .0;   // DEBUG ENERGY
 
             period_type period = 0;         //!< Last seen period for this data
 
@@ -87,7 +88,9 @@ namespace xes {
                 BeforeRoi += rhs.BeforeRoi;
                 AfterRoi += rhs.AfterRoi;
                 Total += rhs.Total;
+                // Energy += rhs.Energy;   // DEBUG ENERGY
                 rhs.BeforeRoi = rhs.AfterRoi = rhs.Total = 0;
+                // rhs.Energy = .0;   // DEBUG ENERGY
                 rhs.period = 0;
             }
 
@@ -109,6 +112,7 @@ namespace xes {
             {
                 std::fill(TDSpectra.begin(), TDSpectra.end(), histo_type::value_type{});
                 BeforeRoi = AfterRoi = Total = 0;
+                // Energy = .0;   // DEBUG ENERGY
                 period = 0;
             }
     };

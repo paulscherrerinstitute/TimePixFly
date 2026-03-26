@@ -1,5 +1,6 @@
 #pragma once
 
+#include "logging.h"
 #ifndef XES_DATA_MANAGER_H
 #define XES_DATA_MANAGER_H
 
@@ -107,6 +108,7 @@ namespace xes {
                 u64 n_toa = 0ul;
                 u64 n_before = 0ul;
                 u64 n_after = 0ul;
+                // float t_energy = .0f;   // DEBUG ENERGY
                 unsigned n_histo = 0u;
                 unsigned cyclic_start = 0u; // cycle through mdata to distribute burden evenly amongst threads
 
@@ -181,6 +183,7 @@ namespace xes {
                         n_toa += data->Total;
                         n_before += data->BeforeRoi;
                         n_after += data->AfterRoi;
+                        // t_energy += data->Energy;   // DEBUG ENERGY
                         n_histo++;
                         data->Reset();
                         {
@@ -211,8 +214,10 @@ namespace xes {
             regular_stop:
                 if (writer->data_counter == 0u)
                     global::set_error("no event data was collected");
-                logger << "output histos: " << n_histo << " of " << ((double)histo_submitted / nThreads) << " wait: " << t_wait << "s agg: " << t_aggregate << "s write: " << t_write << "s toas: " << n_toa
-                              << " (after: " << n_after << " before: " << n_before << ") at " << (n_toa / t_write) << " toas/s" << log_notice;
+                logger << "output histos: " << n_histo << " of " << ((double)histo_submitted / nThreads)
+                       << " wait: " << t_wait << "s agg: " << t_aggregate << "s write: " << t_write << "s toas: " << n_toa
+                       << " (after: " << n_after << " before: " << n_before << ") at " << (n_toa / t_write) << " toas/s" << log_notice;
+                // logger << "output energy: " << t_energy << log_debug;   // DEBUG ENERGY
             });
         }
 
