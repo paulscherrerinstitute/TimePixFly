@@ -64,8 +64,8 @@ namespace iobuf {
         inline ~container_t() noexcept
 
         {
-            munmap(data, container_size);
             unpin();
+            munmap(data, container_size);
         }
 
         container_t(const container_t&) = delete;               //!< no copying

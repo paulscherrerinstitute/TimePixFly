@@ -3,7 +3,7 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc"
+LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc -luring"
 
 WARN_FLAGS+=" -Wall -Wextra"
 
@@ -99,7 +99,7 @@ case "$TARGET" in
         eval "$cmd"
         strip_target "server";;
     "test")
-        cmd="${CXX} -I src/include src/test.cpp src/energy_points.cpp src/global.cpp -std=c++17 ${TEST_FLAGS} ${LDFLAGS} -o test"
+        cmd="${CXX} -I src/include src/test.cpp src/energy_points.cpp src/global.cpp src/async_io.cpp -std=c++17 ${TEST_FLAGS} ${LDFLAGS} -o test"
         echo "$cmd"
         eval "$cmd";;
     "doc")
