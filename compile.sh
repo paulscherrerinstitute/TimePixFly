@@ -3,7 +3,7 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc -luring"
+LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc"
 
 WARN_FLAGS+=" -Wall -Wextra"
 
@@ -27,7 +27,7 @@ fi
 if [ -n "${AVX_DECODE}" ]; then
     AVX_FLAGS=""
 else
-    AVX_FLAGS="-DNOAVX_DECODE"
+    AVX_FLAGS="-DAVX_DECODE"
 fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS $NATIVE_FLAGS $AVX_FLAGS"
@@ -54,6 +54,15 @@ if [ "$(uname)" == "Darwin" ]; then
             fi
         fi
     fi
+
+    TEST_FLAGS="$TEST_FLAGS -DNO_IOURING"
+    CXXFLAGS="$CXXFLAGS -DNO_IOURING"
+elif [ -n "${NO_IOURING}" ]; then
+    TEST_FLAGS="$TEST_FLAGS -DNO_IOURING"
+    CXXFLAGS="$CXXFLAGS -DNO_IOURING"
+else
+    # Add liburing to Linux library dependencies
+    LDFLAGS="$LDFLAGS -luring"
 fi
 
 TEST_FLAGS+=" -ggdb $WARN_FLAGS $NATIVE_FLAGS"
@@ -136,6 +145,7 @@ case "$TARGET" in
         echo "    WARN_FLAGS   extra warning flags"
         echo "    GENERIC      omit -march=native flag"
         echo "    AVX_DECODE   use special avx2 decoder"
+        echo "    NO_IOURING   don't use io_uring on Linux"
         echo "    STRIP        strip executable"
         echo "    DEBUG        debug friendly flags"
         echo "    NOOPT        no optimization (with DEBUG)"

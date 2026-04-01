@@ -510,9 +510,14 @@ namespace {
             }
 
             auto sz = std::fwrite(buf, 1, 14, tmp);
-            check_eq(unit, t, sz, size_t{14});
+            check_eq(unit, t, sz, size_t{14});  // 0
             std::rewind(tmp);
             int fd = fileno(tmp);
+            // if (lseek(fd, 0, SEEK_SET) < 0) {
+            //     verbose << "unable to rewind temporyary file!\n";
+            //     test_failed(unit, t);
+            //     return;
+            // };
 
             ::iobuf::container_t container;
             container.pin();
@@ -530,7 +535,7 @@ namespace {
             ok = uring.enqueue_read(fd, data, read_size, 2*read_size, 2);
             check_eq(unit, t, ok, false);
             auto res = uring.submit();
-            check_eq(unit, t, res, 2);
+            check_eq(unit, t, res, 2);  // 5
 
             auto first_submit_ok = last_ok(unit);
             if (first_submit_ok) {
@@ -547,7 +552,7 @@ namespace {
                 check_eq(unit, t, ok, true);
 
                 ok = uring.enqueue_read(fd, data, read_size, 2*read_size, 2);
-                check_eq(unit, t, ok, true);
+                check_eq(unit, t, ok, true); // 10
                 res = uring.submit();
                 check_eq(unit, t, res, 1);
                 auto ok2 = last_ok(unit);
@@ -562,7 +567,7 @@ namespace {
                 bits |= 1 << id;
                 handle[1].release();
                 ok = handle[1].invalid();
-                check_eq(unit, t, ok, true);
+                check_eq(unit, t, ok, true); // 15
 
                 if (ok2) {
                     handle[0] = uring.wait();
@@ -578,7 +583,7 @@ namespace {
                     check_eq(unit, t, ok, true);
                 }
 
-                check_eq(unit, t, bits, 7);
+                check_eq(unit, t, bits, 7); // 20
                 std::fclose(tmp);
             }
         }

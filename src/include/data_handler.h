@@ -8,7 +8,7 @@
 Code for processing raw data stream
 */
 
-#if defined(__AVX2__) && !defined(NOAVX_DECODE)
+#if defined(__AVX2__) && !defined(AVX_DECODE)
     #define USE_AVX2_DECODE
 #endif
 
