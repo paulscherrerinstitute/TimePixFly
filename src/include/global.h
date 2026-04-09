@@ -14,10 +14,13 @@ Global configuration and control data
 #include <atomic>
 
 #include "Poco/JSON/Object.h"
+#include <Poco/Net/SocketAddress.h>
 
 #include "shared_types.h"
 #include "energy_points.h"
 #include "cpu_mask.h"
+
+using Poco::Net::SocketAddress;
 
 /*!
 \brief Global configuration and control data
@@ -49,11 +52,14 @@ struct global final {
     std::atomic<u64> TRoiStep{1};                                       //!< Time ROI step (server mode)
     std::atomic<u64> TRoiN{5000};                                       //!< Time ROI number of steps (server mode)
     // TODO: Protect these with a lock
-    std::unique_ptr<PixelMap> pix_map{nullptr};                             //!< Area ROI
+    std::unique_ptr<PixelMap> pix_map{nullptr};                            //!< Area ROI
     std::string output_uri;                                                //!< file:name (without period and .xes), or tcp:host:port
 
     // From CLI arguments
     bool server_mode{false};                                               //!< Run program in server mode (from commandline arg)
+    SocketAddress serverAddress = SocketAddress{"localhost:8080"};         //!< Default ASI server address
+    SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};         //!< Default raw data stream tcp destination (own address)
+    SocketAddress controlAddress = SocketAddress{"127.0.0.1:8452"};        //!< Default control interface address (own address)
 
     // From ASI server
     detector_layout layout;                                                //!< Detector layout (retrieved from ASI server)

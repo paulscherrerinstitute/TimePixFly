@@ -3,6 +3,10 @@
 #ifndef JSON_OPS_H
 #define JSON_OPS_H
 
+#include <string>
+
+#include <Poco/JSON/Object.h>
+
 /*!
 \file
 JSON handling functions
