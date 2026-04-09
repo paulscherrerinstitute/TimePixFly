@@ -26,8 +26,10 @@ fi
 
 if [ -z "${AVX_DECODE}" ]; then
     AVX_FLAGS=""
+    EXTRA_VERSION=""
 else
     AVX_FLAGS="-DAVX_DECODE"
+    EXTRA_VERSION=" avx"
 fi
 
 CXXFLAGS+=" $WARN_FLAGS $SPEED_FLAGS $NATIVE_FLAGS $AVX_FLAGS"
@@ -73,7 +75,7 @@ echo \
 \brief Provide program version
 This file is produced by the compile.sh script
 */
-const char VERSION[]=\"$VERSION\"; //!< source code version from git
+const char VERSION[]=\"${VERSION}${EXTRA_VERSION}\"; //!< source code version from git
 
 #endif
 " > src/include/version.h
