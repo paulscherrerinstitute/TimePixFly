@@ -24,7 +24,7 @@ else
     SPEED_FLAGS+="-O0 -ggdb"
 fi
 
-if [ -n "${AVX_DECODE}" ]; then
+if [ -z "${AVX_DECODE}" ]; then
     AVX_FLAGS=""
 else
     AVX_FLAGS="-DAVX_DECODE"
