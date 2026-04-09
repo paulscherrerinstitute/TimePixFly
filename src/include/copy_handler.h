@@ -92,7 +92,7 @@ class CopyHandler final {
                 readOpTime += timer.elapsed();
                 readTotalBytes += bytesRead;
                 
-                logger << "read " << bytesRead << " bytes, " << readTotalBytes << " total" << log_debug;
+                logger << "read " << bytesRead << " bytes, " << readTotalBytes << " total" << log_trace;
 
                 if (! readOnly) {
                     reservation.end = reservation.start + bytesRead;
@@ -148,7 +148,7 @@ class CopyHandler final {
                 writeOpTime += timer.elapsed();
                 writeTotalBytes += amount;
 
-                logger << "write " << amount << " bytes, " << writeTotalBytes << " total" << log_debug;
+                logger << "write " << amount << " bytes, " << writeTotalBytes << " total" << log_trace;
 
                 if (! streamFile)
                     throw Poco::ReadFileException("writer error");
@@ -177,10 +177,13 @@ public:
     \param log      Logging object
     */
     CopyHandler(StreamSocket& socket, const std::string& path, Logger& log)
-        : dataStream{socket}, streamFile(path), queue(1), logger{log}
+        : dataStream{socket}, queue(1), logger{log}
     {
-        readOnly = (path == "none");
         logger << "CopyHandler(" << socket.address().toString() << ", " << path << ')' << log_trace;
+        if (! (readOnly = (path == "none")))
+            streamFile = std::ofstream(path);
+        else
+            logger << "CopyHandler running in read only mode" << log_debug;
     }
 
     /*!
