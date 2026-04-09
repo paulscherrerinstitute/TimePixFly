@@ -13,7 +13,8 @@ Unit tests
 #include <regex>
 #include <sstream>
 
-#if defined(__AVX2__)
+#if defined(__AVX2__) && defined(AVX_DECODE)
+    #define USE_AVX
     #include <immintrin.h>
     #include "avx2_decoder.h"
 #endif
@@ -64,16 +65,18 @@ namespace {
     std::vector<test_result> failed_tests;      //!< List of failed tests
     std::vector<test_result> successful_tests;  //!< List of successful tests
 
-    /*!
-    \brief Output
-    \param out Output stream
-    \param ev Event
-    \return Output stream
-    */
-    inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
-    {
-        return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
-    }
+    #if defined(USE_AVX)
+        /*!
+        \brief Output
+        \param out Output stream
+        \param ev Event
+        \return Output stream
+        */
+        inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
+        {
+            return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
+        }
+    #endif
 
     /*!
     \brief Output
@@ -494,7 +497,7 @@ namespace {
         }
     } // namespace iobuf
 
-    #if defined(__AVX2__)
+    #if defined(USE_AVX)
         namespace decode {
             /*!
             \brief AVX2 raw event decoding
@@ -552,7 +555,7 @@ namespace {
             "subreservation type",
             iobuf::subreservation
         });
-        #if defined(__AVX2__)
+        #if defined(USE_AVX)
             tests.insert({
                 "decode::avx2",
                 "avx2 raw event decoding",
