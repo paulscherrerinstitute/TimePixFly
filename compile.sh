@@ -54,15 +54,6 @@ if [ "$(uname)" == "Darwin" ]; then
             fi
         fi
     fi
-
-    TEST_FLAGS="$TEST_FLAGS -DNO_IOURING"
-    CXXFLAGS="$CXXFLAGS -DNO_IOURING"
-elif [ -n "${NO_IOURING}" ]; then
-    TEST_FLAGS="$TEST_FLAGS -DNO_IOURING"
-    CXXFLAGS="$CXXFLAGS -DNO_IOURING"
-else
-    # Add liburing to Linux library dependencies
-    LDFLAGS="$LDFLAGS -luring"
 fi
 
 TEST_FLAGS+=" -ggdb $WARN_FLAGS $NATIVE_FLAGS"
@@ -108,7 +99,7 @@ case "$TARGET" in
         eval "$cmd"
         strip_target "server";;
     "test")
-        cmd="${CXX} -I src/include src/test.cpp src/energy_points.cpp src/global.cpp src/async_io.cpp -std=c++17 ${TEST_FLAGS} ${LDFLAGS} -o test"
+        cmd="${CXX} -I src/include src/test.cpp src/energy_points.cpp src/global.cpp -std=c++17 ${TEST_FLAGS} ${LDFLAGS} -o test"
         echo "$cmd"
         eval "$cmd";;
     "doc")
@@ -145,7 +136,6 @@ case "$TARGET" in
         echo "    WARN_FLAGS   extra warning flags"
         echo "    GENERIC      omit -march=native flag"
         echo "    AVX_DECODE   use special avx2 decoder"
-        echo "    NO_IOURING   don't use io_uring on Linux"
         echo "    STRIP        strip executable"
         echo "    DEBUG        debug friendly flags"
         echo "    NOOPT        no optimization (with DEBUG)"

@@ -22,7 +22,6 @@ Unit tests
 
 #include "global.h"
 #include "io_buf.h"
-#include "async_io.h"
 #include "subreservation.h"
 #include "event_type.h"
 
@@ -495,100 +494,6 @@ namespace {
         }
     } // namespace iobuf
 
-    namespace async {
-        void uring(const test_unit& unit)
-        {
-            constexpr int read_size = 4;
-            char buf[14] = "Hello World!\n";
-            unsigned t=0;
-
-            auto tmp = std::tmpfile();
-            if (tmp == nullptr) {
-                verbose << "unable to open temporary file!\n";
-                test_failed(unit, t);
-                return;
-            }
-
-            auto sz = std::fwrite(buf, 1, 14, tmp);
-            check_eq(unit, t, sz, size_t{14});  // 0
-            std::rewind(tmp);
-            int fd = fileno(tmp);
-            // if (lseek(fd, 0, SEEK_SET) < 0) {
-            //     verbose << "unable to rewind temporyary file!\n";
-            //     test_failed(unit, t);
-            //     return;
-            // };
-
-            ::iobuf::container_t container;
-            container.pin();
-            auto* data = container.data;
-            int bits = 0;
-
-            ::async::uring uring(2);
-            ::async::handle handle[2];
-
-            check_eq(unit, t, handle[0].invalid(), true);
-            auto ok = uring.enqueue_read(fd, data, read_size, 0, 0);
-            check_eq(unit, t, ok, true);
-            ok = uring.enqueue_read(fd, data, read_size, read_size, 1);
-            check_eq(unit, t, ok, true);
-            ok = uring.enqueue_read(fd, data, read_size, 2*read_size, 2);
-            check_eq(unit, t, ok, false);
-            auto res = uring.submit();
-            check_eq(unit, t, res, 2);  // 5
-
-            auto first_submit_ok = last_ok(unit);
-            if (first_submit_ok) {
-                handle[0] = uring.wait();
-                ok = handle[0].invalid();
-                check_eq(unit, t, ok, false);
-                res = handle[0].result();
-                check_eq(unit, t, res, read_size);
-                auto id = handle[0].id();
-                check_eq(unit, t, (id >= 0) || (id <= 2), true);
-                bits |= 1 << id;
-                handle[0].release();
-                ok = handle[0].invalid();
-                check_eq(unit, t, ok, true);
-
-                ok = uring.enqueue_read(fd, data, read_size, 2*read_size, 2);
-                check_eq(unit, t, ok, true); // 10
-                res = uring.submit();
-                check_eq(unit, t, res, 1);
-                auto ok2 = last_ok(unit);
-
-                handle[1] = uring.wait();
-                ok = handle[1].invalid();
-                check_eq(unit, t, ok, false);
-                res = handle[1].result();
-                check_eq(unit, t, res, read_size);
-                id = handle[1].id();
-                check_eq(unit, t, (id >= 0) || (id <= 2), true);
-                bits |= 1 << id;
-                handle[1].release();
-                ok = handle[1].invalid();
-                check_eq(unit, t, ok, true); // 15
-
-                if (ok2) {
-                    handle[0] = uring.wait();
-                    ok = handle[0].invalid();
-                    check_eq(unit, t, ok, false);
-                    res = handle[0].result();
-                    check_eq(unit, t, res, read_size);
-                    id = handle[0].id();
-                    check_eq(unit, t, (id >= 0) || (id <= 2), true);
-                    bits |= 1 << id;
-                    handle[0].release();
-                    ok = handle[0].invalid();
-                    check_eq(unit, t, ok, true);
-                }
-
-                check_eq(unit, t, bits, 7); // 20
-                std::fclose(tmp);
-            }
-        }
-    }
-
     #if defined(__AVX2__)
         namespace decode {
             /*!
@@ -646,11 +551,6 @@ namespace {
             "iobuf::subreservation",
             "subreservation type",
             iobuf::subreservation
-        });
-        tests.insert({
-            "async::uring",
-            "asynchronous io",
-            async::uring
         });
         #if defined(__AVX2__)
             tests.insert({

@@ -172,13 +172,14 @@ namespace iobuf {
     class collection_t final {
         static constexpr unsigned num_initial_containers = 8u;  //!< Initial amount of jars
         std::mutex free_lock;                                   //!< Protect free list of empty, reusable jars
-        std::vector<std::unique_ptr<jar_t>> level_list;         //!< Vector of data jars
+        std::vector<std::unique_ptr<jar_t>> jar_list;           //!< Vector of data jars
         jar_t* head;                                            //!< Head of singly linke free list
         jar_t* tail;                                            //!< Tail of singly linked free list
         jar_t* first;                                           //!< Initially used jar
         std::atomic<jar_t*> final_jar;                          //!< The final jar that was filled up
         std::atomic<bool> stop_flag;                            //!< Irregular stop
         const unsigned nthreads;                                //!< Number of consumer threads
+        bool pin_data;                                          //!< Pin data to memory
 
         /*!
         \brief Await jar fill level change
@@ -203,20 +204,23 @@ namespace iobuf {
         /*!
         \brief Create data container collection for a fixed number of consumer threads
         All threads must consume each container
-        \param threads Number of consumer threads 
+        \param threads Number of consumer threads
+        \param pinned Pin data to memory
         */
-        inline explicit collection_t(unsigned threads)
-            : final_jar{nullptr}, stop_flag{false}, nthreads{threads}
+        inline explicit collection_t(unsigned threads, bool pinned=true)
+            : final_jar{nullptr}, stop_flag{false}, nthreads{threads}, pin_data(pinned)
         {
-            level_list.resize(num_initial_containers);
-            for (auto& p : level_list)
+            jar_list.resize(num_initial_containers);
+            for (auto& p : jar_list) {
                 p.reset(new jar_t);
-            head = level_list[1].get();
+                if (pin_data)
+                    p->container.pin();
+            }
+            head = jar_list[1].get();
             for (unsigned i=1u; i<num_initial_containers-1u; i++)
-
-                level_list[i]->next = level_list[i+1].get();
-            tail = level_list[num_initial_containers-1u].get();
-            first = level_list[0].get();
+                jar_list[i]->next = jar_list[i+1].get();
+            tail = jar_list[num_initial_containers-1u].get();
+            first = jar_list[0].get();
         }
 
         /*!
@@ -225,6 +229,51 @@ namespace iobuf {
         inline void stop_now() noexcept
         {
             stop_flag.store(true, std::memory_order_release);
+        }
+
+        inline jar_t* first_jar()
+        {
+            assert(first);
+            return first;
+        }
+
+        inline jar_t* next_jar(jar_t* prev)
+        {
+            assert(prev && !prev->next);
+            jar_t* free = nullptr;
+            {
+                std::lock_guard lock{free_lock};
+                if (head) {
+                    free = head;
+                    head = head->next;
+                    if (tail == free)
+                        tail = nullptr;
+                }
+            }
+            if (!free) {
+                // create new container
+                jar_list.emplace_back(new jar_t);
+                free = jar_list.back().get();
+                if (pin_data)
+                    free->container.pin();
+            } else {
+                free->next = nullptr;
+            }
+            prev->next = free;
+            return free;
+        }
+
+        inline void put_data(jar_t* jar, int level)
+        {
+            assert(jar);
+            std::lock_guard lock{jar->level_lock};
+            
+            if (jar->level == level)
+                final_jar.store(jar, std::memory_order_release);
+            else
+                jar->level = level;
+
+            jar->level_cond.notify_all();
         }
 
         /*!
@@ -242,11 +291,13 @@ namespace iobuf {
             jar_t* jar = consumed.jar;
             const auto end = consumed.end;
             assert((end >= consumed.start) && (end <= container_size));
+
             if (!jar) {
                 // initial container
                 assert(first);
                 return {first, 0, container_size};
             }
+
             if ((consumed.start == end) || stop_flag.load(std::memory_order_consume)) {
                 // finished
                 {
@@ -259,42 +310,17 @@ namespace iobuf {
                 // std::cout << oss.str();
                 return {jar, end, 0};
             }
+
             if (end == container_size) {
                 // finished with container
-                jar_t* free = nullptr;
-                {
-                    {
-                        std::lock_guard lock{free_lock};
-                        if (head) {
-                            free = head;
-                            head = head->next;
-                            if (tail == free)
-                                tail = nullptr;
-                        }
-                    }
-                }
-                if (!free) {
-                    // create new containerh, no mo
-                    level_list.emplace_back(new jar_t);
-                    free = level_list.back().get();
-                } else {
-                    free->next = nullptr;
-                }
-                assert(free && !free->next && !free->done && !free->level);
-                {
-                    std::lock_guard lock{jar->level_lock};
-                    jar->next = free;
-                    jar->level = end;
-                    jar->level_cond.notify_all();
-                }
+                jar_t* free = next_jar(jar);
+                assert(free && !free->done && !free->level && (jar->next == free));
+                put_data(jar, end);
                 return {free, 0, container_size};
             }
+
             // not jet finished with container
-            {
-                std::lock_guard lock{jar->level_lock};
-                jar->level = end;
-                jar->level_cond.notify_all();
-            }
+            put_data(jar, end);
             return {jar, end, container_size};
         }
 
