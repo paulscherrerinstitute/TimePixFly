@@ -3,6 +3,11 @@
 #ifndef REST_CALLBACKS_H
 #define REST_CALLBACKS_H
 
+/*!
+\file
+Provide REST functionality
+*/
+
 #include <mutex>
 #include <fstream>
 
@@ -295,12 +300,18 @@ namespace {
             server.stop();
         }
 
-        inline static RestService* instance = nullptr;
+        inline static RestService* instance = nullptr;  //!< Singleton instance
     };
 } // anonymous namespace
 
+/*!
+\brief Functions for initializing, starting, and stopping the REST service
+*/
 namespace rest {
 
+    /*!
+    \brief Initialize REST callbacks
+    */
     inline void init_callbacks()
     {
         // ----------------------- setup and start rest service -----------------------
@@ -578,6 +589,11 @@ namespace rest {
         };
     }
 
+    /*!
+    \brief Start REST service
+    \param logger Logger object
+    \param controlAddress On this address
+    */
     inline void start_service(Logger& logger, const SocketAddress& controlAddress)
     {
         RestService restService(logger, controlAddress);
@@ -585,6 +601,9 @@ namespace rest {
         restService.start();
     }
 
+    /*!
+    \brief Stop REST service
+    */
     inline void stop_service()
     {
         auto* restService = RestService::instance;

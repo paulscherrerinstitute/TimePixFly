@@ -11,15 +11,11 @@ TODO:
 - server mode with aquisition start removed
 */
 
-// #include <filesystem>
-#include <Poco/Exception.h>
 #include <cstdlib>
 #include <csignal>
 #include <cerrno>
 #include <limits>
-#include <unistd.h>
 #include <fcntl.h>
-#include <cstring>
 #include <cerrno>
 
 #include <sys/file.h>
@@ -31,13 +27,9 @@ TODO:
 #include "Poco/Util/Application.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
-#include "Poco/Net/ServerSocket.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
-#include "Poco/Net/HTTPResponse.h"
 #include "Poco/Net/MediaType.h"
-#include "Poco/Net/WebSocket.h"
-#include "Poco/URI.h"
 #include "Poco/Process.h"
 #include "Poco/Timespan.h"
 #include "Poco/SyslogChannel.h"
@@ -46,7 +38,6 @@ TODO:
 #include "config_file.h"
 #include "data_handler.h"
 #include "copy_handler.h"
-#include "logging.h"
 #include "rest_callbacks.h"
 
 

@@ -231,12 +231,23 @@ namespace iobuf {
             stop_flag.store(true, std::memory_order_release);
         }
 
+        /*!
+        \brief Get initial jar
+        \return Initial jar
+        */
         inline jar_t* first_jar()
         {
             assert(first);
             return first;
         }
 
+        /*!
+        \brief Get the next jar with respect to `prev`
+
+        This will link `prev->next` to the returned jar.
+        \param prev Jar that will be the previous one after return
+        \return Next jar
+        */
         inline jar_t* next_jar(jar_t* prev)
         {
             assert(prev && !prev->next);
@@ -263,6 +274,11 @@ namespace iobuf {
             return free;
         }
 
+        /*!
+        \brief Commit data to jar
+        \param jar Commit data in this jar
+        \param level The new fill level
+        */
         inline void put_data(jar_t* jar, int level)
         {
             assert(jar);
