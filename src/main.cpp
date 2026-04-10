@@ -178,9 +178,7 @@ namespace {
         std::string dacsFilePath;       //!< Path to ASI dacs detector configuration file (optional)
         std::string streamFilePath;     //!< Path (and flag) to file to which the raw event stream should be copied (don't copy if empty)
 
-        static constexpr float ns_to_clk = 2. / 3.125;  //!< Nanoseconds to TDC timestamp clock ticks (see ASI server TDC event description, only 1 bit of fine timestamp used)
-        int64_t initialPeriod = 7686. * ns_to_clk;      //!< Initial period interval in clock ticks 130.1 kHz
-        double undisputedThreshold = 0.1;               //!< Default undisputed period interval threshold as ratio, [t..1-t] is undisputed
+        // static constexpr float ns_to_clk = 2. / 3.125;  //!< Nanoseconds to TDC timestamp clock ticks (see ASI server TDC event description, only 1 bit of fine timestamp used) (currently unused)
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
         unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
@@ -252,20 +250,6 @@ namespace {
                 .repeatable(false)
                 .argument("NUM")
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
-
-            options.addOption(Option("initial-period", "p")
-                .description(std::string{"initial TDC period in nanoseconds\ndefault: "} + std::to_string(initialPeriod))
-                .required(false)
-                .repeatable(false)
-                .argument("NUM")
-                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleNumber)));
-
-            options.addOption(Option("undisputed-threshold", "u")
-                .description(std::string{"undisputed part of period [T..1-T]\ndefault: "} + std::to_string(undisputedThreshold))
-                .required(false)
-                .repeatable(false)
-                .argument("T")
-                .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleFloat)));
 
             options.addOption(Option("reorder-queue-size", "q")
                 .description(std::string{"number of reorder queue elements\ndefault: "} + std::to_string(reorderQueueSize))
@@ -416,10 +400,6 @@ namespace {
                     throw InvalidArgumentException{"buffer size too small"};
                 auto page_size = sysconf(_SC_PAGE_SIZE);
                 bufferSize = ((num + page_size - 1) / page_size) * page_size;
-            } else if (name == "initial-period") {
-                if (num < 1)
-                    throw InvalidArgumentException{"non-positive initial TDC period"};
-                initialPeriod = num;
             } else if (name == "reorder-queue-size") {
                 if (num < 16)
                     throw InvalidArgumentException{"reorder queue size is too small"};
@@ -436,28 +416,29 @@ namespace {
             }
         }
 
-        /*!
-        \brief Real valued option handler
-        \param name     Option name
-        \param value    Option value
-        */
-        inline void handleFloat(const std::string& name, const std::string& value)
-        {
-            logger << "handleFloat(" << name << ", " << value << ")" << log_trace;
-            double val = .0;
-            try {
-                val = std::stod(value);
-            } catch (std::exception& ex) {
-                throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
-            }
-            if (name == "undisputed-threshold") {
-                if ((val < .0) || (val > .5))
-                    throw InvalidArgumentException{"undisputed-period outside of [0 .. 0.5]"};
-                undisputedThreshold = val;
-            } else {
-                throw LogicException{std::string{"unknown float argument name: "} + name};
-            }
-        }
+        // Currently unused
+        // /*!
+        // \brief Real valued option handler
+        // \param name     Option name
+        // \param value    Option value
+        // */
+        // inline void handleFloat(const std::string& name, const std::string& value)
+        // {
+        //     logger << "handleFloat(" << name << ", " << value << ")" << log_trace;
+        //     double val = .0;
+        //     try {
+        //         val = std::stod(value);
+        //     } catch (std::exception& ex) {
+        //         throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
+        //     }
+        //     if (name == "undisputed-threshold") {
+        //         if ((val < .0) || (val > .5))
+        //             throw InvalidArgumentException{"undisputed-period outside of [0 .. 0.5]"};
+        //         undisputedThreshold = val;
+        //     } else {
+        //         throw LogicException{std::string{"unknown float argument name: "} + name};
+        //     }
+        // }
 
         /*!
         \brief IP address option handler
@@ -592,18 +573,9 @@ namespace {
                     argint = cf.getUInt("buf-size", 0);
                     if (argint > 0)
                         handleNumber("buf-size", std::to_string(argint));
-                    argint = cf.getUInt("initial-period", 0);
+                    argint = cf.getUInt("reorder-queue-size", 0);
                     if (argint > 0)
-                        handleNumber("initial-period", std::to_string(argint));
-                    argint = cf.getUInt("max-period-queues", 0);
-                    if (argint > 0)
-                        handleNumber("max-period-queues", std::to_string(argint));
-                }
-                {
-                    double argf;
-                    argf = cf.getDouble("undisputed-threshold", -1.);
-                    if (argf >= .0)
-                        handleFloat("undisputed-threshold", std::to_string(argf));
+                        handleNumber("reorder-queue-size", std::to_string(argint));
                 }
                 {
                     bool argb;
@@ -1313,28 +1285,26 @@ The software consists of
 
 Currently, in analysis mode, the process is devided into
 
-- a main thread (see main.cpp) that interacts with the ASI server
+- a main thread (see main.cpp) that interacts with the ASI server and REST client
 - a reader thread (see data_handler.h) that reads the TCP raw event data stream produced by the ASI server
 - per chip analysis threads (see data_handler.h) that dispatch events from the raw stream, build and write per chip histograms
 - a writer thread (see xes_data_manager.h) that aggregates per chip histograms and writes aggregated histograms out to disk or the network
 
-The incoming data stream is split into per chip data streams.
+The incoming data stream is put into jars (see io_buf.h) by the reader thread.
 
-\image html io_buffers.png width=80%
+\image html io_buf.png width=80%
 
-The raw event stream from the ASI server comes in packets per chip.
-These packets are distributed by a single reader thread to per chip reordering IO buffer queues (see io_buffers.h).
-Per chip there's a single analysis thread that dispatches events from IO buffers.
+The raw event stream from the ASI server comes in packets per chip. Every analysis thread skips to the packets for the chip the thread is
+associated with. Per chip there's a single analysis thread that dispatches events from packets within the jars that contain events for
+the associated chip.
 
-Every analysis thread deals with event data originating from a single detector chip.
+Every analysis thread deals with event data originating from a single detector chip by putting them into a priority queue of a fixed size.
+The priority queue reorders the events according to time.
 
-\image html period_queues.png width=80%
+\image html priority_queue.png width=80%
 
-The period changes for which no TDC has been seen yet, are predicted (see period_predictor.h).
-Events that fall into a disputed interval (see undisputedThreshold) around expected period changes are put into a reordering queue (see event_reordering.h).
-Such reordering queues are maintained for a number of recent period changes (see maxPeriodQueues and period_queues.h). Events for which period number assignment
-is undisputed - because they don't fall into a disputed interval, or because the TDC of the disputed interval has been seen - are sent to the histogramming code
-(see processing.cpp). The per chip histogram is periodically (see save_interval) pushed to a period queue (see xes_data_manager.h), where the writer thread picks
+As soon as the reordering priority queue is full, events are sent to the histogramming code (see processing.cpp). The per chip histogram
+is periodically (see save_interval) pushed to a period queue (see xes_data_manager.h), where the writer thread picks
 it up, combines it with other per chip histograms for the same period and writes the final histogram data out to disk or network.
 
 \image html output_queue.png width=80%
@@ -1361,11 +1331,11 @@ When the program is not running in server mode, the configuration is received vi
 
 \section issues_sec Issues
 
-- The parallelization into and synchronization between threads is probably too simple to be fast.
-- Logging and error handling are implemented for debugging right now, which might be too slow.
+- The event packets need to come in order currently. Maybe this is too restrictive.
+- The priority queue size determines the maximum tolerance to event reordering in the event stream. The default size might not be approprioate.
 - Missing requirements for many aspects, like logging, exception handling, and configuration.
 - Missing requirements for the software environment the analysis process will be embedded into.
-- No functional verification has been done yet.
+- No thorough testing has been done
 
 \section unit_test Unit Tests
 
@@ -1405,12 +1375,12 @@ very consistent, unfortunately, due to lack of specifications.
 - "Processing.ini" is a file with hardcoded name in the current directory (see init() function in processing.cpp) specifying
   time ROI and output files.
 - Commandline options documented through the --help option. All of them have defaults which should make sense for well behaved data
-  and TCP adresses. The --max-period-queues option gives the size of the period changes memory described above.
+  and TCP adresses.
 
-Assuming you have input fils that make sense:
+Assuming you have input files that make sense:
 
 \code{.unparsed}
-$ ./tpx3app --initial-period=5000 --max-period-queues=6 --loglevel=warning
+$ ./tpx3app --loglevel=warning
 \endcode
 
 And hopefully you'll have some output in the folder specified via the Processing.inp file.
