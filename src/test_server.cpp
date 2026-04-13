@@ -84,6 +84,7 @@ namespace {
     unsigned number_of_chips = 8;               //!< Default value for number of detector chips
     bool use_mmap = false;                      //!< Use mmap to read file
     bool no_data = false;                       //!< Don't send event data
+    bool verbose = false;                       //!< Print verbose output
 
     /*!
     \brief Wrap a boolean signal with extra ops
@@ -393,6 +394,8 @@ namespace {
                     std::this_thread::sleep_for(50ms);
                 } while (true);
                 {
+                    unsigned nops = 0u;
+
                     std::cout << "data sender: received start\n";
                     if (premature_stall == 0) {
                         std::cout << "premature stall before connect\n";
@@ -408,6 +411,7 @@ namespace {
                     if (premature_stall == 2) {
                         int sz = con.sendBytes(&fd.data[sent], header_size);
                         sent += sz;
+                        nops++;
                         std::cout << "premature stall after sending " << sz << " bytes\n";
                         break_stall.await_reset(true);
                     }
@@ -418,11 +422,14 @@ namespace {
                     Timer t1{};
                     while (sent < fd.len) {
                         auto send_size = fd.len - sent;
-                        std::cout << "data sender: trying to send " << send_size << " after " << sent << " bytes\n";
+                        if (verbose)
+                            std::cout << "data sender: trying to send " << send_size << " after " << sent << " bytes\n";
                         const char* data = fd.read_bytes(send_size, sent);
                         int sz = con.sendBytes(data, send_size);
-                        std::cout << "data sender: sent " << sz << " bytes\n";
+                        if (verbose)
+                            std::cout << "data sender: sent " << sz << " bytes\n";
                         sent += sz;
+                        nops++;
 
                         if (sz <= 0) {
                             if (++stall_count >= 32u)
@@ -437,7 +444,7 @@ namespace {
                     }
                     auto elapsed = t1.elapsed();
                     auto items = sent / sizeof(uint64_t);
-                    std::cout << "sent " << items << " items in " << elapsed << "sitem, rate " << (items / elapsed) << " items/s\n";
+                    std::cout << "used " << nops << " operations to send " << items << " items in " << elapsed << "s, rate " << (items / elapsed) << " items/s\n";
 
                     con.shutdown();
                     fd.rewind();
@@ -842,6 +849,8 @@ namespace {
                 use_mmap = true;
             } else if (name == "no-data") {
                 no_data = true;
+            } else if (name == "verbose") {
+                verbose = true;
             }
         }
 
@@ -904,6 +913,10 @@ namespace {
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_number}));
         args.addOption(Option{"no-data", "d"}
             .description("don't send any data, just connect and deconnect")
+            .repeatable(false)
+            .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
+        args.addOption(Option{"verbose", "v"}
+            .description("print more output")
             .repeatable(false)
             .callback(OptionCallback<option_handler_type>{&option_handler, &option_handler_type::handle_bool}));
         args.addOption(Option{"help", "h"}
