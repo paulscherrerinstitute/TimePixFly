@@ -203,7 +203,7 @@ namespace iobuf {
             do {
                 switch (state) {
                 case INIT:
-                    pos = rstart;
+                    pos = 0;
                     rest = 0;
                     consume = 0;
                     state = SEARCH;
