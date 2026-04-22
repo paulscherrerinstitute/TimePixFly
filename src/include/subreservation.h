@@ -24,29 +24,151 @@ namespace iobuf {
     struct subreservation_t final {
         constexpr static u64 event_size = sizeof(u64);  //!< Size of an event
         const u64 chip;                                 //!< Fixed chip number
-        u64 pkgid;                                      //!< Next expected pkg id
-        const AsiRawStreamDecoder::Event* content;      //!< Event data null->initial subreservation
-        int pos;                                        //!< Current relative (to start) position if > 0, or for CHEHECK_ID/DATA: -rest if < 0
-        int rest;                                       //!< Rest data 0->no more data in reservation
-        int consume;                                    //!< Amount to consume
 
         /*!
-        \brief Current parser state
+        \brief Parser state
         */
-        enum {
+        enum state_t {
             INIT,       //!< Uninitialized subreservation
             SEARCH,     //!< Look for packet header
             CHECK_ID,   //!< Check packet id
             DATA        //!< Return data range
-        } state;
+        };
+
+      private:
+        collection_t& buffers;                          //!< I/O buffer collection
+        reservation_t reservation;                      //!< Underlying reservation
+        u64 pkgid;                                      //!< Next expected pkg id
+        int end;                                       //!< Reservation end offset
+        state_t state;                                  //!< Current parser state
+
+      public:
+        const AsiRawStreamDecoder::Event* content;      //!< Event data null->initial subreservation
+        int pos;                                        //!< Current position in reservation
+        int rest;                                       //!< 0: no more data
+        int consume;                                    //!< Amount to consume
+
+      private:
+        void update_reservation()
+        {
+            reservation = buffers.read_reservation(reservation);
+            end = reservation.end / event_size;
+            assert((pos >= 0) && (end <= (int)(iobuf::container_size / event_size)));
+            content = (AsiRawStreamDecoder::Event*)reservation.jar->container.data;
+        }
 
         /*!
+        \brief Return range
+
+        Use pos to store rest accross reservation
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
+        inline bool data() noexcept
+        {
+            assert(state == DATA);
+
+            if (consume > 0) {
+                pos += consume;
+                rest -= consume;
+                consume = 0;
+
+                if (rest == 0) {
+                    state = SEARCH;
+                    return true;
+                }
+            }
+
+            if (pos >= end)
+                return true;
+
+            consume = std::min(end - pos, rest);
+            return false;
+        }
+
+        /*!
+        \brief Check packet id
+
+        Use pos to store rest accross reservation
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
+        inline bool check_id()
+        {
+            assert(state == CHECK_ID);
+            if (pos >= end)
+                return true;    // continue with next reservation
+
+            if (content[pos].packet_id.count != pkgid)
+                throw RuntimeException{std::string{"unable to handle reordered chunk, expected id "} + std::to_string(pkgid) + ", but got id " + std::to_string(content[pos].packet_id.count)};
+
+            pkgid += 1;
+            pos += 1;
+            state = DATA;
+            return data();
+        }
+
+        /*!
+        \brief Look for packet header
+        \param from From this position within the reservation
+        \param to Up to this position within the reservation
+        \return Continue within same reservation
+        */
+        inline bool search_pkg()
+        {
+            // pos points to package header
+            assert((state == SEARCH) && (pos < end));
+
+            do {
+                if (content[pos].header.id != AsiRawStreamDecoder::chunk_id)
+                    throw RuntimeException{"expected header has no TPX3 id"};
+                if (content[pos].header.size % event_size != 0)
+                    throw RuntimeException{"chunk size not a multiple of the event size"};
+
+                const int size = content[pos].header.size / event_size;
+
+                #if SERVER_VERSION >= 320
+                    if (size < 2)
+                #else
+                    if (size < 1)
+                #endif
+                        throw RuntimeException{"encountered bogus chunk size"};
+
+                if (content[pos].header.chip == chip) {
+                    pos += 1;
+                    #if SERVER_VERSION >= 320
+                        rest = size - 1;
+                        state = CHECK_ID;
+                        return check_id();
+                    #else
+                        rest = size;
+                        state = DATA;
+                        return data();
+                    #endif            
+                }
+            
+                pos += size + 1;
+            } while (pos < end);
+
+            return true;
+        }
+
+      public:
+        /*!
         \brief Initializer
+        \param bufs I/O buffer collection
         \param chip_no Provide subranges for this chip
         */
-        inline subreservation_t(u64 chip_no)
-            : chip{chip_no}, pkgid{0ul}, content{nullptr}, pos{0}, rest{0}, consume{0}, state{INIT}
-        {}
+        inline subreservation_t(collection_t& bufs, u64 chip_no)
+            : chip{chip_no},
+              buffers(bufs), reservation{initial_reservation},
+              pkgid{0ul}, end{0}, state{INIT},
+              content{nullptr}, pos{0}, rest{0}, consume{0}
+        {
+            update_reservation();
+        }
 
         /*!
         \brief Move constructor
@@ -65,175 +187,76 @@ namespace iobuf {
         }
 
         /*!
-        \brief Return range
-
-        Use pos to store rest accross reservation
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
-        */
-        inline bool data(int from, int to)
-        {
-            assert((state == DATA) && (rest > 0));
-
-            if (consume > 0) {
-                pos += consume;
-                rest -= consume;
-                consume = 0;
-
-                if (rest == 0)
-                    state = SEARCH;
-
-                if (from + pos == to) {
-                    pos = -rest;
-                    rest = 0;
-                    return false;
-                }
-
-                assert(state == SEARCH);
-                return true;
-            }
-
-            int idx = from + pos;
-            assert(idx <= to);
-
-            if (idx == to) {    // continue with next reservation
-                pos = -rest;
-                rest = 0;
-                return false;
-            }
-
-            consume = std::min(to - idx, rest);
-            return false;
-        }
-
-        /*!
-        \brief Check packet id
-
-        Use pos to store rest accross reservation
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
-        */
-        inline bool check_id(int from, int to)
-        {
-            assert(state == CHECK_ID);
-            int idx = from + pos;
-            assert(idx <= to);
-
-            if (idx == to) {    // continue with next reservation
-                pos = -rest;
-                rest = 0;
-                return false;
-            }
-
-            if (content[idx].packet_id.count != pkgid)
-                throw RuntimeException{std::string{"unable to handle reordered chunk, expected id "} + std::to_string(pkgid) + ", but got id " + std::to_string(content[pos].packet_id.count)};
-
-            pkgid += 1;
-            pos += 1;
-            state = DATA;
-            return data(from, to);
-        }
-
-        /*!
-        \brief Look for packet header
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
-        */
-        inline bool search_pkg(int from, int to)
-        {
-            // pos points to package header
-            assert((state == SEARCH) && (rest == 0));
-            int idx = from + pos;
-            assert(idx < to);
-
-            do {
-                if (content[idx].header.id != AsiRawStreamDecoder::chunk_id)
-                    throw RuntimeException{"expected header has no TPX3 id"};
-                if (content[idx].header.size % event_size != 0)
-                    throw RuntimeException{"chunk size not a multiple of the event size"};
-
-                const int size = content[idx].header.size / event_size;
-
-                #if SERVER_VERSION >= 320
-                    if (size < 2)
-                #else
-                    if (size < 1)
-                #endif
-                        throw RuntimeException{"encountered bogus chunk size"};
-
-                if (content[idx].header.chip == chip) {
-                    pos += 1;
-                    #if SERVER_VERSION >= 320
-                        rest = size - 1;
-                        state = CHECK_ID;
-                        return check_id(from, to);
-                    #else
-                        state = DATA;
-                        return data(from, to);
-                    #endif            
-                }
-            
-                pos += size + 1;
-                idx += size + 1;
-            } while (idx < to);
-
-            pos = idx - to;
-            return false;
-        }
-
-        /*!
         \brief Update subreservation
         
-        Set rest to 0 if all data in the reservation has been consumed
-        \param res Reservation
+        Set rest to 0 if all data in the reservat in reservationion has been consumed
         */
-        inline void update(const iobuf::reservation_t& res)
+        inline void update()
         {
-            assert(res.jar);
-            const int rstart = res.start / event_size;
-            const int rend = res.end / event_size;
-            const int amount = rend - rstart;
-            assert((rstart >= 0) && (amount > 0) && (rend <= (int)(iobuf::container_size / event_size)));
-            content = (AsiRawStreamDecoder::Event*)res.jar->container.data;
             bool more = false;
 
             do {
+                while (pos >= end) {
+                    auto old_end = end;
+                    auto old_content = content;
+                    update_reservation();
+                    if (! end) {
+                        if (rest)
+                            throw RuntimeException{"premature end of data package"};
+                        return;
+                    }
+                    if (content != old_content)
+                        pos -= old_end;
+                }
+
                 switch (state) {
                 case INIT:
-                    pos = 0;
-                    rest = 0;
-                    consume = 0;
+                    assert((pos == 0) && (rest == 0) && (consume == 0) && (end > 0));
                     state = SEARCH;
                     [[fallthrough]];
                 case SEARCH:
-                    assert(content && (pos >= 0));
-                    if (pos >= amount) {
-                        pos -= amount;
-                        return;
-                    }
-                    more = search_pkg(rstart, rend);
+                    assert(content && (pos >= 0) && (rest == 0));
+                    more = search_pkg();
                     break;
                 case CHECK_ID:
-                    if (pos < 0) {  // continue from last reservation
-                        rest = -pos;
-                        pos = 0;
-                    }
-                    more = check_id(rstart, rend);
+                    assert(content && (pos >= 0) && (rest > 1));
+                    more = check_id();
                     break;
                 case DATA:
-                    if (pos < 0) {  // continue from last reservation
-                        rest = -pos;
-                        pos = 0;
-                    }
-                    more = data(rstart, rend);
+                    assert(content && (pos >= 0) && (rest > 0));
+                    more = data();
                     break;
                 default:
                     assert(false);
                 }
             } while (more);
+        }
+
+        /*!
+        \brief Reset subreservation
+
+        For debugging, state is set to INIT
+        \param pos_ New pos
+        \param rest_ New rest
+        \param consume_ New consume
+        */
+        void reset(int pos_, int rest_, int consume_) noexcept
+        {
+            pos = pos_;
+            rest = rest_;
+            consume = consume_;
+            state = INIT;
+        }
+
+        /*!
+        \brief Get state
+
+        For debugging
+        \return State
+        */
+        state_t get_state() const noexcept
+        {
+            return state;
         }
     }; // struct subreservation
 } // namespace iobuf

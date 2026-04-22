@@ -61,11 +61,11 @@ namespace {
             \param reservation Read reservation
             \param subreservation Read subreservation
             */
-            inline event_iterator(const iobuf::reservation_t& reservation, const iobuf::subreservation_t& subreservation) noexcept
+            inline event_iterator(const iobuf::subreservation_t& subreservation) noexcept
             {
                 assert(subreservation.content);
                 data = (__m256i*)subreservation.content;
-                pos = reservation.start / sizeof(u64) + subreservation.pos;
+                pos = subreservation.pos;
                 end = pos + subreservation.consume;
                 unsigned start = pos & mask;
                 cur = pos - start;
@@ -121,10 +121,10 @@ namespace {
             \param reservation Read reservation
             \param subreservation Read subreservation
             */
-            inline event_iterator(const iobuf::reservation_t& reservation, const iobuf::subreservation_t& subreservation) noexcept
+            inline event_iterator(const iobuf::subreservation_t& subreservation) noexcept
             {
                 assert(subreservation.content);
-                pos = reservation.start / sizeof(u64) + subreservation.pos;
+                pos = subreservation.pos;
                 end = pos + subreservation.consume;
                 data = (AsiRawStreamDecoder::Event*)subreservation.content;
             }
@@ -325,81 +325,74 @@ class DataHandler final {
 
             Timer timer;
 
-            iobuf::reservation_t reservation = databuf.read_reservation(iobuf::initial_reservation);
-            iobuf::subreservation_t subreservation{chipIndex};
+            iobuf::subreservation_t subreservation{databuf, chipIndex};
+            subreservation.update();
 
             spinTime += timer.elapsed_reset();
 
-            while (reservation.end) {
-                assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
-                subreservation.update(reservation);
+            while (subreservation.rest) {
+                // logger << threadId << ": subreservation p" << subreservation.pos << " r" << subreservation.rest << " c" << subreservation.consume << log_debug;
+                assert(subreservation.consume > 0);
+                event_iterator events{subreservation};
+                event_t ev;
 
-                while (subreservation.rest) {
-                    assert(subreservation.consume > 0);
-                    event_iterator events(reservation, subreservation);
-                    event_t ev;
-
-                    // First stage: extract TDC/TOA events and fill up heap
-                    // This stage is only active for the very first buffer(s)
-                    while(heap_sz < reorderSize) {
-                        if (! events.next(ev)) {
-                            goto no_more_events;
-                            workPassOneTime += timer.elapsed_reset();
-                        }
-                        heap[heap_sz++] = ev;
-                        std::push_heap(&heap[0], &heap[heap_sz]);
+                // First stage: extract TDC/TOA events and fill up heap
+                // This stage is only active for the very first buffer(s)
+                while(heap_sz < reorderSize) {
+                    if (! events.next(ev)) {
+                        goto no_more_events;
+                        workPassOneTime += timer.elapsed_reset();
                     }
+                    heap[heap_sz++] = ev;
+                    std::push_heap(&heap[0], &heap[heap_sz]);
+                }
 
-                    while (tdc_ts == 0ul) {
-                        std::pop_heap(&heap[0], &heap[heap_sz]);
-                        const auto& el = heap[--heap_sz];
-                        if (el.is_tdc) {
-                            tdc_ts = el.ts;
-                            tdcHits++;
-                        } else {
-                            toaHits++;
-                        }
-                        if (! events.next(ev)) {
-                            workPassOneTime += timer.elapsed_reset();
-                            goto no_more_events;
-                        }
-                        heap[heap_sz++] = ev;
-                        std::push_heap(&heap[0], &heap[heap_sz]);
+                while (tdc_ts == 0ul) {
+                    std::pop_heap(&heap[0], &heap[heap_sz]);
+                    const auto& el = heap[--heap_sz];
+                    if (el.is_tdc) {
+                        tdc_ts = el.ts;
+                        tdcHits++;
+                    } else {
+                        toaHits++;
                     }
+                    if (! events.next(ev)) {
+                        workPassOneTime += timer.elapsed_reset();
+                        goto no_more_events;
+                    }
+                    heap[heap_sz++] = ev;
+                    std::push_heap(&heap[0], &heap[heap_sz]);
+                }
 
-                    workPassOneTime += timer.elapsed_reset();
+                workPassOneTime += timer.elapsed_reset();
 
-                    // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
-                    // This stage is the work horse
-                    do {
-                        std::pop_heap(&heap[0], &heap[heap_sz]);
-                        const auto& el = heap[--heap_sz];
-                        if (el.is_tdc) {
-                            tdcHits++;
-                            processing::purgePeriod(chipIndex, period);
-                            tdc_ts = el.ts;
-                            period++;
-                        } else {
-                            toaHits++;
-                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
-                        }
-                        if (! events.next(ev))
-                            break;
-                        heap[heap_sz++] = ev;
-                        std::push_heap(&heap[0], &heap[heap_sz]);
-                    } while (true);
+                // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
+                // This stage is the work horse
+                do {
+                    std::pop_heap(&heap[0], &heap[heap_sz]);
+                    const auto& el = heap[--heap_sz];
+                    if (el.is_tdc) {
+                        tdcHits++;
+                        processing::purgePeriod(chipIndex, period);
+                        tdc_ts = el.ts;
+                        period++;
+                    } else {
+                        toaHits++;
+                        processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                    }
+                    if (! events.next(ev))
+                        break;
+                    heap[heap_sz++] = ev;
+                    std::push_heap(&heap[0], &heap[heap_sz]);
+                } while (true);
 
-                    workPassTwoTime += timer.elapsed_reset();
-                    // no more TOA events
+                workPassTwoTime += timer.elapsed_reset();
+                // no more TOA events
 
-                  no_more_events:
-                    subreservation.update(reservation);
-                } // while reservation is not fully processed
-
-                reservation = databuf.read_reservation(reservation);
-
+              no_more_events:
+                subreservation.update();
                 spinTime += timer.elapsed_reset();
-            } // process next reservation
+            } // while reservation is not fully processed
 
             // Forth stage: handle last events
             while (heap_sz > 0ul) {

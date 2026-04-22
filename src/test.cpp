@@ -5,6 +5,7 @@ Unit tests
 
 #include "energy_points.h"
 #include "pixel_map.h"
+#include "shared_types.h"
 #include <fcntl.h>
 #include <cstdio>
 #include <ostream>
@@ -54,12 +55,32 @@ namespace {
     };
 
     /*!
+    \brief Section descriptor
+    */
+    struct section final {
+        std::string name;   //!< Section name
+        unsigned start;     //!< Section start position
+    };
+
+    section no_section{"", 0};
+
+    /*!
     \brief Unit test result
     */
     struct test_result final {
         const test_unit* unit;  //!< Pointer to test unit
+        section s;              //!< Section description
         unsigned num;           //!< Test position number
     };
+
+    template<typename stream>
+    stream& operator<<(stream& out, const test_result& res)
+    {
+        out << res.unit->name << ' ' << res.num;
+        if (!res.s.name.empty())
+            out << " (" << res.s.name << '@' << res.s.start << ')';
+        return out;
+    }
 
     std::set<test_unit, test_unit::less> tests; //!< Set of all tests
     std::vector<test_result> failed_tests;      //!< List of failed tests
@@ -150,9 +171,25 @@ namespace {
     \param unit Test unit object reference
     \param t    Reference to test position counter
     */
-    void test_failed(const test_unit& unit, unsigned& t)
+    [[maybe_unused]] void test_failed(const test_unit& unit, unsigned& t)
     {
-        failed_tests.push_back({&unit, t});
+        failed_tests.push_back({&unit, no_section, t});
+        t++;
+    }
+
+    /*!
+    \brief Failed test processing
+
+    This puts the test unit object on the list of failed tests and increments the test position counter.
+    The test section and position counter can be used to identify which check within the test unit failed.
+
+    \param unit Test unit object reference
+    \param s    Reference to test section
+    \param t    Reference to test position counter
+    */
+    void test_failed(const test_unit& unit, const section &s, unsigned& t)
+    {
+        failed_tests.push_back({&unit, s, t});
         t++;
     }
 
@@ -165,9 +202,25 @@ namespace {
     \param unit Test unit object reference
     \param t    Reference to test position counter
     */
-    void test_succeeded(const test_unit& unit, unsigned& t)
+    [[maybe_unused]] void test_succeeded(const test_unit& unit, unsigned& t)
     {
-        successful_tests.push_back({&unit, t});
+        successful_tests.push_back({&unit, no_section, t});
+        t++;
+    }
+
+    /*!
+    \brief Successful test processing
+
+    This puts the test unit object on the list of successful tests and increments the test position counter.
+    The test section and position counter can be used to identify which check within the test unit succeeded.
+
+    \param unit Test unit object reference
+    \param s    Test section
+    \param t    Reference to test position counter
+    */
+    void test_succeeded(const test_unit& unit, const section& s, unsigned& t)
+    {
+        successful_tests.push_back({&unit, s, t});
         t++;
     }
 
@@ -208,15 +261,16 @@ namespace {
     \param t    Test position counter reference
     \param a    First value
     \param b    Second value
+    \param s    Test section
     */
     template<typename T>
-    void check_eq(const test_unit& unit, unsigned& t, const T& a, const T& b)
+    void check_eq(const test_unit& unit, unsigned& t, const T& a, const T& b, const section& s = no_section)
     {
         if (a != b) {
             verbose << unit.name << ' ' << t << " failed: " << a << " != " << b << '\n';
-            test_failed(unit, t);
+            test_failed(unit, s, t);
         } else
-            test_succeeded(unit, t);
+            test_succeeded(unit, s, t);
     }
 
     /*!
@@ -229,15 +283,16 @@ namespace {
     \param t    Test position counter reference
     \param a    First value
     \param b    Second value
+    \param s    Test section
     */
     template<typename T>
-    void check_neq(const test_unit& unit, unsigned& t, const T& a, const T& b)
+    void check_neq(const test_unit& unit, unsigned& t, const T& a, const T& b, const section& s = no_section)
     {
         if (a == b) {
             verbose << unit.name << ' ' << t << " failed: " << a << " == " << b << '\n';
-            test_failed(unit, t);
+            test_failed(unit, s, t);
         } else
-            test_succeeded(unit, t);
+            test_succeeded(unit, s, t);
     }
 
     /*!
@@ -249,16 +304,17 @@ namespace {
     \param t    Test position counter reference
     \param a    First value
     \param b    Second value
+    \param s    Test section
     */
     template<>
-    [[maybe_unused]] void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b)
+    [[maybe_unused]] void check_eq<double>(const test_unit& unit, unsigned& t, const double& a, const double&b, const section& s)
     {
         constexpr static double threshold = 1e-6;
         if ((a <= b - threshold) || (a >= b + threshold)) {
             verbose << unit.name << ' ' << t << " failed: " << a << " != " << b << '\n';
-            test_failed(unit, t);
+            test_failed(unit, s, t);
         } else
-            test_succeeded(unit, t);
+            test_succeeded(unit, s, t);
     }
 
     /*! Pixel to energy point mapping unit tests */
@@ -386,9 +442,6 @@ namespace {
     } // namespace cpumask
 
     namespace iobuf {
-        ::iobuf::jar_t jar;     //!< Data jar
-        ::iobuf::reservation_t reservation = {&jar, 0, ::iobuf::container_size};    //!< Reservation
-
         /*!
         \brief cpu_mask parsing tests
         \param unit Test unit
@@ -396,104 +449,159 @@ namespace {
         void subreservation(const test_unit& unit)
         {
             using Event = AsiRawStreamDecoder::Event;
+            using ::iobuf::reservation_t;
             using ::iobuf::subreservation_t;
             const auto& chunk_id = AsiRawStreamDecoder::chunk_id;
-            Event* data = (Event*)jar.container.data;
-            subreservation_t subreservation(1);
+            const int jar_sz = ::iobuf::container_size / sizeof(u64);
+
+            ::iobuf::collection_t buf{2, false};
+            auto wres = buf.write_reservation(::iobuf::initial_reservation);
+            assert(wres.jar && (wres.start == 0) && (wres.end == ::iobuf::container_size));
+            Event* data = (Event*)wres.jar->container.data;
+            wres.end = 12*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 12*sizeof(u64)) && (wres.end == ::iobuf::container_size));
+            subreservation_t subreservation(buf, 1);
 
             unsigned t = 0;
+            section s = {"initialization", t};
+            check_eq(unit, t, subreservation.chip, 1ul, s);
+            check_eq(unit, t, subreservation.pos, 0, s);
+            check_eq(unit, t, subreservation.rest, 0, s);
+            check_eq(unit, t, subreservation.consume, 0, s);
+            check_eq(unit, t, subreservation.content, (const Event*)data, s);
+
+            // t=5
+            s = {"exceptions", t};
             data[0].header = {};
             try {
-                subreservation.update(reservation);
-                test_failed(unit, t);
+                subreservation.update();
+                test_failed(unit, s, t);
             } catch (Poco::RuntimeException& ex) {
-                check_eq(unit, t, ex.message(), std::string{"expected header has no TPX3 id"});
+                check_eq(unit, t, ex.message(), std::string{"expected header has no TPX3 id"}, s);
             } catch (...) {
-                test_failed(unit, t);
+                test_failed(unit, s, t);
             }
-            // t=1
+            // t=6
             data[0].header = {chunk_id, 1, 0, 0};
             try {
-                subreservation.update(reservation);
-                test_failed(unit, t);
+                subreservation.update();
+                test_failed(unit, s, t);
             } catch (Poco::RuntimeException& ex) {
-                check_eq(unit, t, ex.message(), std::string{"encountered bogus chunk size"});
+                check_eq(unit, t, ex.message(), std::string{"encountered bogus chunk size"}, s);
             }
-            // t=2
+            // t=7
             data[0].header = {chunk_id, 0, 0, 2};
             try {
-                subreservation.update(reservation);
-                test_failed(unit, t);
+                subreservation.update();
+                test_failed(unit, s, t);
             } catch (Poco::RuntimeException& ex) {
-                check_eq(unit, t, ex.message(), std::string{"chunk size not a multiple of the event size"});
+                check_eq(unit, t, ex.message(), std::string{"chunk size not a multiple of the event size"}, s);
             } catch (...) {
-                test_failed(unit, t);
+                test_failed(unit, s, t);
             }
-            // t=3
-            subreservation = subreservation_t{1};
+            // t=8
             data[0].header = {chunk_id, 1, 0, 3*sizeof(u64)};
             data[1].packet_id = {3, 0, 0x50};
             try {
-                subreservation.update(reservation);
-                test_failed(unit, t);
+                subreservation.update();
+                test_failed(unit, s, t);
             } catch (Poco::RuntimeException& ex) {
-                check_eq(unit, t, ex.message(), std::string{"unable to handle reordered chunk, expected id 0, but got id 3"});
+                check_eq(unit, t, ex.message(), std::string{"unable to handle reordered chunk, expected id 0, but got id 3"}, s);
             } catch (...) {
-                test_failed(unit, t);
+                test_failed(unit, s, t);
             }
-            check_eq(unit, t, subreservation.state, subreservation.CHECK_ID);
-            // t=5
+            check_eq(unit, t, subreservation.get_state(), subreservation.CHECK_ID, s);
+            // t=10
+            s = {"data", t};
             data[1].packet_id = {0, 0, 0x50};   // packet id=0
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation.pos, 2);
-            check_eq(unit, t, subreservation.consume, 2);
-            // t=8
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 2, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            // t=13
             data[4].header = {chunk_id, 0, 0, 3*sizeof(u64)};
             data[8].header = {chunk_id, 1, 0, 3*sizeof(u64)};
             data[9].packet_id = {1, 0, 0x50};   // packet id=1
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation.pos, 10);
-            check_eq(unit, t, subreservation.consume, 2);
-            // t=11 - border before header
-            reservation.end = 12*sizeof(u64);
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.SEARCH);
-            check_eq(unit, t, subreservation.pos, 0);
-            check_eq(unit, t, subreservation.rest, 0);
-            check_eq(unit, t, subreservation.consume, 0);
-            // t=15 - border after header
-            reservation.end = 1*sizeof(u64);
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.CHECK_ID);
-            check_eq(unit, t, subreservation.pos, -2);
-            check_eq(unit, t, subreservation.rest, 0);
-            // t=18 - border after chunk id
-            data[0].packet_id = {2, 0, 0x50};   // packet id=2
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation.pos, -2);
-            check_eq(unit, t, subreservation.rest, 0);
-            // t=21 - border within data
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation.pos, 0);
-            check_eq(unit, t, subreservation.rest, 2);
-            check_eq(unit, t, subreservation.consume, 1);
-            // t=25
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation.pos, -1);
-            check_eq(unit, t, subreservation.rest, 0);
-            check_eq(unit, t, subreservation.consume, 0);
-            // t=29
-            subreservation.update(reservation);
-            check_eq(unit, t, subreservation.state, subreservation.DATA);
-            check_eq(unit, t, subreservation. pos, 0);
-            check_eq(unit, t, subreservation.rest, 1);
-            check_eq(unit, t, subreservation.consume, 1);
-            // t=33
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 10, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            // t=16 - border within data
+            s = {"internal-border", t};
+            data[12].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[13].packet_id = {2, 0, 0x50};  // packet id=2
+            wres.end = 15*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 15*sizeof(u64)) && (wres.end == ::iobuf::container_size));
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 14, s);
+            check_eq(unit, t, subreservation.rest, 2, s);
+            check_eq(unit, t, subreservation.consume, 1, s);
+            // t=12 - rest
+            wres.end = 16*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 16*sizeof(u64)) && (wres.end == ::iobuf::container_size));
+            data[16].header = {chunk_id, 1, 0, ::iobuf::container_size - 17*sizeof(u64)};
+            data[17].packet_id = {3, 0, 0x50};  // packet id=3
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 0) && (wres.end == ::iobuf::container_size));
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 15, s);
+            check_eq(unit, t, subreservation.rest, 1, s);
+            check_eq(unit, t, subreservation.consume, 1, s);
+            // t=24 - cross jar before header
+            s = {"header-border", t};
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 18, s);
+            check_eq(unit, t, subreservation.rest, jar_sz - 18, s);
+            check_eq(unit, t, subreservation.consume, jar_sz - 18, s);
+            // t=28 - cross jar before id
+            s = {"id-border", t};
+            data = (Event*)wres.jar->container.data;
+            data[0].header = {chunk_id, 1, 0, ::iobuf::container_size - 2*sizeof(u64)};
+            data[1].packet_id = {4, 0, 0x50};  // packet id=4
+            data[jar_sz-1].header = {chunk_id, 1, 0, ::iobuf::container_size - 2*sizeof(u64)};
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 0) && (wres.end == ::iobuf::container_size));
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 2, s);
+            check_eq(unit, t, subreservation.rest, jar_sz - 3, s);
+            check_eq(unit, t, subreservation.consume, jar_sz - 3, s);
+            // t=32 - cross jar before data
+            s = {"data-border", t};
+            data = (Event*)wres.jar->container.data;
+            data[0].packet_id = {5, 0, 0x50};  // packet id=5
+            data[jar_sz-2].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[jar_sz-1].packet_id = {6, 0, 0x50};  // packet id=6
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 0) && (wres.end == ::iobuf::container_size));
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 1, s);
+            check_eq(unit, t, subreservation.rest, jar_sz - 3, s);
+            check_eq(unit, t, subreservation.consume, jar_sz - 3, s);
+            // t=36 - end
+            s = {"end", t};
+            wres.end = 2*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(wres.jar && (wres.start == 2*sizeof(u64)) && (wres.end == ::iobuf::container_size));
+            wres.end = 2*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(!wres.end);
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 0, s);
+            check_eq(unit, t, subreservation.rest, 2, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            // t=40
+            subreservation.update();
+            check_eq(unit, t, subreservation.rest, 0, s);
+            // t=41
         }
     } // namespace iobuf
 
@@ -639,10 +747,10 @@ int main(int argc, char *argv[])
     }
 
     for (const auto& res : successful_tests)
-        std::cout << "OK    : " << res.unit->name << ' ' << res.num << '\n';
+        std::cout << "OK    : " << res << '\n';
 
     for (const auto& res : failed_tests)
-        std::cout << "FAILED: " << res.unit->name << ' ' << res.num << '\n';
+        std::cout << "FAILED: " << res << '\n';
 
     return failed_tests.empty() ? 0 : 1;
 }
