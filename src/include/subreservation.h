@@ -22,7 +22,7 @@ namespace iobuf {
     Provide subranges related to a specific chip within a reservation
     */
     struct subreservation_t final {
-        constexpr static u64 event_size = sizeof(u64);  //!< Size of an event
+        constexpr static int event_size = sizeof(u64);  //!< Size of an event
         const u64 chip;                                 //!< Fixed chip number
 
         /*!
@@ -52,9 +52,12 @@ namespace iobuf {
         void update_reservation()
         {
             reservation = buffers.read_reservation(reservation);
+            auto rdata = (AsiRawStreamDecoder::Event*)reservation.jar->container.data;
+            if (content != rdata)
+                pos -= end;
             end = reservation.end / event_size;
-            assert((pos >= 0) && (end <= (int)(iobuf::container_size / event_size)));
-            content = (AsiRawStreamDecoder::Event*)reservation.jar->container.data;
+            content = rdata;
+            assert((pos >= 0) && (end <= (iobuf::container_size / event_size)));
         }
 
         /*!
@@ -197,16 +200,12 @@ namespace iobuf {
 
             do {
                 while (pos >= end) {
-                    auto old_end = end;
-                    auto old_content = content;
-                    update_reservation();
+                    update_reservation();   // modifies pos and end
                     if (! end) {
                         if (rest)
                             throw RuntimeException{"premature end of data package"};
                         return;
                     }
-                    if (content != old_content)
-                        pos -= old_end;
                 }
 
                 switch (state) {
