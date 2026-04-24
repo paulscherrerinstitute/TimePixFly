@@ -275,6 +275,28 @@ namespace iobuf {
         }
 
         /*!
+        \brief Return jar to free list
+        \param jar Jar to return
+        */
+        inline void return_jar(jar_t* jar)
+        {
+            if ((jar->done += 1u) == nthreads) {
+                // all threads have finished here
+                jar->next = nullptr;
+                jar->done = 0u;
+                jar->level = 0;
+                {
+                    std::lock_guard lock{free_lock};
+                    if (tail)
+                        tail->next = jar;
+                    else
+                        head = jar;
+                    tail = jar;
+                }
+            }
+        }
+
+        /*!
         \brief Commit data to jar
         \param jar Commit data in this jar
         \param level The new fill level
@@ -349,7 +371,7 @@ namespace iobuf {
         \return New reservation<br/>
             If `end == 0`, no mor data is produced, and no more calls are allowed.
         */
-        inline reservation_t read_reservation(const reservation_t& consumed)
+        inline reservation_t read_reservation(const reservation_t& consumed, bool no_return=false)
         {
             jar_t* jar = consumed.jar;
             const auto end = consumed.end;
@@ -363,20 +385,8 @@ namespace iobuf {
                 // finished with container
                 jar_t* next = jar->next;
                 assert(next);
-                if ((jar->done += 1u) == nthreads) {
-                    // all threads have finished here
-                    jar->next = nullptr;
-                    jar->done = 0u;
-                    jar->level = 0;
-                    {
-                        std::lock_guard lock{free_lock};
-                        if (tail)
-                            tail->next = jar;
-                        else
-                            head = jar;
-                        tail = jar;
-                    }
-                }
+                if (__builtin_expect(!no_return, 1))
+                    return_jar(jar);
                 level = await_data(next, 0);
                 return {next, 0, level};
             }

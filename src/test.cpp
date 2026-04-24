@@ -348,14 +348,16 @@ namespace {
             check_eq(unit, t, (unsigned)pite.chip.size(), 1u);
             check_eq(unit, t, pite.at({0,1}).part[1], EpPart{1,.8});
 
+            section s = {"loop1", t};
             auto pm = pite.to_map();
             bool first = true;
             for (auto& p : (*pm)[{0, 0}]) {
-                check_eq(unit, t, p, first ? MapDest{0, .8} : MapDest{1, .2});
+                check_eq(unit, t, p, first ? MapDest{0, .8} : MapDest{1, .2}, s);
                 first = !first;
             }
+            s = {"loop2", t};
             for (auto& p : (*pm)[{0, 1}]) {
-                check_eq(unit, t, p, first ? MapDest{0, .2} : MapDest{1, .8});
+                check_eq(unit, t, p, first ? MapDest{0, .2} : MapDest{1, .8}, s);
                 first = !first;
             }
         }
@@ -502,7 +504,9 @@ namespace {
             }
             // t=8
             data[0].header = {chunk_id, 1, 0, 3*sizeof(u64)};
-            data[1].packet_id = {3, 0, 0x50};
+            data[1].packet_id = {1, 0, 0x50};
+            data[4].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[5].packet_id = {3, 0, 0x50};
             try {
                 subreservation.update();
                 test_failed(unit, s, t);
@@ -512,6 +516,7 @@ namespace {
                 test_failed(unit, s, t);
             }
             check_eq(unit, t, subreservation.get_state(), subreservation.CHECK_ID, s);
+            subreservation.reset(subreservation.CHECK_ID, 1, 2, 0);
             // t=10
             s = {"data", t};
             data[1].packet_id = {0, 0, 0x50};   // packet id=0
@@ -586,22 +591,49 @@ namespace {
             check_eq(unit, t, subreservation.rest, jar_sz - 3, s);
             check_eq(unit, t, subreservation.consume, jar_sz - 3, s);
             // t=36 - end
-            s = {"end", t};
+            s = {"data-end", t};
             wres.end = 2*sizeof(u64);
             wres = buf.write_reservation(wres);
             assert(wres.jar && (wres.start == 2*sizeof(u64)) && (wres.end == ::iobuf::container_size));
-            wres.end = 2*sizeof(u64);
-            wres = buf.write_reservation(wres);
-            assert(!wres.end);
             subreservation.update();
             check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
             check_eq(unit, t, subreservation.pos, 0, s);
             check_eq(unit, t, subreservation.rest, 2, s);
             check_eq(unit, t, subreservation.consume, 2, s);
             // t=40
+            s = {"store", t};
+            data = (Event*)wres.jar->container.data;
+            data[2].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[3].packet_id = {8, 0, 0x50};  // packet id=8
+            data[6].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[7].packet_id = {7, 0, 0x50};  // packet id=7
+            data[10].header = {chunk_id, 1, 0, 3*sizeof(u64)};
+            data[11].packet_id = {9, 0, 0x50};  // packet id=9;
+            wres.end = 14*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 8, s);
+            check_eq(unit, t, subreservation.rest, 2, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.RESTORE, s);
+            check_eq(unit, t, subreservation.pos, 4, s);
+            check_eq(unit, t, subreservation.rest, 2, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            subreservation.update();
+            check_eq(unit, t, subreservation.get_state(), subreservation.DATA, s);
+            check_eq(unit, t, subreservation.pos, 12, s);
+            check_eq(unit, t, subreservation.rest, 2, s);
+            check_eq(unit, t, subreservation.consume, 2, s);
+            // t=52
+            s = {"end", t};
+            wres.end = 14*sizeof(u64);
+            wres = buf.write_reservation(wres);
+            assert(!wres.end);
             subreservation.update();
             check_eq(unit, t, subreservation.rest, 0, s);
-            // t=41
+            // t=53
         }
     } // namespace iobuf
 
