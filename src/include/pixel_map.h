@@ -79,7 +79,7 @@ struct PixelMap final {
         */
         inline MapDest* end()
         {
-            return &pmap.mapping[sentinel];
+            return pmap.mapping.data() + sentinel;
         }
 
         /*!
@@ -97,7 +97,7 @@ struct PixelMap final {
         */
         inline const MapDest* end() const
         {
-            return &pmap.mapping[sentinel];
+            return pmap.mapping.data() + sentinel;
         }
 
         /*!
