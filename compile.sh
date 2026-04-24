@@ -14,14 +14,15 @@ else
 fi
 
 if [ -z "${DEBUG}" ]; then
-    SPEED_FLAGS+="-O3 -ffast-math -DNDEBUG -flto=auto"
+    SPEED_FLAGS+=" -O3 -ffast-math -DNDEBUG -flto=auto"
     SPEED_FLAGS+=" -fno-trapping-math -fno-semantic-interposition -funroll-loops -ftree-vectorize -finline-functions"
-    TEST_FLAGS=" -Og"
+    TEST_FLAGS=" -Og -ggdb"
 elif [ -z "${NOOPT}" ]; then
     SPEED_FLAGS+="-Og -ggdb -DNDEBUG"
-    TEST_FLAGS+=" -Og"
+    TEST_FLAGS+=" -Og -ggdb"
 else
-    SPEED_FLAGS+="-O0 -ggdb"
+    SPEED_FLAGS+=" -O0 -ggdb"
+    TEST_FLAGS+=" -O0 -ggdb"
 fi
 
 if [ -z "${AVX_DECODE}" ]; then
@@ -58,7 +59,7 @@ if [ "$(uname)" == "Darwin" ]; then
     fi
 fi
 
-TEST_FLAGS+=" -ggdb $WARN_FLAGS $NATIVE_FLAGS $AVX_FLAGS"
+TEST_FLAGS+=" $WARN_FLAGS $NATIVE_FLAGS $AVX_FLAGS"
 
 test -f README.md || { echo "This command must be executed from the git top directory"; exit 1; }
 
