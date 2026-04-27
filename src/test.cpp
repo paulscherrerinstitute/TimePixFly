@@ -62,7 +62,7 @@ namespace {
         unsigned start;     //!< Section start position
     };
 
-    section no_section{"", 0};
+    section no_section{"", 0};  //!< No section specifier
 
     /*!
     \brief Unit test result
@@ -73,6 +73,14 @@ namespace {
         unsigned num;           //!< Test position number
     };
 
+    /*!
+    \brief Print out a test result
+
+    \param out Output stream
+    \param res Test result
+    \tparam stream Output stream type
+    \return Stream object reference
+    */
     template<typename stream>
     stream& operator<<(stream& out, const test_result& res)
     {

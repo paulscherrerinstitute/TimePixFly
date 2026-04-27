@@ -45,6 +45,9 @@ namespace iobuf {
         int end;                                        //!< Reservation end offset
         state_t state;                                  //!< Current parser state
 
+        /*!
+        \brief Stored data state
+        */
         struct store_t final {
             jar_t* jar;                                 //!< Jar
             int pos;                                    //!< Current position in reservation
@@ -64,6 +67,9 @@ namespace iobuf {
         int consume;                                    //!< Amount to consume
 
       private:
+        /*!
+        \brief Update underlying reservation
+        */
         inline void update_reservation()
         {
             if (__builtin_expect(store.empty(), true))
@@ -82,9 +88,7 @@ namespace iobuf {
         \brief Return range
 
         Use pos to store rest accross reservation
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
+        \return Continue reservation update loop
         */
         inline bool data() noexcept
         {
@@ -108,6 +112,11 @@ namespace iobuf {
             return false;
         }
 
+        /*!
+        \brief Store data for later retrieval
+
+        \return Continue subreservation update loop
+        */
         inline bool store_data()
         {
             assert(state == STORE);
@@ -134,6 +143,10 @@ namespace iobuf {
             return true;
         }
 
+        /*!
+        \brief Restore stored data
+        \return Continue subreservation update loop
+        */
         inline bool restore_data()
         {
             assert(state == RESTORE);
@@ -170,9 +183,7 @@ namespace iobuf {
         \brief Check packet id
 
         Use pos to store rest accross reservation
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
+        \return Continue subreservation update loop
         */
         inline bool check_id()
         {
@@ -205,9 +216,7 @@ namespace iobuf {
 
         /*!
         \brief Look for packet header
-        \param from From this position within the reservation
-        \param to Up to this position within the reservation
-        \return Continue within same reservation
+        \return Continue subreservation update loop
         */
         inline bool search_pkg()
         {

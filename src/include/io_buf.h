@@ -368,6 +368,7 @@ namespace iobuf {
             This will link the link the jar to the free list, if all threads are done with it.
         \param consumed Reservation that has been consumed, or `initial_reservation`<br/>
             If `end == container_size`, the thread is done with the jar.
+        \param no_return Do not return any jar to the buffer system, just continue with next data.
         \return New reservation<br/>
             If `end == 0`, no mor data is produced, and no more calls are allowed.
         */

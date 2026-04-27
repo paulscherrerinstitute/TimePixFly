@@ -118,7 +118,6 @@ namespace {
             /*!
             \brief Constructor
             Set state and load current vector if cur is not zero
-            \param reservation Read reservation
             \param subreservation Read subreservation
             */
             inline event_iterator(const iobuf::subreservation_t& subreservation) noexcept
