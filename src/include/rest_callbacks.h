@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #ifndef REST_CALLBACKS_H
 #define REST_CALLBACKS_H
 
