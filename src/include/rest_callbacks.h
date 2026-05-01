@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #ifndef REST_CALLBACKS_H
 #define REST_CALLBACKS_H
 
@@ -271,10 +272,7 @@ namespace {
         */
         RestService(Logger& logger, const SocketAddress& listen_to)
             : server(new RestHandlerFactory(logger), ServerSocket(listen_to), http_params)
-        {
-            assert(instance == nullptr);
-            instance = this;
-        }
+        {}
 
         /*!
         \brief Start HTTP server
@@ -299,8 +297,6 @@ namespace {
         {
             server.stop();
         }
-
-        inline static RestService* instance = nullptr;  //!< Singleton instance
     };
 } // anonymous namespace
 
@@ -593,20 +589,22 @@ namespace rest {
     \brief Start REST service
     \param logger Logger object
     \param controlAddress On this address
+    \return REST service smart pointer
     */
-    inline void start_service(Logger& logger, const SocketAddress& controlAddress)
+    [[nodiscard("Rest service will not be started")]] inline std::unique_ptr<RestService> start_service(Logger& logger, const SocketAddress& controlAddress)
     {
-        RestService restService(logger, controlAddress);
+        std::unique_ptr<RestService> restService{new RestService{logger, controlAddress}};
         logger << "running in " << (global::instance->server_mode ? "server" : "application") << " mode, listen for commands on " << controlAddress.toString() << log_notice;
-        restService.start();
+        restService->start();
+        return restService;
     }
 
     /*!
     \brief Stop REST service
+    \param restService REST service pointer
     */
-    inline void stop_service()
+    inline void stop_service(RestService* restService)
     {
-        auto* restService = RestService::instance;
         if (restService)
             restService->stop();
     }

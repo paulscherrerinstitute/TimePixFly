@@ -964,7 +964,7 @@ namespace {
             }
 
             rest::init_callbacks();
-            rest::start_service(logger, gvars.controlAddress);
+            auto restService = rest::start_service(logger, gvars.controlAddress);
 
             do { // server mode loop
                 if (! global::instance->last_error.empty())
@@ -1122,7 +1122,7 @@ namespace {
 
             set_state(global::shutdown);
             StateHandler::stop();
-            rest::stop_service();
+            rest::stop_service(restService.get());
 
             if (global::instance->last_error.empty())
                 return Application::EXIT_OK;
