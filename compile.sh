@@ -111,7 +111,7 @@ case "$TARGET" in
         eval "$cmd";;
     "restcalls")
         echo "REST API calls:"
-        awk 'BEGIN{p=0;e=0;print"--"}/REST COMMAND/{p=1;next}/when:/{if(p){e=1}}{if(p){sub(/^ +\/\//,"");print $0};if(e){print"--";p=0};e=0}' src/main.cpp;;
+        awk 'BEGIN{p=0;e=0;print"--"}/REST COMMAND/{p=1;next}/when:/{if(p){e=1}}{if(p){sub(/^ +\/\//,"");print $0};if(e){print"--";p=0};e=0}' src/include/rest_callbacks.h;;
     "datapackets")
         echo "Data packets:"
         awk 'BEGIN{p=0;e=0;print"--"}/DATA PACKET/{p=1;next}/when:/{if(p){e=1}}{if(p){print $0};if(e){print"--";p=0};e=0}' src/xes_data_writer.cpp;;
