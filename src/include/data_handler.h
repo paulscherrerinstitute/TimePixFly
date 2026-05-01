@@ -343,11 +343,11 @@ class DataHandler final {
                         workPassOneTime += timer.elapsed_reset();
                     }
                     heap[heap_sz++] = ev;
-                    std::push_heap(&heap[0], &heap[heap_sz]);
+                    std::push_heap(heap.data(), heap.data()+heap_sz);
                 }
 
                 while (tdc_ts == 0ul) {
-                    std::pop_heap(&heap[0], &heap[heap_sz]);
+                    std::pop_heap(heap.data(), heap.data()+heap_sz);
                     const auto& el = heap[--heap_sz];
                     if (el.is_tdc) {
                         tdc_ts = el.ts;
@@ -360,7 +360,7 @@ class DataHandler final {
                         goto no_more_events;
                     }
                     heap[heap_sz++] = ev;
-                    std::push_heap(&heap[0], &heap[heap_sz]);
+                    std::push_heap(heap.data(), heap.data()+heap_sz);
                 }
 
                 workPassOneTime += timer.elapsed_reset();
@@ -368,7 +368,7 @@ class DataHandler final {
                 // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
                 // This stage is the work horse
                 do {
-                    std::pop_heap(&heap[0], &heap[heap_sz]);
+                    std::pop_heap(heap.data(), heap.data()+heap_sz);
                     const auto& el = heap[--heap_sz];
                     if (el.is_tdc) {
                         tdcHits++;
@@ -382,7 +382,7 @@ class DataHandler final {
                     if (! events.next(ev))
                         break;
                     heap[heap_sz++] = ev;
-                    std::push_heap(&heap[0], &heap[heap_sz]);
+                    std::push_heap(heap.data(), heap.data()+heap_sz);
                 } while (true);
 
                 workPassTwoTime += timer.elapsed_reset();
@@ -395,7 +395,7 @@ class DataHandler final {
 
             // Forth stage: handle last events
             while (heap_sz > 0ul) {
-                std::pop_heap(&heap[0], &heap[heap_sz]);
+                std::pop_heap(heap.data(), heap.data()+heap_sz);
                 const auto& el = heap[--heap_sz];
                 if (el.is_tdc) {
                     tdcHits++;
