@@ -164,7 +164,7 @@ class DataHandler final {
         uint64_t DATA_OFFSET = 0;               //!< Start offset of event data within raw event data packet
     #endif
 
-    StreamSocket& dataStream;                   //!< Raw event data stream receiving end
+    StreamSocket dataStream;                    //!< Raw event data stream receiving end
     Logger& logger;                             //!< Poco::Logger object for logging
     iobuf::collection_t databuf;                //!< IO data buffer pool
     const size_t reorderSize;                   //!< Size of reorder queue (heap)
@@ -299,8 +299,6 @@ class DataHandler final {
         double workPassTwoTime = .0;
         double workPassThreeTime = .0;
 
-        analyzerReady++;
-
         try {
 
             {   // set thread affinity}
@@ -321,6 +319,9 @@ class DataHandler final {
 
             // Period counter
             period_type period = 0u;
+
+            // We are ready
+            analyzerReady++;
 
             Timer timer;
 
@@ -439,16 +440,25 @@ class DataHandler final {
 public:
     /*!
     \brief Constructor
-    \param socket   Raw event data stream receiving end
     \param log      Poco::Logger object for logging
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */
-    inline DataHandler(StreamSocket& socket, Logger& log, unsigned numChips, unsigned long queueSize)
-        : dataStream{socket}, logger{log}, databuf{numChips}, reorderSize{queueSize},
+    inline DataHandler(Logger& log, unsigned numChips, unsigned long queueSize)
+        : dataStream{}, logger{log}, databuf{numChips}, reorderSize{queueSize},
           analyserThreads(numChips)
     {
-        logger << "DataHandler(" << socket.address().toString() << ", " << numChips << ", " << queueSize << ')' << log_trace;
+        logger << "DataHandler(" << numChips << ", " << queueSize << ')' << log_trace;
+    }
+
+    /*!
+    \brief Set raw data stream
+    \param socket   Raw event data stream receiving end
+    */
+    inline void rawDataStream(StreamSocket& socket) noexcept
+    {
+        logger << "DataHandler::rawDataStream(" << socket.address().toString() << ')' << log_trace;
+        dataStream = socket;
     }
 
     /*!
@@ -464,6 +474,7 @@ public:
     */
     inline void run_async()
     {
+        analyzerReady.store(0);
         for (unsigned i=0; i<analyserThreads.size(); i++)
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
         while (analyzerReady.load(std::memory_order_consume) != analyserThreads.size())
@@ -477,6 +488,8 @@ public:
     inline void await()
     {
         readerThread.join();
+        dataStream.shutdown();
+        dataStream.close();
         for (auto& thread : analyserThreads)
             thread.join();
         processing::stop();

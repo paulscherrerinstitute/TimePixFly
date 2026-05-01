@@ -181,8 +181,8 @@ namespace {
         // static constexpr float ns_to_clk = 2. / 3.125;  //!< Nanoseconds to TDC timestamp clock ticks (see ASI server TDC event description, only 1 bit of fine timestamp used) (currently unused)
         unsigned long bufferSize = DEFAULT_BUFFER_SIZE; //!< IO buffer size
         // unsigned long numAnalysers = DEFAULT_NUM_ANALYSERS;
-        unsigned long numChips = 0;                     //!< Number of TPX3 chips on the detector
         unsigned long reorderQueueSize = 64;            //!< Number of elements in the event reorder queue
+        unsigned numChips = 0;                          //!< Number of TPX3 chips on the detector
 
     protected:
         /*!
@@ -966,7 +966,13 @@ namespace {
             rest::init_callbacks();
             auto restService = rest::start_service(logger, gvars.controlAddress);
 
-            do { // server mode loop
+            std::unique_ptr<DataHandler<AsiRawStreamDecoder>> dataHandlerPtr; 
+            if (streamFilePath.empty()) {
+                // if not copy mode, create the data handler in advance
+                dataHandlerPtr.reset(new DataHandler<AsiRawStreamDecoder>{logger, numChips, reorderQueueSize});
+            }
+
+            do {
                 if (! global::instance->last_error.empty())
                     set_state(global::except);
 
@@ -1062,11 +1068,12 @@ namespace {
                                << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
                                << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
                     } else {
+                        auto& dataHandler = *dataHandlerPtr;
                         Timer timer;
 
                         logger << "connection from " << senderAddress.toString() << log_info;
 
-                        DataHandler<AsiRawStreamDecoder> dataHandler(dataStream, logger, numChips, reorderQueueSize);
+                        dataHandler.rawDataStream(dataStream);
                         global::instance->stop_handlers.emplace_back([&dataHandler]() {
                             dataHandler.stopNow();
                         });
