@@ -250,7 +250,7 @@ namespace iobuf {
         */
         inline jar_t* next_jar(jar_t* prev)
         {
-            assert(prev && !prev->next);
+            assert(prev);
             jar_t* free = nullptr;
             {
                 std::lock_guard lock{free_lock};
