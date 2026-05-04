@@ -127,6 +127,13 @@ namespace iobuf {
         inline explicit jar_t(jar_t* next_) noexcept
             : next{next_}, done{0u}, level{0}
         {}
+
+        inline void reset() noexcept
+        {
+            next = nullptr;
+            done = 0;
+            level = 0;
+        }
     };
 
     /*!
@@ -179,7 +186,7 @@ namespace iobuf {
         std::atomic<jar_t*> final_jar;                          //!< The final jar that was filled up
         std::atomic<bool> stop_flag;                            //!< Irregular stop
         const unsigned nthreads;                                //!< Number of consumer threads
-        bool pin_data;                                          //!< Pin data to memory
+        const bool pin_data;                                    //!< Pin data to memory
 
         /*!
         \brief Await jar fill level change
@@ -208,7 +215,7 @@ namespace iobuf {
         \param pinned Pin data to memory
         */
         inline explicit collection_t(unsigned threads, bool pinned=true)
-            : final_jar{nullptr}, stop_flag{false}, nthreads{threads}, pin_data(pinned)
+            : nthreads{threads}, pin_data(pinned)
         {
             jar_list.resize(num_initial_containers);
             for (auto& p : jar_list) {
@@ -216,10 +223,22 @@ namespace iobuf {
                 if (pin_data)
                     p->container.pin();
             }
+            reset();
+        }
+
+        inline void reset () noexcept
+        {
+            final_jar = nullptr;
+            stop_flag = false;
             head = jar_list[1].get();
-            for (unsigned i=1u; i<num_initial_containers-1u; i++)
+            unsigned num_containers = jar_list.size();
+            jar_list[0]->reset();
+            for (unsigned i=1u; i<num_containers-1u; i++) {
+                jar_list[i]->reset();
                 jar_list[i]->next = jar_list[i+1].get();
-            tail = jar_list[num_initial_containers-1u].get();
+            }
+            jar_list[num_containers-1u]->reset();
+            tail = jar_list[num_containers-1u].get();
             first = jar_list[0].get();
         }
 
@@ -395,6 +414,23 @@ namespace iobuf {
             assert((end > 0) && (end < container_size));
             level = await_data(jar, end);
             return {jar, end, level};
+        }
+    };
+
+    class resetter final {
+        collection_t& bufs;
+
+    public:
+        resetter(collection_t& buffers) noexcept
+            : bufs{buffers}
+        {}
+
+        resetter(const resetter&) = delete;
+        resetter& operator=(const resetter&) = delete;
+
+        ~resetter() noexcept
+        {
+            bufs.reset();
         }
     };
 } // namespace iobuf

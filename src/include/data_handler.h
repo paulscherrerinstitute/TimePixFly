@@ -175,6 +175,12 @@ class DataHandler final {
     std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
+    std::condition_variable reader_signal;      //!< Reader signal condition (uses memberMutex)
+    std::condition_variable reader_command;     //!< Reader command condition (uses memberMutex)
+    bool readerStartFlag = false;               //!< Start reader command flag
+    bool readerFinishedFlag = false;            //!< Reader finished signal
+    bool shutdownFlag = false;                  //!< Shutdown command flag
+
     /*!
     \brief Check stop requested flag
     \return True if stop was requested
@@ -220,66 +226,82 @@ class DataHandler final {
     {
         set_thread_name("tpx3app:reader");
 
-        double spinTime = .0;
-        double workTime = .0;
-        u64 readBytes = 0ul;
+        do {
+            {   // wait for readerStartFlag
+                std::unique_lock lock{memberMutex};
+                while (!shutdownFlag && !readerStartFlag)
+                    reader_command.wait(lock);
+                if (shutdownFlag)
+                    break;
+                readerStartFlag = false;
+            }
 
-        try {
-            {   // set thread affinity
-                int reader_cpu = global::instance->cpu_affinity.reader_cpu;
-                if (reader_cpu >= 0) {
-                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
-                    if (rval != 0)
-                        logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
+            double spinTime = .0;
+            double workTime = .0;
+            u64 readBytes = 0ul;
+
+            try {
+                {   // set thread affinity
+                    int reader_cpu = global::instance->cpu_affinity.reader_cpu;
+                    if (reader_cpu >= 0) {
+                        int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
+                        if (rval != 0)
+                            logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
+                    }
                 }
+
+                int bytesRead;
+                Timer timer;
+                iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
+
+                while (reservation.end) {
+                    assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
+                    char* data = reservation.jar->container.data;
+                    auto amount = reservation.end - reservation.start;
+
+                    timer.set();
+
+                    bytesRead = readData(&data[reservation.start], amount);
+                    // bytesRead will be 0 here if there's no more data or stop_collect is true
+
+                    workTime += timer.elapsed_reset();
+                    readBytes += bytesRead;
+
+                    // logger << "read " << bytesRead << " bytes of " << amount << log_debug;
+
+                    reservation.end = reservation.start + bytesRead;
+                    reservation = databuf.write_reservation(reservation);
+
+                    spinTime += timer.elapsed();
+                }
+
+            } catch (Poco::Exception& ex) {
+                stopNow();
+                logger << "reader exception: " << ex.displayText() << log_critical;
+                global::set_error(std::string{"reader: "} + ex.displayText());
+            } catch (std::exception& ex) {
+                stopNow();
+                logger << "reader exception: " << ex.what() << log_critical;
+                global::set_error(std::string{"reader: "} + ex.what());
             }
 
-            int bytesRead;
-            Timer timer;
-            iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
+            // reader stopped
+            {
+                std::lock_guard lock{memberMutex};
+                readTime += workTime;
+                readSpinTime += spinTime;
+                readTotalTime += (workTime + spinTime);
+                byteCount += readBytes;
 
-            while (reservation.end) {
-                assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
-                char* data = reservation.jar->container.data;
-                auto amount = reservation.end - reservation.start;
-
-                timer.set();
-
-                bytesRead = readData(&data[reservation.start], amount);
-                // bytesRead will be 0 here if there's no more data or stop_collect is true
-
-                workTime += timer.elapsed_reset();
-                readBytes += bytesRead;
-                
-                // logger << "read " << bytesRead << " bytes of " << amount << log_debug;
-
-                reservation.end = reservation.start + bytesRead;
-                reservation = databuf.write_reservation(reservation);
-
-                spinTime += timer.elapsed();
+                // send finished signal
+                readerFinishedFlag = true;
+                reader_signal.notify_one();
             }
 
-        } catch (Poco::Exception& ex) {
-            stopNow();
-            logger << "reader exception: " << ex.displayText() << log_critical;
-            global::set_error(std::string{"reader: "} + ex.displayText());
-        } catch (std::exception& ex) {
-            stopNow();
-            logger << "reader exception: " << ex.what() << log_critical;
-            global::set_error(std::string{"reader: "} + ex.what());
-        }
+            logger << "reader stopped" << log_debug;
+        } while (true);
 
-        // reader stopped
-        {
-            std::lock_guard lock{memberMutex};
-            readTime += workTime;
-            readSpinTime += spinTime;
-            readTotalTime += (workTime + spinTime);
-            byteCount += readBytes;
-        }
-
-        logger << "reader stopped" << log_debug;
-
+        logger << "reader shutdown" << log_debug;
     }
 
     /*!
@@ -449,6 +471,7 @@ public:
           analyserThreads(numChips)
     {
         logger << "DataHandler(" << numChips << ", " << queueSize << ')' << log_trace;
+        readerThread = std::thread([this]{this->readData();});
     }
 
     /*!
@@ -462,11 +485,24 @@ public:
     }
 
     /*!
-    \brief Request for all threads to stop
+    \brief Request for all threads to stop processing
     */
     inline void stopNow() noexcept
     {
         databuf.stop_now();
+    }
+
+    /*!
+    \brief Request shutdown for all threads
+    */
+    inline void shutdown() noexcept
+    {
+        {
+            std::lock_guard lock{memberMutex};
+            shutdownFlag = true;
+            reader_command.notify_one();
+        }
+        readerThread.join();
     }
 
     /*!
@@ -479,7 +515,11 @@ public:
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
         while (analyzerReady.load(std::memory_order_consume) != analyserThreads.size())
             std::this_thread::yield();
-        readerThread = std::thread([this]{this->readData();});
+        {   // unleash reader thread
+            std::lock_guard lock{memberMutex};
+            readerStartFlag = true;
+            reader_command.notify_one();
+        }
     }
 
     /*!
@@ -487,7 +527,13 @@ public:
     */
     inline void await()
     {
-        readerThread.join();
+        iobuf::resetter reset(databuf);
+        {   // wait for reader finished
+            std::unique_lock lock{memberMutex};
+            if (! readerFinishedFlag)
+                reader_signal.wait(lock);
+            readerFinishedFlag = false;
+        }
         dataStream.shutdown();
         dataStream.close();
         for (auto& thread : analyserThreads)

@@ -1130,6 +1130,7 @@ namespace {
             set_state(global::shutdown);
             StateHandler::stop();
             rest::stop_service(restService.get());
+            dataHandlerPtr->shutdown();
 
             if (global::instance->last_error.empty())
                 return Application::EXIT_OK;

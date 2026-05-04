@@ -247,6 +247,9 @@ namespace processing {
                         logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
                                << ", Output=" << output_uri << log_info;
 
+                        if (gvars.pix_map == nullptr)
+                                throw Poco::RuntimeException("Pixelmap uninitialized");
+
                         detptr.reset(new Detector{layout, *gvars.pix_map});
                         detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
