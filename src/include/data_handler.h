@@ -25,6 +25,7 @@ Code for processing raw data stream
 #include "thread_naming.h"
 #include "timing.h"
 #include "event_type.h"
+#include "thread_signal.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -175,11 +176,9 @@ class DataHandler final {
     std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
-    std::condition_variable reader_signal;      //!< Reader signal condition (uses memberMutex)
-    std::condition_variable reader_command;     //!< Reader command condition (uses memberMutex)
-    bool readerStartFlag = false;               //!< Start reader command flag
-    bool readerFinishedFlag = false;            //!< Reader finished signal
-    bool shutdownFlag = false;                  //!< Shutdown command flag
+    thread_signal::single<thread_signal::no_shutdown> all_shutdown;     //!< Shutdown now signal
+    thread_signal::single<thread_signal::no_shutdown> reader_finished;  //!< Reader finished sigal
+    thread_signal::single<thread_signal::with_shutdown> start_reader{all_shutdown}; //!< Reader start signal
 
     /*!
     \brief Check stop requested flag
@@ -227,14 +226,8 @@ class DataHandler final {
         set_thread_name("tpx3app:reader");
 
         do {
-            {   // wait for readerStartFlag
-                std::unique_lock lock{memberMutex};
-                while (!shutdownFlag && !readerStartFlag)
-                    reader_command.wait(lock);
-                if (shutdownFlag)
-                    break;
-                readerStartFlag = false;
-            }
+            if (start_reader.wait_reset())
+                break;
 
             double spinTime = .0;
             double workTime = .0;
@@ -294,8 +287,7 @@ class DataHandler final {
                 byteCount += readBytes;
 
                 // send finished signal
-                readerFinishedFlag = true;
-                reader_signal.notify_one();
+                reader_finished.send();
             }
 
             logger << "reader stopped" << log_debug;
@@ -497,11 +489,7 @@ public:
     */
     inline void shutdown() noexcept
     {
-        {
-            std::lock_guard lock{memberMutex};
-            shutdownFlag = true;
-            reader_command.notify_one();
-        }
+        all_shutdown.send();
         readerThread.join();
     }
 
@@ -515,11 +503,7 @@ public:
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
         while (analyzerReady.load(std::memory_order_consume) != analyserThreads.size())
             std::this_thread::yield();
-        {   // unleash reader thread
-            std::lock_guard lock{memberMutex};
-            readerStartFlag = true;
-            reader_command.notify_one();
-        }
+        start_reader.send();
     }
 
     /*!
@@ -528,12 +512,7 @@ public:
     inline void await()
     {
         iobuf::resetter reset(databuf);
-        {   // wait for reader finished
-            std::unique_lock lock{memberMutex};
-            if (! readerFinishedFlag)
-                reader_signal.wait(lock);
-            readerFinishedFlag = false;
-        }
+        reader_finished.wait_reset();
         dataStream.shutdown();
         dataStream.close();
         for (auto& thread : analyserThreads)
