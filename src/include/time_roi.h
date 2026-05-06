@@ -64,15 +64,6 @@ struct Detector final {
         }
 
         /*!
-        \brief Get number of detector chips
-        \return Number of detector chips
-        */
-        [[gnu::const]] inline unsigned NumChips() const noexcept
-        {
-                return layout.chip.size();
-        }
-
-        /*!
         \brief Constructor
         \param layout_ Detector layout reference
         \param pm Pixel index to energy point mapping
