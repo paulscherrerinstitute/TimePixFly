@@ -19,10 +19,8 @@ namespace processing {
     This function must be called before any other functions.
     The "Processing.ini" file in the current directory will be parsed, and
     corresponding Detector and Analysis objects will be created.
-
-    \param layout The detector layout
     */
-    void init(const detector_layout& layout);
+    void init();
 
     /*!
     \brief Purge an old period change interval off the period queue

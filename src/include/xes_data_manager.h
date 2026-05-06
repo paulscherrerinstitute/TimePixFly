@@ -98,7 +98,8 @@ namespace xes {
             : writer(xes::Writer::from_uri(uri)), detector(detector_), logger(Logger::get("Tpx3App"))
         {
             logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
-            const unsigned nThreads = detector.layout.chip.size();
+            const auto& gvars = *global::instance;
+            const unsigned nThreads = gvars.layout.chip.size();
             module_data.resize(nThreads);
 
             writerThread = std::thread([this, nThreads]() {

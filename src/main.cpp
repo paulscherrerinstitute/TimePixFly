@@ -994,7 +994,7 @@ namespace {
 
                 try {
                     if (streamFilePath.empty())
-                        processing::init(layout);
+                        processing::init();
 
                     logger << "listening at " << gvars.clientAddress.toString() << log_notice;
                     serverSocket.reset(new ServerSocket{gvars.clientAddress});

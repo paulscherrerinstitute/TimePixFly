@@ -16,8 +16,6 @@ Detector description
 \brief Constant detector data
 */
 struct Detector final {
-        const detector_layout& layout;  //!< Detector layout reference
-
         /*!
         \brief Histogramming mode
 
@@ -68,8 +66,8 @@ struct Detector final {
         \param layout_ Detector layout reference
         \param pm Pixel index to energy point mapping
         */
-        inline Detector(const detector_layout& layout_, const PixelMap& pm)
-            : layout{layout_}, pix_map{pm}
+        inline Detector(const PixelMap& pm)
+            : pix_map{pm}
         {}
 
         ~Detector() = default;

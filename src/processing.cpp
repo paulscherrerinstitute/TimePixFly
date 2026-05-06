@@ -49,7 +49,7 @@ namespace {
                 */
                 inline Analysis(const Detector& det, const std::string& uri)
                         : dataManager{det, uri},
-                          save_point(det.layout.chip.size(), global::instance->save_interval),
+                          save_point(global::instance->layout.chip.size(), global::instance->save_interval),
                           detector{det},
                           TRoiStep_inv{1.f/detector.TRoiStep}
                 {}
@@ -213,7 +213,7 @@ namespace {
 
 namespace processing {
 
-        void init(const detector_layout& layout)
+        void init()
         {
                 const auto& gvars = *global::instance;
                 std::string output_uri = gvars.output_uri;
@@ -238,7 +238,7 @@ namespace processing {
                         PixelIndexToEp::from(*pmap, in);
                         global::instance->pix_map = pmap->to_map();
 
-                        detptr.reset(new Detector{layout, *gvars.pix_map});
+                        detptr.reset(new Detector{*gvars.pix_map});
                         detptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
                         auto TRoiStart = gvars.TRoiStart.load();
@@ -250,7 +250,7 @@ namespace processing {
                         if (gvars.pix_map == nullptr)
                                 throw Poco::RuntimeException("Pixelmap uninitialized");
 
-                        detptr.reset(new Detector{layout, *gvars.pix_map});
+                        detptr.reset(new Detector{*gvars.pix_map});
                         detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
