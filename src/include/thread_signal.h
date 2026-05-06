@@ -12,11 +12,23 @@ Provide inter thread signals
 #include <mutex>
 #include <atomic>
 #include <vector>
+#include <climits>
+#include <cassert>
 
 namespace thread_signal {
 
+    template<bool type> class multi;
+
+    template <typename T>
+    constexpr unsigned bit_size(const T& value) noexcept
+    {
+        return sizeof(value) * CHAR_BIT;
+    }
+
     static constexpr bool with_shutdown = true;
     static constexpr bool no_shutdown = false;
+    static constexpr bool send = true;
+    static constexpr bool reset_with_shutdown = false;
 
     class base {
       protected:
@@ -37,9 +49,9 @@ namespace thread_signal {
 
     /*!
     \brief Signal from single thread
-    \tparam with_shutdown Support shutdown signal
+    \tparam kind With, or no shutdown
     */
-    template<bool with_shutdown=false>
+    template<bool kind=with_shutdown>
     class single final : base {
         std::vector<base*> dep;             //!< Dependent signals
         std::atomic_bool signal = false;    //!< Signal flag
@@ -95,7 +107,8 @@ namespace thread_signal {
             signal = false;
         }
 
-        friend single<true>;
+        friend single<with_shutdown>;
+        friend multi<thread_signal::reset_with_shutdown>;
     };
 
     template<>
@@ -166,9 +179,11 @@ namespace thread_signal {
         }
     };
 
+    template<bool kind=send>
     class multi final : base {
-        unsigned sent = 0u;
         const unsigned nthreads;
+        std::atomic<unsigned> sendcnt = 0u;
+        bool signal = false;
 
     public:
         inline explicit multi(unsigned num_threads) noexcept
@@ -177,32 +192,84 @@ namespace thread_signal {
 
         inline void send() noexcept
         {
-            std::lock_guard lck{lock};
-            if (++sent == nthreads)
+            if (++sendcnt == nthreads) {
+                std::lock_guard lck{lock};
+                signal = true;
                 notify_all();
+            }
         }
 
         inline void wait_reset() noexcept
         {
             std::unique_lock lck{lock};
-            while (sent != nthreads)
+            while (! signal)
                 cond.wait(lck);
-            sent = 0u;
+            signal = false;
+            sendcnt = 0u;
         }
 
         inline void wait() noexcept
         {
             std::unique_lock lck{lock};
-            while (sent != nthreads)
+            while (! signal)
                 cond.wait(lck);
         }
 
         inline void reset() noexcept
         {
-            sent = 0u;
+            signal = false;
+            sendcnt = 0u;
         }
     };
 
+    template<>
+    class multi<reset_with_shutdown> final : base {
+        single<false>& shutdown;        //!< Shutdown signal
+        const unsigned nthreads;
+        unsigned signalbits = 0u;
+
+    public:
+        inline explicit multi(single<false>& shutdown_signal, unsigned num_threads) noexcept
+            : shutdown{shutdown_signal}, nthreads{num_threads}
+        {
+            assert(num_threads <= bit_size(signalbits));
+            shutdown.dep.push_back(this);
+        }
+
+        inline void send() noexcept
+        {
+            std::lock_guard lck{lock};
+            signalbits = (1ul << nthreads) - 1ul;
+            notify_all();
+        }
+
+        inline bool wait_reset(unsigned thread) noexcept
+        {
+            auto mask = 1u << thread;
+            bool ss;
+            std::unique_lock lck{lock};
+            while (! (signalbits & mask) && !(ss = shutdown.signal))
+                cond.wait(lck);
+            signalbits ^= mask;
+            return ss;
+        }
+
+        inline bool wait(unsigned thread) noexcept
+        {
+            auto mask = 1u << thread;
+            bool ss;
+            std::unique_lock lck{lock};
+            while (! (signalbits & mask) && !(ss = shutdown.signal))
+                cond.wait(lck);
+            return ss;
+        }
+
+        inline void reset(unsigned thread) noexcept
+        {
+            auto mask = 1u << thread;
+            signalbits &= ~mask;
+        }
+    };
 } // namespace signal
 
 #endif // THREAD_SGINLA_H

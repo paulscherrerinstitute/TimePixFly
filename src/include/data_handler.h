@@ -176,9 +176,12 @@ class DataHandler final {
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
     thread_signal::single<thread_signal::no_shutdown> all_shutdown;     //!< Shutdown now signal
+
     thread_signal::single<thread_signal::no_shutdown> reader_finished;  //!< Reader finished sigal
     thread_signal::single<thread_signal::with_shutdown> start_reader{all_shutdown}; //!< Reader start signal
-    thread_signal::multi analysis_ready;
+
+    thread_signal::multi<thread_signal::send> analysis_finished;        //!< All analysis threads are ready signal
+    thread_signal::multi<thread_signal::reset_with_shutdown> start_analysis; //!< Analysis start signal
 
     /*!
     \brief Check stop requested flag
@@ -225,6 +228,15 @@ class DataHandler final {
     {
         set_thread_name("tpx3app:reader");
 
+        {   // set thread affinity
+            int reader_cpu = global::instance->cpu_affinity.reader_cpu;
+            if (reader_cpu >= 0) {
+                int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
+                if (rval != 0)
+                    logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
+            }
+        }
+
         do {
             if (start_reader.wait_reset())
                 break;
@@ -234,15 +246,6 @@ class DataHandler final {
             u64 readBytes = 0ul;
 
             try {
-                {   // set thread affinity
-                    int reader_cpu = global::instance->cpu_affinity.reader_cpu;
-                    if (reader_cpu >= 0) {
-                        int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), reader_cpu);
-                        if (rval != 0)
-                            logger << "reader: set affinity - " << cpu_mask::error(rval) << log_error;
-                    }
-                }
-
                 int bytesRead;
                 Timer timer;
                 iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
@@ -285,11 +288,9 @@ class DataHandler final {
                 readSpinTime += spinTime;
                 readTotalTime += (workTime + spinTime);
                 byteCount += readBytes;
-
-                // send finished signal
-                reader_finished.send();
             }
 
+            reader_finished.send();
             logger << "reader stopped" << log_debug;
         } while (true);
 
@@ -304,85 +305,115 @@ class DataHandler final {
     {
         set_thread_name("tpx3app:analyze");
 
+        {   // set thread affinity}
+            int analysis_cpu = global::instance->cpu_affinity.get_cpu(threadId);
+            if (analysis_cpu >= 0) {
+                int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), analysis_cpu);
+                if (rval != 0)
+                    logger << threadId << ": set affinity - " << cpu_mask::error(rval) << log_error;
+            }
+        }
+
         const unsigned chipIndex = threadId;
 
-        uint64_t tdcHits = 0ul;
-        uint64_t toaHits = 0ul;
-        double spinTime = .0;
-        double workPassOneTime = .0;
-        double workPassTwoTime = .0;
-        double workPassThreeTime = .0;
+        // Reorder buffer
+        std::vector<event_t> heap(reorderSize);
 
-        try {
+        do {
+            if (start_analysis.wait_reset(threadId))
+                break;
 
-            {   // set thread affinity}
-                int analysis_cpu = global::instance->cpu_affinity.get_cpu(threadId);
-                if (analysis_cpu >= 0) {
-                    int rval = cpu_mask::set_affinity(cpu_mask::get_tid(), analysis_cpu);
-                    if (rval != 0)
-                        logger << threadId << ": set affinity - " << cpu_mask::error(rval) << log_error;
-                }
-            }
+            uint64_t tdcHits = 0ul;
+            uint64_t toaHits = 0ul;
+            double spinTime = .0;
+            double workPassOneTime = .0;
+            double workPassTwoTime = .0;
+            double workPassThreeTime = .0;
 
-            // Reorder buffer
-            std::vector<event_t> heap(reorderSize);
-            size_t heap_sz = 0ul;
+            try {
 
-            // Last seen TDC event timestamp
-            uint64_t tdc_ts = 0u;
+                // Reorder buffer
+                size_t heap_sz = 0ul;
 
-            // Period counter
-            period_type period = 0u;
+                // Last seen TDC event timestamp
+                uint64_t tdc_ts = 0u;
 
-            // We are ready
-            analysis_ready.send();
+                // Period counter
+                period_type period = 0u;
 
-            Timer timer;
+                Timer timer;
 
-            iobuf::subreservation_t subreservation{databuf, chipIndex};
-            subreservation.update();
+                iobuf::subreservation_t subreservation{databuf, chipIndex};
+                subreservation.update();
 
-            spinTime += timer.elapsed_reset();
+                spinTime += timer.elapsed_reset();
 
-            while (subreservation.rest) {
-                // logger << threadId << ": subreservation p" << subreservation.pos << " r" << subreservation.rest << " c" << subreservation.consume << log_debug;
-                assert(subreservation.consume > 0);
-                event_iterator events{subreservation};
-                event_t ev;
+                while (subreservation.rest) {
+                    // logger << threadId << ": subreservation p" << subreservation.pos << " r" << subreservation.rest << " c" << subreservation.consume << log_debug;
+                    assert(subreservation.consume > 0);
+                    event_iterator events{subreservation};
+                    event_t ev;
 
-                // First stage: extract TDC/TOA events and fill up heap
-                // This stage is only active for the very first buffer(s)
-                while(heap_sz < reorderSize) {
-                    if (! events.next(ev)) {
-                        goto no_more_events;
-                        workPassOneTime += timer.elapsed_reset();
+                    // First stage: extract TDC/TOA events and fill up heap
+                    // This stage is only active for the very first buffer(s)
+                    while(heap_sz < reorderSize) {
+                        if (! events.next(ev)) {
+                            goto no_more_events;
+                            workPassOneTime += timer.elapsed_reset();
+                        }
+                        heap[heap_sz++] = ev;
+                        std::push_heap(heap.data(), heap.data()+heap_sz);
                     }
-                    heap[heap_sz++] = ev;
-                    std::push_heap(heap.data(), heap.data()+heap_sz);
-                }
 
-                while (tdc_ts == 0ul) {
-                    std::pop_heap(heap.data(), heap.data()+heap_sz);
-                    const auto& el = heap[--heap_sz];
-                    if (el.is_tdc) {
-                        tdc_ts = el.ts;
-                        tdcHits++;
-                    } else {
-                        toaHits++;
+                    while (tdc_ts == 0ul) {
+                        std::pop_heap(heap.data(), heap.data()+heap_sz);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            tdc_ts = el.ts;
+                            tdcHits++;
+                        } else {
+                            toaHits++;
+                        }
+                        if (! events.next(ev)) {
+                            workPassOneTime += timer.elapsed_reset();
+                            goto no_more_events;
+                        }
+                        heap[heap_sz++] = ev;
+                        std::push_heap(heap.data(), heap.data()+heap_sz);
                     }
-                    if (! events.next(ev)) {
-                        workPassOneTime += timer.elapsed_reset();
-                        goto no_more_events;
-                    }
-                    heap[heap_sz++] = ev;
-                    std::push_heap(heap.data(), heap.data()+heap_sz);
-                }
 
-                workPassOneTime += timer.elapsed_reset();
+                    workPassOneTime += timer.elapsed_reset();
 
-                // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
-                // This stage is the work horse
-                do {
+                    // Third stage: handle earlier events while extracting and buffering later TDC/TOA events
+                    // This stage is the work horse
+                    do {
+                        std::pop_heap(heap.data(), heap.data()+heap_sz);
+                        const auto& el = heap[--heap_sz];
+                        if (el.is_tdc) {
+                            tdcHits++;
+                            processing::purgePeriod(chipIndex, period);
+                            tdc_ts = el.ts;
+                            period++;
+                        } else {
+                            toaHits++;
+                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                        }
+                        if (! events.next(ev))
+                            break;
+                        heap[heap_sz++] = ev;
+                        std::push_heap(heap.data(), heap.data()+heap_sz);
+                    } while (true);
+
+                    workPassTwoTime += timer.elapsed_reset();
+                    // no more TOA events
+
+                no_more_events:
+                    subreservation.update();
+                    spinTime += timer.elapsed_reset();
+                } // while reservation is not fully processed
+
+                // Forth stage: handle last events
+                while (heap_sz > 0ul) {
                     std::pop_heap(heap.data(), heap.data()+heap_sz);
                     const auto& el = heap[--heap_sz];
                     if (el.is_tdc) {
@@ -394,38 +425,21 @@ class DataHandler final {
                         toaHits++;
                         processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                     }
-                    if (! events.next(ev))
-                        break;
-                    heap[heap_sz++] = ev;
-                    std::push_heap(heap.data(), heap.data()+heap_sz);
-                } while (true);
-
-                workPassTwoTime += timer.elapsed_reset();
-                // no more TOA events
-
-              no_more_events:
-                subreservation.update();
-                spinTime += timer.elapsed_reset();
-            } // while reservation is not fully processed
-
-            // Forth stage: handle last events
-            while (heap_sz > 0ul) {
-                std::pop_heap(heap.data(), heap.data()+heap_sz);
-                const auto& el = heap[--heap_sz];
-                if (el.is_tdc) {
-                    tdcHits++;
-                    processing::purgePeriod(chipIndex, period);
-                    tdc_ts = el.ts;
-                    period++;
-                } else {
-                    toaHits++;
-                    processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                 }
+
+                processing::purgePeriod(chipIndex, period, true);
+                workPassThreeTime += timer.elapsed();
+
+            } catch (Poco::Exception& ex) {
+                stopNow();
+                logger << threadId << ": analyser exception: " << ex.displayText() << log_critical;
+                global::set_error(ex.displayText());
+            } catch (std::exception& ex) {
+                stopNow();
+                logger << threadId << ": analyser exception: " << ex.what() << log_critical;
+                global::set_error(ex.what());
             }
 
-            processing::purgePeriod(chipIndex, period, true);
-
-            workPassThreeTime += timer.elapsed();
             auto workTime = workPassOneTime + workPassTwoTime + workPassThreeTime;
             {
                 std::lock_guard lock{memberMutex};
@@ -438,17 +452,12 @@ class DataHandler final {
                 analyseWorkTime += workTime;
             }
 
+            analysis_finished.send();
             logger << threadId << ": Processed " << toaHits << " TOA, " << tdcHits << " TDC, work time " << workTime
-                   << ", rate " << ((toaHits + tdcHits)/workTime) << log_info;
-        } catch (Poco::Exception& ex) {
-            stopNow();
-            logger << threadId << ": analyser exception: " << ex.displayText() << log_critical;
-            global::set_error(ex.displayText());
-        } catch (std::exception& ex) {
-            stopNow();
-            logger << threadId << ": analyser exception: " << ex.what() << log_critical;
-            global::set_error(ex.what());
-        }
+                    << ", rate " << ((toaHits + tdcHits)/workTime) << log_info;
+        } while (true);
+
+        logger << threadId << ": analysis shutdown" << log_debug;
     }
 
 public:
@@ -460,9 +469,11 @@ public:
     */
     inline DataHandler(Logger& log, unsigned numChips, unsigned long queueSize)
         : dataStream{}, logger{log}, databuf{numChips}, reorderSize{queueSize},
-          analyserThreads(numChips), analysis_ready{numChips}
+          analyserThreads(numChips), analysis_finished{numChips}, start_analysis(all_shutdown, numChips)
     {
         logger << "DataHandler(" << numChips << ", " << queueSize << ')' << log_trace;
+        for (unsigned i=0; i<analyserThreads.size(); i++)
+            analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
         readerThread = std::thread([this]{this->readData();});
     }
 
@@ -491,6 +502,8 @@ public:
     {
         all_shutdown.send();
         readerThread.join();
+        for (auto& thread : analyserThreads)
+            thread.join();
     }
 
     /*!
@@ -498,9 +511,7 @@ public:
     */
     inline void run_async()
     {
-        for (unsigned i=0; i<analyserThreads.size(); i++)
-            analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
-        analysis_ready.wait_reset();
+        start_analysis.send();
         start_reader.send();
     }
 
@@ -513,8 +524,7 @@ public:
         reader_finished.wait_reset();
         dataStream.shutdown();
         dataStream.close();
-        for (auto& thread : analyserThreads)
-            thread.join();
+        analysis_finished.wait_reset();
         processing::stop();
     }
 
