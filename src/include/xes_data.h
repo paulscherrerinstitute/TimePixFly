@@ -18,11 +18,7 @@ namespace xes {
     \brief TDSpectra data aggregated over one data saving period
     */
     struct Data final {
-            const Detector* detector = nullptr; //!< This data refers to detector
-
-    //  Modified type of vector to check speed in the XAS mode (when there is no division of pixels over a few points)
-            using histo_type = std::vector<float>;    //!< Histogram type
-            // using histo_type = std::vector<float>;
+            using histo_type = std::vector<float>; //!< Histogram type
             histo_type TDSpectra;           //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
             int BeforeRoi = 0;              //!< Number of events before roi
@@ -34,11 +30,11 @@ namespace xes {
 
             /*!
             \brief Create TDSpectra data container
-            The size of the container will be be det.TRoiN * det.energy_points.npoints
-            \param det Detector data
+            The size of the container will be be troi.TRoiN * pix_map->npoints
+            \param troi Time ROI
             */
-            inline explicit Data(const Detector& det)
-                : detector(&det), TDSpectra(det.TRoiN * det.pix_map.npoints)
+            inline explicit Data(const TimeRoi& troi)
+                : TDSpectra(troi.TRoiN * global::instance->pix_map->npoints)
             {}
 
             inline Data() = default;                        //!< Default constructor
@@ -96,13 +92,12 @@ namespace xes {
 
             /*!
             \brief Initialize TDSpectra
-            The size of the container will be be det.TRoiN * det.energy_points.npoints
-            \param det Detector data
+            The size of the container will be be troi.TRoiN * pix_map->npoints
+            \param troi Time ROI
             */
-            inline void Init(const Detector& det)
+            inline void Init(const TimeRoi& troi)
             {
-                detector = &det;
-                TDSpectra.resize(det.TRoiN * det.pix_map.npoints);
+                TDSpectra.resize(troi.TRoiN * global::instance->pix_map->npoints);
             }
 
             /*!

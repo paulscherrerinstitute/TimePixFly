@@ -15,7 +15,7 @@ Detector description
 /*!
 \brief Constant detector data
 */
-struct Detector final {
+struct TimeRoi final {
         /*!
         \brief Histogramming mode
 
@@ -33,8 +33,6 @@ struct Detector final {
         // u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
         u64 TRoiN = 5000;                               //!< Number of histogram bins
         u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
-
-        const PixelMap& pix_map;                        //!< Abstract pixel index to energy point mapping
 
         /*!
         \brief Set region of interest within period interval
@@ -60,17 +58,6 @@ struct Detector final {
                 TRoiEnd = TRoiStart + TRoiStep * TRoiN;
                 logger << "Detector TRoiStart=" << TRoiStart << " TRoiStep=" << TRoiStep << " TRoiN=" << TRoiN << " TRoiEnd=" << TRoiEnd << log_debug;
         }
-
-        /*!
-        \brief Constructor
-        \param layout_ Detector layout reference
-        \param pm Pixel index to energy point mapping
-        */
-        inline Detector(const PixelMap& pm)
-            : pix_map{pm}
-        {}
-
-        ~Detector() = default;
 };  // end type Detector
 
 #endif

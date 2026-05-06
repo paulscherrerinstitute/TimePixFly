@@ -24,7 +24,7 @@ namespace {
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
 
-        std::unique_ptr<Detector> detptr;       //!< Pointer to detector object, created by init()
+        std::unique_ptr<TimeRoi> troiptr;       //!< Pointer to time ROI object, created by init()
 
         /*!
         \brief Analysis data and operations
@@ -39,7 +39,8 @@ namespace {
                 u8 active = 0;                          //!< active data (the histogram that is beeing built up)
 
                 std::vector<period_type> save_point;    //!< Next period for which a file is written, per chip
-                const Detector& detector;               //!< Reference to constant Detector data
+                const TimeRoi& time_roi;               //!< Reference to constant time ROI data
+                const PixelMap& pix_map;                //!< Reference to pixel mapping
                 const float TRoiStep_inv;               //!< 1. / TRoiStep
 
                 /*!
@@ -47,11 +48,11 @@ namespace {
                 \param det Constant detector data
                 \param uri Output file:name (without period and .xes), or tcp:host:port
                 */
-                inline Analysis(const Detector& det, const std::string& uri)
+                inline Analysis(const TimeRoi& det, const std::string& uri)
                         : dataManager{det, uri},
                           save_point(global::instance->layout.chip.size(), global::instance->save_interval),
-                          detector{det},
-                          TRoiStep_inv{1.f/detector.TRoiStep}
+                          time_roi{det}, pix_map{*global::instance->pix_map},
+                          TRoiStep_inv{1.f/time_roi.TRoiStep}
                 {}
 
                 /*!
@@ -74,9 +75,8 @@ namespace {
                 inline void Register(Data& data, PixelIndex index, int TimePoint) const noexcept
                 {
 
-
 //                        logger << "Register(" << (int)dataIndex << ", " << index.chip << ':' << index.flat_pixel << ", " << TimePoint << ", " << TOT << ')' << log_trace;
-                        auto map_range = detector.pix_map[index];
+                        auto map_range = pix_map[index];
 
                         // const float clb = detector.Calibrate(PixelIndex, TimePoint);
                         for (const auto& part : map_range) {
@@ -93,7 +93,7 @@ namespace {
                                 //int iii=index.flat_pixel;
 
                                 //std::cout<<iii<<" pep "<<part.energy_point<<"\n";
-                                data.TDSpectra[TimePoint * detector.pix_map.npoints + part.energy_point] += part.weight; // / clb;
+                                data.TDSpectra[TimePoint * pix_map.npoints + part.energy_point] += part.weight; // / clb;
                                 //data.Energy += part.weight;   // DEBUG ENERGY
                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,10 +129,10 @@ namespace {
 
                         // const u64 FullToA = TOAMode ? reltoa : tot;
 
-                        if (reltoa < (int64_t)detector.TRoiStart) {
+                        if (reltoa < (int64_t)time_roi.TRoiStart) {
                                 data.BeforeRoi++;
 //                                logger << index.chip << ": " << FullToA << " before ToA ROI " << detector.TRoiStart << log_debug;
-                        } else if (reltoa >= (int64_t)detector.TRoiEnd) {
+                        } else if (reltoa >= (int64_t)time_roi.TRoiEnd) {
                                 data.AfterRoi++;
 //                                logger << index.chip << ": " << FullToA << " after ToA ROI " << detector.TRoiEnd << log_debug;
                         } else { // if ((tot > detector.TOTRoiStart) && (tot < detector.TOTRoiEnd)) {
@@ -141,7 +141,7 @@ namespace {
 
                                 // if constexpr (TOAMode == true) {
                                         //have changed here in order to check speed in the XAS mode when information about pixels can be ignored
-                                        const int TP = static_cast<int>((reltoa - detector.TRoiStart) * TRoiStep_inv);
+                                        const int TP = static_cast<int>((reltoa - time_roi.TRoiStart) * TRoiStep_inv);
                                         Register(data, index, TP);
                                         //RegisterXAS(data, index, TP, tot);
 
@@ -207,7 +207,7 @@ namespace {
 
         }; // end type Analysis
 
-        std::unique_ptr<Analysis<Detector::TOAMode>> analysis;    //!< Analysis object
+        std::unique_ptr<Analysis<TimeRoi::TOAMode>> analysis;    //!< Analysis object
 
 } // anonymous namespace
 
@@ -238,8 +238,8 @@ namespace processing {
                         PixelIndexToEp::from(*pmap, in);
                         global::instance->pix_map = pmap->to_map();
 
-                        detptr.reset(new Detector{*gvars.pix_map});
-                        detptr->SetTimeROI(TRStart, TRStep, TRN);
+                        troiptr.reset(new TimeRoi{});
+                        troiptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
                         auto TRoiStart = gvars.TRoiStart.load();
                         auto TRoiStep = gvars.TRoiStep.load();
@@ -250,11 +250,11 @@ namespace processing {
                         if (gvars.pix_map == nullptr)
                                 throw Poco::RuntimeException("Pixelmap uninitialized");
 
-                        detptr.reset(new Detector{*gvars.pix_map});
-                        detptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
+                        troiptr.reset(new TimeRoi{});
+                        troiptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
-                analysis.reset(new Analysis<Detector::TOAMode>{*detptr, output_uri});
+                analysis.reset(new Analysis<TimeRoi::TOAMode>{*troiptr, output_uri});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period, bool final)

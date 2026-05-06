@@ -44,9 +44,10 @@ namespace {
             if (! OutFile.good())
                 throw std::ios_base::failure("xes::FileWriter::write unable to open file - " + path);
 
+            const auto& gvars = *global::instance;
             const auto& TDSpectra = data.TDSpectra;
-            const auto NumEnergyPoints = data.detector->pix_map.npoints;
-            const auto TRoiN = data.detector->TRoiN;
+            const auto NumEnergyPoints = gvars.pix_map->npoints;
+            const auto TRoiN = gvars.TRoiN.load();
             for (std::remove_cv_t<decltype(NumEnergyPoints)> i=0; i<NumEnergyPoints; i++) {
                 for (std::remove_cv_t<decltype(TRoiN)> j=0; j<TRoiN; j++) {
                         OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
@@ -144,20 +145,20 @@ namespace {
         }
         when: at start of measurement
         Resets \ref last_period
-        \param detector Detector information reference
+        \param time_roi Time ROI
         */
-        inline void start(const Detector& detector) override
+        inline void start(const TimeRoi& time_roi) override
         {
             Poco::Net::SocketStream send{dataReceiver};
             {
                 Poco::JSON::PrintHandler json{send};
                 json.startObject();
                 json.key("type"); json.value(std::string{"StartFrame"});
-                json.key("Mode"); json.value(std::string{detector.TOAMode ? "TOA" : "TOT"});
-                json.key("TRoiStart"); json.value(detector.TRoiStart);
-                json.key("TRoiStep"); json.value(detector.TRoiStep);
-                json.key("TRoiN"); json.value(detector.TRoiN);
-                json.key("NumEnergyPoints"); json.value(detector.pix_map.npoints);
+                json.key("Mode"); json.value(std::string{time_roi.TOAMode ? "TOA" : "TOT"});
+                json.key("TRoiStart"); json.value(time_roi.TRoiStart);
+                json.key("TRoiStep"); json.value(time_roi.TRoiStep);
+                json.key("TRoiN"); json.value(time_roi.TRoiN);
+                json.key("NumEnergyPoints"); json.value(global::instance->pix_map->npoints);
                 json.key("save_interval"); json.value(global::instance->save_interval);
                 json.endObject();
             }
@@ -205,7 +206,7 @@ namespace xes {
     Writer::~Writer()
     {}
 
-    void Writer::start([[maybe_unused]] const Detector& detector)
+    void Writer::start([[maybe_unused]] const TimeRoi& time_roi)
     {}
 
     void Writer::stop([[maybe_unused]] const std::string& error_message)

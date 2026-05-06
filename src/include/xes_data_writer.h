@@ -26,9 +26,9 @@ namespace xes {
 
         /*!
         \brief Start data writing
-        \param detector Detector
+        \param time_roi Time ROI
         */
-        virtual void start(const Detector& detector);
+        virtual void start(const TimeRoi& time_roi);
 
         /*!
         \brief Stop data writing

@@ -86,16 +86,16 @@ namespace xes {
         std::thread writerThread;               //!< Data aggregate+write thread
         std::unique_ptr<xes::Writer> writer;    //!< Writer for file or tcp
 
-        const Detector& detector;               //!< Detector reference
+        const TimeRoi& time_roi;               //!< Detector reference
         Logger& logger;                         //!< Logger reference
 
         /*!
         \brief Constructor
-        \param detector_ Detector data reference
+        \param time_roi_ Detector data reference
         \param uri Output file:name (without period and .xes), or tcp:host:port
         */
-        inline Manager(const Detector& detector_, const std::string& uri)
-            : writer(xes::Writer::from_uri(uri)), detector(detector_), logger(Logger::get("Tpx3App"))
+        inline Manager(const TimeRoi& time_roi_, const std::string& uri)
+            : writer(xes::Writer::from_uri(uri)), time_roi(time_roi_), logger(Logger::get("Tpx3App"))
         {
             logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
             const auto& gvars = *global::instance;
@@ -125,7 +125,7 @@ namespace xes {
                         }
                     }
 
-                    writer->start(detector);
+                    writer->start(time_roi);
 
                     while (true) {
                         Timer t1{};
@@ -283,7 +283,7 @@ namespace xes {
 
             // create a new histogram
             // NOTE: this operation MUST NOT change memory location of other data
-            mdata.pool.emplace_front(detector);
+            mdata.pool.emplace_front(time_roi);
             data = &mdata.pool.front();
 
         fill_cache_return:
