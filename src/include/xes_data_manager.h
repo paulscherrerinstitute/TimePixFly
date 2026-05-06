@@ -1,6 +1,5 @@
 #pragma once
 
-#include "logging.h"
 #ifndef XES_DATA_MANAGER_H
 #define XES_DATA_MANAGER_H
 

@@ -4,7 +4,6 @@ Event analysis code
 */
 
 #include <iostream>
-#include <cmath>
 
 #include "config_file.h"
 #include "xes_data_manager.h"

@@ -128,6 +128,11 @@ namespace iobuf {
             : next{next_}, done{0u}, level{0}
         {}
 
+        /*!
+        \brief Reset the data jar
+
+        This puts the jar into a virgin state.
+        */
         inline void reset() noexcept
         {
             next = nullptr;
@@ -226,6 +231,11 @@ namespace iobuf {
             reset();
         }
 
+        /*!
+        \brief Reset buffer collection
+
+        This puts the collection into a virgin state.
+        */
         inline void reset () noexcept
         {
             final_jar = nullptr;
@@ -417,10 +427,19 @@ namespace iobuf {
         }
     };
 
+    /*!
+    \brief IO buffer collection resetter
+
+    This will call the buffer collection reset operation on destruction.
+    */
     class resetter final {
-        collection_t& bufs;
+        collection_t& bufs; //!< Buffer collection to reset
 
     public:
+        /*!
+        \brief Construct buffer resetter
+        \param buffers Buffer collection to reset
+        */
         resetter(collection_t& buffers) noexcept
             : bufs{buffers}
         {}
@@ -428,6 +447,11 @@ namespace iobuf {
         resetter(const resetter&) = delete;
         resetter& operator=(const resetter&) = delete;
 
+        /*!
+        \brief Destruct buffer resetter
+
+        This will reset the buffer collection.
+        */
         ~resetter() noexcept
         {
             bufs.reset();
