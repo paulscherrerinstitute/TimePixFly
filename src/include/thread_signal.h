@@ -28,6 +28,11 @@ namespace thread_signal {
         {
             cond.notify_one();
         }
+
+        void notify_all()
+        {
+            cond.notify_all();
+        }
     };
 
     /*!
@@ -54,7 +59,7 @@ namespace thread_signal {
         {
             signal = true;
             for (auto* sig : dep)
-                sig->notify_one();
+                sig->notify_all();
         }
         
         /*!
@@ -118,7 +123,7 @@ namespace thread_signal {
         {
             std::lock_guard lck{lock};
             signal = true;
-            notify_one();
+            notify_all();
         }
         
         /*!
@@ -174,7 +179,7 @@ namespace thread_signal {
         {
             std::lock_guard lck{lock};
             if (++sent == nthreads)
-                notify_one();
+                notify_all();
         }
 
         inline void wait_reset() noexcept
@@ -182,6 +187,18 @@ namespace thread_signal {
             std::unique_lock lck{lock};
             while (sent != nthreads)
                 cond.wait(lck);
+            sent = 0u;
+        }
+
+        inline void wait() noexcept
+        {
+            std::unique_lock lck{lock};
+            while (sent != nthreads)
+                cond.wait(lck);
+        }
+
+        inline void reset() noexcept
+        {
             sent = 0u;
         }
     };

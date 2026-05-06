@@ -173,12 +173,12 @@ class DataHandler final {
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
     // std::mutex coutMutex;                    //!< Output mutex for debugging
     std::mutex memberMutex;                     //!< Protection for member variables
-    std::atomic<unsigned> analyzerReady = 0;    //!< Counter for ready event analyzer threads
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
 
     thread_signal::single<thread_signal::no_shutdown> all_shutdown;     //!< Shutdown now signal
     thread_signal::single<thread_signal::no_shutdown> reader_finished;  //!< Reader finished sigal
     thread_signal::single<thread_signal::with_shutdown> start_reader{all_shutdown}; //!< Reader start signal
+    thread_signal::multi analysis_ready;
 
     /*!
     \brief Check stop requested flag
@@ -335,7 +335,7 @@ class DataHandler final {
             period_type period = 0u;
 
             // We are ready
-            analyzerReady++;
+            analysis_ready.send();
 
             Timer timer;
 
@@ -460,7 +460,7 @@ public:
     */
     inline DataHandler(Logger& log, unsigned numChips, unsigned long queueSize)
         : dataStream{}, logger{log}, databuf{numChips}, reorderSize{queueSize},
-          analyserThreads(numChips)
+          analyserThreads(numChips), analysis_ready{numChips}
     {
         logger << "DataHandler(" << numChips << ", " << queueSize << ')' << log_trace;
         readerThread = std::thread([this]{this->readData();});
@@ -498,11 +498,9 @@ public:
     */
     inline void run_async()
     {
-        analyzerReady.store(0);
         for (unsigned i=0; i<analyserThreads.size(); i++)
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
-        while (analyzerReady.load(std::memory_order_consume) != analyserThreads.size())
-            std::this_thread::yield();
+        analysis_ready.wait_reset();
         start_reader.send();
     }
 
