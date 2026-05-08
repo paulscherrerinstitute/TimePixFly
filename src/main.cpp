@@ -99,7 +99,7 @@ namespace {
             fd = open(lock_file.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666);
             if (fd < 0) {
                 if (errno == EEXIST) {
-                    throw Poco::RuntimeException(std::string{"lockfile exists at "} + lock_file + ", is another tpx2app already running?");
+                    throw Poco::RuntimeException(std::string{"lockfile exists at "} + lock_file + ", is another tpx3app already running?");
                 } else {
                     throw Poco::RuntimeException(std::string{"unable to create lockfile at "} + lock_file);
                 }
@@ -107,7 +107,7 @@ namespace {
             if (flock(fd, LOCK_EX) != 0) {
                 close(fd);
                 fd = -1;
-                throw Poco::RuntimeException(std::string{"unable to lock file at "} + lock_file + ", is another tpx2app already running?");
+                throw Poco::RuntimeException(std::string{"unable to lock file at "} + lock_file + ", is another tpx3app already running?");
             }
             std::atexit(Lockfile::atexit);
             std::ostringstream oss;
