@@ -47,12 +47,14 @@ namespace {
                 \param det Constant detector data
                 \param uri Output file:name (without period and .xes), or tcp:host:port
                 */
-                inline Analysis(const TimeRoi& det, const std::string& uri)
-                        : dataManager{det, uri},
+                inline explicit Analysis(const TimeRoi& troi)
+                        : dataManager{},
                           save_point(global::instance->layout.chip.size(), global::instance->save_interval),
-                          time_roi{det}, pix_map{*global::instance->pix_map},
+                          time_roi{troi}, pix_map{*global::instance->pix_map},
                           TRoiStep_inv{1.f/time_roi.TRoiStep}
-                {}
+                {
+                        dataManager.Reset();
+                }
 
                 /*!
                 \brief Reset histogram to zero
@@ -215,11 +217,9 @@ namespace processing {
         void init()
         {
                 const auto& gvars = *global::instance;
-                std::string output_uri = gvars.output_uri;
 
                 if (gvars.save_interval <= 6000)
                         throw Poco::RuntimeException("save_interval below 6000");
-
 
                 if (!gvars.server_mode) {
                         ConfigFile config{"Processing.ini"};
@@ -227,7 +227,12 @@ namespace processing {
                         int TRStart = config.getInt("TRStart");
                         int TRStep = config.getInt("TRStep");
                         int TRN = config.getInt("TRN");
-                        output_uri = config.getString("OutputURI");
+                        std::string output_uri = config.getString("OutputURI");
+
+                        global::instance->TRoiStart = TRStart;
+                        global::instance->TRoiStep = TRStep;
+                        global::instance->TRoiN = TRN;
+                        global::instance->output_uri = output_uri;
 
                         logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
                                << ", Output=" << output_uri << log_info;
@@ -240,6 +245,7 @@ namespace processing {
                         troiptr.reset(new TimeRoi{});
                         troiptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
+                        const auto& output_uri = gvars.output_uri;
                         auto TRoiStart = gvars.TRoiStart.load();
                         auto TRoiStep = gvars.TRoiStep.load();
                         auto TRoiN = gvars.TRoiN.load();
@@ -253,7 +259,7 @@ namespace processing {
                         troiptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
-                analysis.reset(new Analysis<TimeRoi::TOAMode>{*troiptr, output_uri});
+                analysis.reset(new Analysis<TimeRoi::TOAMode>{*troiptr});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period, bool final)

@@ -71,11 +71,29 @@ namespace xes {
             This is NOT a proper copy constructor! Locks, condition variable, and cache are default initialized.
             \param other Copy from
             */
-            inline ModuleData(const ModuleData& other)              //!< Copy constructor
+            inline ModuleData(const ModuleData& other) noexcept
               : write{}, lock_ready{}, lock_empty{},
                 ready{other.ready}, empty{other.empty}, fill{other.fill},
                 pool{other.pool}, cache{}, final{other.final}
               {}
+            
+            /*!
+            \brief Reset the module data to a well defined start state
+            */
+            inline void reset() noexcept
+            {
+                // assume locks are unlocked
+                while (!ready.empty())
+                    ready.pop();
+                empty.clear();
+                fill.clear();
+                cache = {none, nullptr};
+                final = false;
+                for (auto& data : pool) {
+                    data.Reset();
+                    empty.push_back(&data);
+                }
+            }
         };
 
         std::vector<ModuleData> module_data;    //!< Per module data
@@ -85,7 +103,7 @@ namespace xes {
         std::thread writerThread;               //!< Data aggregate+write thread
         std::unique_ptr<xes::Writer> writer;    //!< Writer for file or tcp
 
-        const TimeRoi& time_roi;               //!< Detector reference
+        TimeRoi time_roi;                       //!< Detector reference
         Logger& logger;                         //!< Logger reference
 
         /*!
@@ -93,10 +111,9 @@ namespace xes {
         \param time_roi_ Detector data reference
         \param uri Output file:name (without period and .xes), or tcp:host:port
         */
-        inline Manager(const TimeRoi& time_roi_, const std::string& uri)
-            : writer(xes::Writer::from_uri(uri)), time_roi(time_roi_), logger(Logger::get("Tpx3App"))
+        inline Manager()
+            : logger(Logger::get("Tpx3App"))
         {
-            logger << "xes::Manager connecting to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
             const auto& gvars = *global::instance;
             const unsigned nThreads = gvars.layout.chip.size();
             module_data.resize(nThreads);
@@ -209,11 +226,13 @@ namespace xes {
 
                 // exception stop
                 stopWriter = true;
+                writer.reset(nullptr);
                 return;
 
             regular_stop:
                 if (writer->data_counter == 0u)
                     global::set_error("no event data was collected");
+                writer.reset(nullptr);
                 logger << "output histos: " << n_histo << " of " << ((double)histo_submitted / nThreads)
                        << " wait: " << t_wait << "s agg: " << t_aggregate << "s write: " << t_write << "s toas: " << n_toa
                        << " (after: " << n_after << " before: " << n_before << ") at " << (n_toa / t_write) << " toas/s" << log_notice;
@@ -221,7 +240,6 @@ namespace xes {
             });
         }
 
-        Manager() = delete;
         Manager(const Manager&) = delete;
         Manager& operator=(const Manager&) = delete;
         Manager(Manager&&) = delete;
@@ -230,7 +248,7 @@ namespace xes {
         /*!
         \brief Destructor
         */
-        ~Manager()
+        inline ~Manager()
         {
             for (auto& mdata: module_data) {
                 std::lock_guard lock{mdata.lock_ready};
@@ -247,7 +265,7 @@ namespace xes {
         \param period   Period
         \return Reference to per thread XES period data
         */
-        Data& DataForPeriod(unsigned threadNo, period_type period)
+        inline Data& DataForPeriod(unsigned threadNo, period_type period)
         {
             auto& mdata = module_data[threadNo];
 
@@ -304,7 +322,7 @@ namespace xes {
         \param period   Period
         \param final    Final forced write at end of measurement
         */
-        void ReturnData(unsigned threadNo, period_type period, bool final=false)
+        inline void ReturnData(unsigned threadNo, period_type period, bool final=false)
         {
             assert(period != 0);
             if (stopWriter)
@@ -339,6 +357,26 @@ namespace xes {
                 mdata.final = final;
                 mdata.write.notify_one();
             }
+        }
+
+        /*!
+        \brief Reset XES Manager to well defined state for start
+        */
+        inline void Reset()
+        {
+            const auto& gvars = *global::instance;
+            {
+                const std::string& uri = gvars.output_uri;
+                writer = xes::Writer::from_uri(uri);
+                logger << "xes::Manager connected to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
+            }
+            time_roi.SetTimeROI(gvars.TRoiStart, gvars.TRoiStep, gvars.TRoiN);
+
+            for (auto& mdata : module_data)
+                mdata.reset();
+
+            histo_submitted = 0u;
+            stopWriter = false;
         }
     };
 
