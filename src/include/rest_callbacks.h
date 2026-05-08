@@ -497,7 +497,8 @@ namespace rest {
                 auto& gvars = *global::instance;
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
-                std::ifstream ifs{obj->getValue<std::string>("file")};
+                std::string path{obj->getValue<std::string>("file")};
+                std::ifstream ifs{path};
                 std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                 PixelIndexToEp::from(*pmap, ifs);
                 gvars.pix_map = pmap->to_map();
