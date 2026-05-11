@@ -207,7 +207,7 @@ namespace iobuf {
         \param threads Number of consumer threads
         \param pinned Pin data to memory
         */
-        inline explicit collection_t(unsigned threads, bool pinned=true)
+        inline explicit collection_t(unsigned threads, bool pinned=false)
             : final_jar{nullptr}, stop_flag{false}, nthreads{threads}, pin_data(pinned)
         {
             jar_list.resize(num_initial_containers);
