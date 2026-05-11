@@ -291,7 +291,7 @@ namespace iobuf {
         /*!
         \brief Update subreservation
         
-        Set rest to 0 if all data in the reservat in reservationion has been consumed
+        Set rest to 0 if all data in the reservation has been consumed
         */
         inline void update()
         {
