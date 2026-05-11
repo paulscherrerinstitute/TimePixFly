@@ -1,6 +1,5 @@
 #pragma once
 
-#include "logging.h"
 #ifndef XES_DATA_MANAGER_H
 #define XES_DATA_MANAGER_H
 
@@ -18,6 +17,7 @@ Provide functionality to manage partial XES data per thread
 
 #include "Poco/Exception.h"
 
+#include "logging.h"
 #include "global.h"
 #include "timing.h"
 #include "xes_data_writer.h"
@@ -315,6 +315,7 @@ namespace xes {
 
             // clean cache
             CacheEntry& cached = mdata.cache;
+            const auto cached_period = cached.period;
             if (cached.period == period)
                 cached.period = none;
 
@@ -327,8 +328,24 @@ namespace xes {
                 }
             }
 
-            if (data == nullptr)
+            if (data == nullptr) {
+                {
+                    std::ostringstream oss;
+                    oss << threadNo << ": Returned data not found for period " << period
+                        << " - cached " << cached_period
+                        << '\n' << threadNo << ": mdata fill is\n";
+                    for (const auto& d : mdata.fill)
+                        oss << " " << d->period;
+                    oss << '\n' << threadNo << ": mdata empty is\n";
+                    {
+                        std::unique_lock lock{mdata.lock_empty};
+                        for (const auto& d: mdata.empty)
+                            oss << " " << d->period;
+                    }
+                    logger << oss.str() << log_debug;
+                }
                 throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
+            }
 
             // add to ready queue
             histo_submitted++;
