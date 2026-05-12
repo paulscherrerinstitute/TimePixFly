@@ -253,7 +253,7 @@ namespace xes {
 
             // try cache
             CacheEntry& cached = mdata.cache;
-            if (cached.period == period)
+            if (__builtin_expect(cached.period == period, true))
                 return *cached.data;
 
             if (__builtin_expect(stopWriter, 0))
@@ -307,7 +307,7 @@ namespace xes {
         void ReturnData(unsigned threadNo, period_type period, bool final=false)
         {
             assert(period != 0);
-            if (stopWriter)
+            if (__builtin_expect(stopWriter, false))
                 throw Poco::RuntimeException(global::instance->last_error);
 
             auto& mdata = module_data[threadNo];
@@ -315,7 +315,6 @@ namespace xes {
 
             // clean cache
             CacheEntry& cached = mdata.cache;
-            const auto cached_period = cached.period;
             if (cached.period == period)
                 cached.period = none;
 
@@ -328,21 +327,11 @@ namespace xes {
                 }
             }
 
-            if (data == nullptr) {
-                {
-                    std::ostringstream oss;
-                    oss << threadNo << ": Returned data not found for period " << period
-                        << " - cached " << cached_period
-                        << '\n' << threadNo << ": mdata fill is\n";
-                    for (const auto& d : mdata.fill)
-                        oss << " " << d->period;
-                    oss << '\n' << threadNo << ": mdata empty is\n";
-                    {
-                        std::unique_lock lock{mdata.lock_empty};
-                        for (const auto& d: mdata.empty)
-                            oss << " " << d->period;
-                    }
-                    logger << oss.str() << log_debug;
+            if (__builtin_expect(data == nullptr, false)) {
+                if (final) {
+                    mdata.final = true;
+                    mdata.write.notify_one();
+                    return;
                 }
                 throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
             }
