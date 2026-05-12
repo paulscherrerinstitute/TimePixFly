@@ -319,7 +319,7 @@ namespace xes {
                 cached.period = none;
 
             // find the histogram data beeing filled up
-            for (auto d: mdata.fill) {
+            for (auto& d: mdata.fill) { // use auto& here to get address of vector content below!
                 if (d->period >= period) {
                     data = d;
                     mdata.fill.erase(static_cast<decltype(mdata.fill)::const_iterator>(&d));
@@ -327,8 +327,22 @@ namespace xes {
                 }
             }
 
+            // create empty data if none found
             if (__builtin_expect(data == nullptr, false)) {
-                data = &DataForPeriod(threadNo, period);
+                {
+                    std::lock_guard lock_empty{mdata.lock_empty};
+                    if (! mdata.empty.empty()) {
+                        data = mdata.empty.back();
+                        mdata.empty.pop_back();
+                    }
+                }
+
+                if (data == nullptr) {
+                    // create a new histogram
+                    // NOTE: this operation MUST NOT change memory location of other data
+                    mdata.pool.emplace_front(detector);
+                    data = &mdata.pool.front();
+                }
                 // throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
             }
 
