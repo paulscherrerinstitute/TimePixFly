@@ -319,7 +319,7 @@ namespace xes {
                 cached.period = none;
 
             // find the histogram data beeing filled up
-            for (auto& d: mdata.fill) {
+            for (auto d: mdata.fill) {
                 if (d->period >= period) {
                     data = d;
                     mdata.fill.erase(static_cast<decltype(mdata.fill)::const_iterator>(&d));
@@ -328,12 +328,8 @@ namespace xes {
             }
 
             if (__builtin_expect(data == nullptr, false)) {
-                if (final) {
-                    mdata.final = true;
-                    mdata.write.notify_one();
-                    return;
-                }
-                throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
+                data = &DataForPeriod(threadNo, period);
+                // throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
             }
 
             // add to ready queue
