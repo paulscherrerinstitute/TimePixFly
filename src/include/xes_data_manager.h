@@ -212,6 +212,9 @@ namespace xes {
                 return;
 
             regular_stop:
+                try {
+                    writer->stop("");
+                } catch (...) {} // ignore excpetions
                 if (writer->data_counter == 0u)
                     global::set_error("no event data was collected");
                 logger << "output histos: " << n_histo << " of " << ((double)histo_submitted / nThreads)
