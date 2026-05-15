@@ -16,7 +16,7 @@ class Analysis final {
     xes::Manager dataManager;               //!< XES data manager
 
     std::vector<period_type> save_point;    //!< Next period for which a file is written, per chip
-    const TimeRoi& time_roi;               //!< Reference to constant time ROI data
+    const TimeRoi time_roi;                 //!< Time ROI data
     const PixelMap& pix_map;                //!< Reference to pixel mapping
     const float TRoiStep_inv;               //!< 1. / TRoiStep
 
@@ -34,21 +34,6 @@ class Analysis final {
             for (const auto& part : map_range) {
                 data.TDSpectra[TimePoint * pix_map.npoints + part.energy_point] += part.weight;
             }
-    }
-
-  public:
-    /*!
-    \brief Constructor
-    \param det Constant detector data
-    \param uri Output file:name (without period and .xes), or tcp:host:port
-    */
-    inline explicit Analysis(const TimeRoi& troi)
-        : dataManager{},
-          save_point(global::instance->layout.chip.size(), global::instance->save_interval),
-          time_roi{troi}, pix_map{*global::instance->pix_map},
-          TRoiStep_inv{1.f/time_roi.TRoiStep}
-    {
-            dataManager.Reset();
     }
 
     /*!
@@ -69,6 +54,21 @@ class Analysis final {
             const int TP = (reltoa - time_roi.TRoiStart) * TRoiStep_inv;
             Register(data, index, TP);
         }
+    }
+
+  public:
+    /*!
+    \brief Constructor
+    \param det Constant detector data
+    \param uri Output file:name (without period and .xes), or tcp:host:port
+    */
+    inline explicit Analysis(const TimeRoi& troi)
+        : dataManager{},
+          save_point(global::instance->layout.chip.size(), global::instance->save_interval),
+          time_roi{troi}, pix_map{*global::instance->pix_map},
+          TRoiStep_inv{1.f/time_roi.TRoiStep}
+    {
+            dataManager.Reset();
     }
 
     /*!
