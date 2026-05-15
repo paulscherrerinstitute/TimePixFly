@@ -3,7 +3,11 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread -ljemalloc"
+LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread "
+
+if [ -z "${NO_JEMALLOC}" ]; then
+    LDFLAGS+="-ljemalloc "
+fi
 
 WARN_FLAGS+=" -Wall -Wextra"
 
