@@ -16,7 +16,6 @@ Detector description
 \brief Constant detector data
 */
 struct TimeRoi final {
-        static constexpr bool TOAMode = true;           //!< true: TOA mode, fals: TOT mode
         u64 TRoiStart = 0;                              //!< ROI start offset in clock ticks relative to interval start
         u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks
         u64 TRoiN = 5000;                               //!< Number of histogram bins

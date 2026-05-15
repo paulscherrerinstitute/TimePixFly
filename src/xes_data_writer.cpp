@@ -154,7 +154,7 @@ namespace {
                 Poco::JSON::PrintHandler json{send};
                 json.startObject();
                 json.key("type"); json.value(std::string{"StartFrame"});
-                json.key("Mode"); json.value(std::string{time_roi.TOAMode ? "TOA" : "TOT"});
+                json.key("Mode"); json.value(std::string{"TOA"});
                 json.key("TRoiStart"); json.value(time_roi.TRoiStart);
                 json.key("TRoiStep"); json.value(time_roi.TRoiStep);
                 json.key("TRoiN"); json.value(time_roi.TRoiN);
