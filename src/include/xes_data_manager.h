@@ -156,7 +156,7 @@ namespace xes {
                             Timer t2{};
                             {
                                 std::unique_lock lock{mdata.lock_ready};
-                                while (!stopWriter) {
+                                while (__builtin_expect(!stopWriter, true)) {
                                     if (! mdata.ready.empty()) {
                                         d = mdata.ready.top();
                                         mdata.ready.pop();
@@ -166,11 +166,11 @@ namespace xes {
                                         break;
                                     mdata.write.wait_for(lock, 1s);
                                 }
-                                if (stopWriter) {
+                                if (__builtin_expect(stopWriter, false)) {
                                     writer->stop("writer: external stop");
                                     goto regular_stop;
                                 }
-                            } // d!=nullptr OR f
+                            } // d!=nullptr OR final
                             t_wait += t2.elapsed_reset();
 
                             if (d != nullptr) {
@@ -192,7 +192,7 @@ namespace xes {
                             }
                         } // for all threads
 
-                        if (data == nullptr) {
+                        if (__builtin_expect(data == nullptr, false)) {
                             t_write += t1.elapsed();
                             writer->stop("");
                             goto regular_stop;
@@ -328,7 +328,7 @@ namespace xes {
         inline void ReturnData(unsigned threadNo, period_type period, bool final=false)
         {
             assert(period != 0);
-            if (stopWriter)
+            if (__builtin_expect(stopWriter, false))
                 throw Poco::RuntimeException(global::instance->last_error);
 
             auto& mdata = module_data[threadNo];
@@ -348,8 +348,22 @@ namespace xes {
                 }
             }
 
-            if (data == nullptr)
-                throw Poco::RuntimeException(std::string{"returned data not found for period "} + std::to_string(period));
+            if (__builtin_expect(data == nullptr, false)) {
+                {
+                    std::lock_guard lock_empty{mdata.lock_empty};
+                    if (! mdata.empty.empty()) {
+                        data = mdata.empty.back();
+                        mdata.empty.pop_back();
+                    }
+                }
+
+                if (data == nullptr) {
+                    // create a new histogram
+                    // NOTE: this operation MUST NOT change memory location of other data
+                    mdata.pool.emplace_front(time_roi);
+                    data = &mdata.pool.front();
+                }
+            }
 
             // add to ready queue
             histo_submitted++;
