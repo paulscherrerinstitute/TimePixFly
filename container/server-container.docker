@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir build && cd build \
     && git clone --branch ${REPO_BRANCH} --single-branch https://github.com/paulscherrerinstitute/TimePixFly.git . \
-    && chmod +x compile.sh && ./compile.sh server
+    && chmod +x compile.sh && GENERIC=1 ./compile.sh server
 
 # Stage 2: Final Runtime Stage
 FROM ubuntu:24.04
