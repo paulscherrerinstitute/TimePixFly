@@ -16,21 +16,9 @@ Detector description
 \brief Constant detector data
 */
 struct TimeRoi final {
-        /*!
-        \brief Histogramming mode
-
-        If TOAMode is false then TOT is used for binnig (counts as a
-        function of energy and TOT as output)
-        */
-        static constexpr bool TOAMode = true;
-
-        // static constexpr u16 TOTRoiStart = 0;           //!< ROI start in terms of TOT
-        // static constexpr u16 TOTRoiEnd = 64000;         //!< ROI end in terms of TOT
-
-        // u64 TRoiStart = TOAMode ? 0 : TOTRoiStart;      //!< ROI start offset in clock ticks relative to interval start
+        static constexpr bool TOAMode = true;           //!< true: TOA mode, fals: TOT mode
         u64 TRoiStart = 0;                              //!< ROI start offset in clock ticks relative to interval start
         u64 TRoiStep = 1;                               //!< Histogram bin width in clock ticks
-        // u64 TRoiN = TOAMode ? 5000 : 100;               //!< Number of histogram bins
         u64 TRoiN = 5000;                               //!< Number of histogram bins
         u64 TRoiEnd = TRoiStart + TRoiStep * TRoiN;     //!< ROI end offset in clock ticks relative to interval start
 
