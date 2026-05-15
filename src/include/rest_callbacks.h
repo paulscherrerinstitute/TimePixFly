@@ -529,9 +529,9 @@ namespace rest {
                 const auto& gvars = *global::instance;
                 oss << R"({"type":"OtherConfig","output_uri":")" << gvars.output_uri << '"'
                     << R"(,"save_interval":)" << gvars.save_interval
-                    << R"(,"TRoiStart":)" << gvars.TRoiStart
-                    << R"(,"TRoiStep":)" << gvars.TRoiStep
-                    << R"(,"TRoiN":)" << gvars.TRoiN
+                    << R"(,"TRoiStart":)" << gvars.time_roi.TRoiStart
+                    << R"(,"TRoiStep":)" << gvars.time_roi.TRoiStep
+                    << R"(,"TRoiN":)" << gvars.time_roi.TRoiN
                     << '}';
                 return oss.str();
             };
@@ -549,9 +549,12 @@ namespace rest {
                     throw Poco::RuntimeException("not in config state");
                 gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
                 gvars.save_interval = obj->getValue<decltype(gvars.save_interval)>("save_interval");
-                gvars.TRoiStart = obj->getValue<decltype(gvars.TRoiStart)>("TRoiStart");
-                gvars.TRoiStep = obj->getValue<decltype(gvars.TRoiStep)>("TRoiStep");
-                gvars.TRoiN = obj->getValue<decltype(gvars.TRoiN)>("TRoiN");
+                auto& time_roi = gvars.time_roi;
+                time_roi.SetTimeROI(
+                    obj->getValue<decltype(time_roi.TRoiStart)>("TRoiStart"),
+                    obj->getValue<decltype(time_roi.TRoiStep)>("TRoiStep"),
+                    obj->getValue<decltype(time_roi.TRoiN)>("TRoiN")
+                );
                 return "OK";
             };
 

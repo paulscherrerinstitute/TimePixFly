@@ -103,7 +103,7 @@ namespace xes {
         std::thread writerThread;               //!< Data aggregate+write thread
         std::unique_ptr<xes::Writer> writer;    //!< Writer for file or tcp
 
-        TimeRoi time_roi;                       //!< Detector reference
+        TimeRoi time_roi;                       //!< Time ROI
         Logger& logger;                         //!< Logger reference
 
         /*!
@@ -387,7 +387,7 @@ namespace xes {
                 writer = xes::Writer::from_uri(uri);
                 logger << "xes::Manager connected to <" << writer->dest() << ">, output uri <" << uri << ">" << log_info;
             }
-            time_roi.SetTimeROI(gvars.TRoiStart, gvars.TRoiStep, gvars.TRoiN);
+            time_roi = gvars.time_roi;
 
             for (auto& mdata : module_data)
                 mdata.reset();

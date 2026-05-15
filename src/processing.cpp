@@ -19,7 +19,6 @@ namespace {
 
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
 
-        std::unique_ptr<TimeRoi> troiptr;       //!< Pointer to time ROI object, created by init()
         std::unique_ptr<Analysis> analysis;    //!< Analysis object
 
 } // anonymous namespace
@@ -28,7 +27,8 @@ namespace processing {
 
         void init()
         {
-                const auto& gvars = *global::instance;
+                auto& gvars = *global::instance;
+                auto& time_roi = gvars.time_roi;
 
                 if (gvars.save_interval <= 6000)
                         throw Poco::RuntimeException("save_interval below 6000");
@@ -41,10 +41,9 @@ namespace processing {
                         int TRN = config.getInt("TRN");
                         std::string output_uri = config.getString("OutputURI");
 
-                        global::instance->TRoiStart = TRStart;
-                        global::instance->TRoiStep = TRStep;
-                        global::instance->TRoiN = TRN;
-                        global::instance->output_uri = output_uri;
+                        auto& gvars = *global::instance;
+                        time_roi.SetTimeROI(TRStart, TRStep, TRN);
+                        gvars.output_uri = output_uri;
 
                         logger << "TRStart=" << TRStart << ", TRStep=" << TRStep << ", TRN=" << TRN
                                << ", Output=" << output_uri << log_info;
@@ -52,26 +51,19 @@ namespace processing {
                         auto in = std::ifstream("XESPoints.inp");
                         std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
                         PixelIndexToEp::from(*pmap, in);
-                        global::instance->pix_map = pmap->to_map();
-
-                        troiptr.reset(new TimeRoi{});
-                        troiptr->SetTimeROI(TRStart, TRStep, TRN);
+                        gvars.pix_map = pmap->to_map();
                 } else {
-                        const auto& output_uri = gvars.output_uri;
-                        auto TRoiStart = gvars.TRoiStart;
-                        auto TRoiStep = gvars.TRoiStep;
-                        auto TRoiN = gvars.TRoiN;
+                        auto TRoiStart = time_roi.TRoiStart;
+                        auto TRoiStep = time_roi.TRoiStep;
+                        auto TRoiN = time_roi.TRoiN;
                         logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
-                               << ", Output=" << output_uri << log_info;
+                               << ", Output=" << gvars.output_uri << log_info;
 
                         if (gvars.pix_map == nullptr)
                                 throw Poco::RuntimeException("Pixelmap uninitialized");
-
-                        troiptr.reset(new TimeRoi{});
-                        troiptr->SetTimeROI(TRoiStart, TRoiStep, TRoiN);
                 }
 
-                analysis.reset(new Analysis{*troiptr});
+                analysis.reset(new Analysis{time_roi});
         }
 
         void purgePeriod(unsigned chipIndex, period_type period, bool final)

@@ -47,7 +47,7 @@ namespace {
             const auto& gvars = *global::instance;
             const auto& TDSpectra = data.TDSpectra;
             const auto NumEnergyPoints = gvars.pix_map->npoints;
-            const auto TRoiN = gvars.TRoiN;
+            const auto TRoiN = gvars.time_roi.TRoiN;
             for (std::remove_cv_t<decltype(NumEnergyPoints)> i=0; i<NumEnergyPoints; i++) {
                 for (std::remove_cv_t<decltype(TRoiN)> j=0; j<TRoiN; j++) {
                         OutFile << TDSpectra[j * NumEnergyPoints + i] << " ";
