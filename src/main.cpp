@@ -36,6 +36,7 @@ TODO:
 
 #include "json_ops.h"
 #include "config_file.h"
+#include "analysis.h"
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "rest_callbacks.h"
@@ -967,9 +968,11 @@ namespace {
             auto restService = rest::start_service(logger, gvars.controlAddress);
 
             std::unique_ptr<DataHandler<AsiRawStreamDecoder>> dataHandlerPtr; 
+            std::unique_ptr<Analysis> analysisPtr;
             if (streamFilePath.empty()) {
                 // if not copy mode, create the data handler in advance
-                dataHandlerPtr.reset(new DataHandler<AsiRawStreamDecoder>{logger, numChips, reorderQueueSize});
+                analysisPtr.reset(new Analysis);
+                dataHandlerPtr.reset(new DataHandler<AsiRawStreamDecoder>{logger, *analysisPtr, numChips, reorderQueueSize});
             }
 
             do {
@@ -993,8 +996,10 @@ namespace {
                 set_state(global::setup);
 
                 try {
-                    if (streamFilePath.empty())
+                    if (streamFilePath.empty()) {
                         processing::init();
+                        analysisPtr->Reset();
+                    }
 
                     logger << "listening at " << gvars.clientAddress.toString() << log_notice;
                     serverSocket.reset(new ServerSocket{gvars.clientAddress});
@@ -1068,6 +1073,7 @@ namespace {
                                << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
                                << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
                     } else {
+                        auto& analysis = *analysisPtr;
                         auto& dataHandler = *dataHandlerPtr;
                         Timer timer;
 
@@ -1078,8 +1084,10 @@ namespace {
                             dataHandler.stopNow();
                         });
 
+                        analysis.run_async();
                         dataHandler.run_async();
                         dataHandler.await();
+                        analysis.await();
 
                         const double time = timer.elapsed();
 
@@ -1131,6 +1139,7 @@ namespace {
             StateHandler::stop();
             rest::stop_service(restService.get());
             dataHandlerPtr->shutdown();
+            analysisPtr->shutdown();
 
             if (global::instance->last_error.empty())
                 return Application::EXIT_OK;

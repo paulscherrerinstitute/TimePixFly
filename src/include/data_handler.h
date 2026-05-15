@@ -26,6 +26,7 @@ Code for processing raw data stream
 #include "timing.h"
 #include "event_type.h"
 #include "thread_signal.h"
+#include "analysis.h"
 
 namespace {
     using Poco::Net::StreamSocket;
@@ -171,6 +172,7 @@ class DataHandler final {
     const size_t reorderSize;                   //!< Size of reorder queue (heap)
     std::thread readerThread;                   //!< Raw event data stream reader thread
     std::vector<std::thread> analyserThreads;   //!< Per chip event analyzer threads
+    Analysis& analysis;                         //!< Analysis object
     // std::mutex coutMutex;                    //!< Output mutex for debugging
     std::mutex memberMutex;                     //!< Protection for member variables
     std::atomic<bool> stopOperation = false;    //!< Stop requested flag
@@ -391,12 +393,12 @@ class DataHandler final {
                         const auto& el = heap[--heap_sz];
                         if (el.is_tdc) {
                             tdcHits++;
-                            processing::purgePeriod(chipIndex, period);
+                            analysis.PurgePeriod(chipIndex, period);
                             tdc_ts = el.ts;
                             period++;
                         } else {
                             toaHits++;
-                            processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                            analysis.ProcessEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                         }
                         if (! events.next(ev))
                             break;
@@ -418,16 +420,16 @@ class DataHandler final {
                     const auto& el = heap[--heap_sz];
                     if (el.is_tdc) {
                         tdcHits++;
-                        processing::purgePeriod(chipIndex, period);
+                        analysis.PurgePeriod(chipIndex, period);
                         tdc_ts = el.ts;
                         period++;
                     } else {
                         toaHits++;
-                        processing::processEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
+                        analysis.ProcessEvent(chipIndex, period, { el.ts - tdc_ts, el.px });
                     }
                 }
 
-                processing::purgePeriod(chipIndex, period, true);
+                analysis.PurgePeriod(chipIndex, period, true);
                 workPassThreeTime += timer.elapsed();
 
             } catch (Poco::Exception& ex) {
@@ -464,12 +466,14 @@ public:
     /*!
     \brief Constructor
     \param log      Poco::Logger object for logging
+    \param analysisObj Analysis object
     \param numChips Number of TPX3 chips for the detector that generated the events
     \param queueSize Size of reorder queue (heap)
     */
-    inline DataHandler(Logger& log, unsigned numChips, unsigned long queueSize)
+    inline DataHandler(Logger& log, Analysis& analysisObj, unsigned numChips, unsigned long queueSize)
         : dataStream{}, logger{log}, databuf{numChips}, reorderSize{queueSize},
-          analyserThreads(numChips), analysis_finished{numChips}, start_analysis(all_shutdown, numChips)
+          analyserThreads(numChips), analysis(analysisObj),
+          analysis_finished{numChips}, start_analysis(all_shutdown, numChips)
     {
         logger << "DataHandler(" << numChips << ", " << queueSize << ')' << log_trace;
         for (unsigned i=0; i<analyserThreads.size(); i++)
@@ -525,7 +529,6 @@ public:
         dataStream.shutdown();
         dataStream.close();
         analysis_finished.wait_reset();
-        processing::stop();
     }
 
     u64 toaCount = 0ul;                         //!< Number of TOA events encountered

@@ -62,10 +62,10 @@ class Analysis final {
     \param det Constant detector data
     \param uri Output file:name (without period and .xes), or tcp:host:port
     */
-    inline explicit Analysis(const TimeRoi& troi)
+    inline explicit Analysis()
         : dataManager{},
           save_point(global::instance->layout.chip.size(), global::instance->save_interval),
-          time_roi{troi}, pix_map{*global::instance->pix_map},
+          time_roi{global::instance->time_roi}, pix_map{*global::instance->pix_map},
           TRoiStep_inv{1.f/time_roi.TRoiStep}
     {
             dataManager.Reset();
@@ -112,6 +112,35 @@ class Analysis final {
         auto index = PixelIndex::from(chipIndex, relative_toa.px);
         Analyse_ignore_tot(dataManager.DataForPeriod(chipIndex, sp), index, relative_toa.ts);
     }
+
+    /*!
+    \brief Reset Analysis object to well defined state for start
+    */
+    void Reset()
+    {
+        const auto& gvars = *global::instance;
+        dataManager.Reset();
+        for (auto& sp : save_point)
+            sp = gvars.save_interval;
+        const_cast<TimeRoi&>(time_roi) = gvars.time_roi;
+        const_cast<float&>(TRoiStep_inv) = 1.f/time_roi.TRoiStep;
+    }
+
+    void run_async()
+    {
+        dataManager.run_async();
+    }
+
+    void await()
+    {
+        dataManager.await();
+    }
+
+    void shutdown()
+    {
+        dataManager.shutdown();
+    }
+
 }; // end type Analysis
 
 #endif // ifndef ANALYSIS_H

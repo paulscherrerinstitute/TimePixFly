@@ -3,24 +3,16 @@
 Event analysis code
 */
 
-#include <iostream>
+#include <fstream>
 
+#include "global.h"
+#include "logging.h"
 #include "config_file.h"
-#include "analysis.h"
 #include "processing.h"
 
 // anonymous namespace to prevent symbol visibility
 namespace {
-        using std::string;
-        using std::ios;
-        using std::chrono::high_resolution_clock;
-        using std::chrono::milliseconds;
-        using clock = high_resolution_clock;    //!< Clock object
-
         Logger& logger = Logger::get("Tpx3App");        //!< Poco logger object
-
-        std::unique_ptr<Analysis> analysis;    //!< Analysis object
-
 } // anonymous namespace
 
 namespace processing {
@@ -62,23 +54,6 @@ namespace processing {
                         if (gvars.pix_map == nullptr)
                                 throw Poco::RuntimeException("Pixelmap uninitialized");
                 }
-
-                analysis.reset(new Analysis{time_roi});
-        }
-
-        void purgePeriod(unsigned chipIndex, period_type period, bool final)
-        {
-                analysis->PurgePeriod(chipIndex, period, final);
-        }
-
-        void processEvent(unsigned chipIndex, const period_type period, toa_event relative_toa)
-        {
-                analysis->ProcessEvent(chipIndex, period, relative_toa);
-        }
-
-        void stop()
-        {
-                analysis.reset(nullptr);
         }
 
 } // namespace processing
