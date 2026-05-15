@@ -166,8 +166,10 @@ namespace xes {
                                         break;
                                     mdata.write.wait_for(lock, 1s);
                                 }
-                                if (stopWriter)
+                                if (stopWriter) {
+                                    writer->stop("writer: external stop");
                                     goto regular_stop;
+                                }
                             } // d!=nullptr OR f
                             t_wait += t2.elapsed_reset();
 
@@ -192,6 +194,7 @@ namespace xes {
 
                         if (data == nullptr) {
                             t_write += t1.elapsed();
+                            writer->stop("");
                             goto regular_stop;
                         }
 
