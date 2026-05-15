@@ -20,6 +20,7 @@ Global configuration and control data
 #include "shared_types.h"
 #include "energy_points.h"
 #include "cpu_mask.h"
+#include "time_roi.h"
 
 using Poco::Net::SocketAddress;
 
@@ -50,27 +51,27 @@ struct global final {
     std::atomic_bool restart{false};                                    //!< Restart server
     std::atomic_bool start{false};                                      //!< Start collecting data
     // Configuration, other-config
-    std::atomic<period_type> save_interval{131000};                     //!< Histogram saving period: ~1s for TDC frequency 131kHz
-    std::atomic<u64> TRoiStart{0};                                      //!< Time ROI start (server mode)
-    std::atomic<u64> TRoiStep{1};                                       //!< Time ROI step (server mode)
-    std::atomic<u64> TRoiN{5000};                                       //!< Time ROI number of steps (server mode)
-    std::string output_uri;                                               //!< file:name (without period and .xes), or tcp:host:port
+    period_type save_interval{131000};                                     //!< Histogram saving period: ~1s for TDC frequency 131kHz
+    u64 TRoiStart{0};                                                      //!< Time ROI start (server mode)
+    u64 TRoiStep{1};                                                       //!< Time ROI step (server mode)
+    u64 TRoiN{5000};                                                       //!< Time ROI number of steps (server mode)
+    std::string output_uri;                                                //!< file:name (without period and .xes), or tcp:host:port
     // Configuration, pixel-map(-from-file)
-    std::unique_ptr<PixelMap> pix_map{nullptr};                           //!< Area ROI
+    std::unique_ptr<PixelMap> pix_map{nullptr};                            //!< Area ROI
 
-    static std::lock_guard<std::mutex> configLock();                      //!< Get lock for accessing configuration via REST API
+    static std::lock_guard<std::mutex> configLock();                       //!< Get lock for accessing configuration via REST API
 
     // From CLI arguments
-    bool server_mode{false};                                              //!< Run program in server mode (from commandline arg)
+    bool server_mode{false};                                               //!< Run program in server mode (from commandline arg)
     SocketAddress serverAddress = SocketAddress{"localhost:8080"};         //!< Default ASI server address
     SocketAddress clientAddress = SocketAddress{"127.0.0.1:8451"};         //!< Default raw data stream tcp destination (own address)
     SocketAddress controlAddress = SocketAddress{"127.0.0.1:8452"};        //!< Default control interface address (own address)
 
     // From ASI server
-    detector_layout layout;                                               //!< Detector layout (retrieved from ASI server)
+    detector_layout layout;                                                //!< Detector layout (retrieved from ASI server)
 
     // From CLI arguments
-    cpu_mask::cpu_mask_t cpu_affinity;                                    //!< CPU affinity for reader,writer, analysis threads
+    cpu_mask::cpu_mask_t cpu_affinity;                                     //!< CPU affinity for reader,writer, analysis threads
 
     // From code
     /*!

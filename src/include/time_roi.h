@@ -10,7 +10,6 @@ Detector description
 
 #include "shared_types.h"
 #include "logging.h"
-#include "pixel_map.h"
 
 /*!
 \brief Constant detector data

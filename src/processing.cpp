@@ -58,9 +58,9 @@ namespace processing {
                         troiptr->SetTimeROI(TRStart, TRStep, TRN);
                 } else {
                         const auto& output_uri = gvars.output_uri;
-                        auto TRoiStart = gvars.TRoiStart.load();
-                        auto TRoiStep = gvars.TRoiStep.load();
-                        auto TRoiN = gvars.TRoiN.load();
+                        auto TRoiStart = gvars.TRoiStart;
+                        auto TRoiStep = gvars.TRoiStep;
+                        auto TRoiN = gvars.TRoiN;
                         logger << "TRoiStart=" << TRoiStart << ", TRoiStep=" << TRoiStep << ", TRoiN=" << TRoiN
                                << ", Output=" << output_uri << log_info;
 

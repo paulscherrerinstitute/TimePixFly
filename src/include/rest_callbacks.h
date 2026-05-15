@@ -548,10 +548,10 @@ namespace rest {
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
                 gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
-                gvars.save_interval = obj->getValue<decltype(gvars.save_interval)::value_type>("save_interval");
-                gvars.TRoiStart = obj->getValue<decltype(gvars.TRoiStart)::value_type>("TRoiStart");
-                gvars.TRoiStep = obj->getValue<decltype(gvars.TRoiStep)::value_type>("TRoiStep");
-                gvars.TRoiN = obj->getValue<decltype(gvars.TRoiN)::value_type>("TRoiN");
+                gvars.save_interval = obj->getValue<decltype(gvars.save_interval)>("save_interval");
+                gvars.TRoiStart = obj->getValue<decltype(gvars.TRoiStart)>("TRoiStart");
+                gvars.TRoiStep = obj->getValue<decltype(gvars.TRoiStep)>("TRoiStep");
+                gvars.TRoiN = obj->getValue<decltype(gvars.TRoiN)>("TRoiN");
                 return "OK";
             };
 
