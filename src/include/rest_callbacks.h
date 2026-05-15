@@ -458,6 +458,7 @@ namespace rest {
             // when: config in server-mode
             constexpr const char* rest_pmap = "/pixel-map";
             global::instance->get_callbacks[rest_pmap] = []([[maybe_unused]] const std::string& val) -> std::string {
+                auto lock = global::configLock();
                 std::ostringstream oss;
                 const auto& pmap_p = global::instance->pix_map;
                 if (pmap_p == nullptr)
@@ -474,6 +475,7 @@ namespace rest {
             // - data OK
             // when: config in server-mode
             global::instance->put_callbacks[rest_pmap] = [](std::istream& in) -> std::string {
+                auto lock = global::configLock();
                 auto& gvars = *global::instance;
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
@@ -494,6 +496,7 @@ namespace rest {
             // }
             // when: config in server-mode
             global::instance->put_callbacks["/pixel-map-from-file"] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                auto lock = global::configLock();
                 auto& gvars = *global::instance;
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
@@ -521,6 +524,7 @@ namespace rest {
             // when: config in server-mode
             constexpr const char* rest_config = "/other-config";
             global::instance->get_callbacks[rest_config] = []([[maybe_unused]] const std::string& val) -> std::string {
+                auto lock = global::configLock();
                 std::ostringstream oss;
                 const auto& gvars = *global::instance;
                 oss << R"({"type":"OtherConfig","output_uri":")" << gvars.output_uri << '"'
@@ -539,6 +543,7 @@ namespace rest {
             // - data OK
             // when: config in server-mode
             global::instance->put_callbacks[rest_config] = [](Poco::JSON::Object::Ptr obj) -> std::string {
+                auto lock = global::configLock();
                 auto& gvars = *global::instance;
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
