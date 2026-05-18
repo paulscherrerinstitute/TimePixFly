@@ -50,14 +50,21 @@ struct global final {
     std::atomic_bool stop{false};                                       //!< Stop server
     std::atomic_bool restart{false};                                    //!< Restart server
     std::atomic_bool start{false};                                      //!< Start collecting data
-    // Configuration, other-config
+    // Configuration, other-config REST call
     period_type save_interval{131000};                                     //!< Histogram saving period: ~1s for TDC frequency 131kHz
     TimeRoi time_roi;                                                      //!< Time ROI
     std::string output_uri;                                                //!< file:name (without period and .xes), or tcp:host:port
-    // Configuration, pixel-map(-from-file)
+    // Configuration, pixel-map(-from-file) REST call
     std::unique_ptr<PixelMap> pix_map{nullptr};                            //!< Area ROI
 
-    static std::lock_guard<std::mutex> configLock();                       //!< Get lock for accessing configuration via REST API
+    /*!
+    \brief Acquire configuration lock
+    
+    In state `config`, this lock must be aquired to access
+    the variables configurarable via REST calls.
+    \return Lock guard object
+    */
+    static std::lock_guard<std::mutex> configLock();
 
     // From CLI arguments
     bool server_mode{false};                                               //!< Run program in server mode (from commandline arg)

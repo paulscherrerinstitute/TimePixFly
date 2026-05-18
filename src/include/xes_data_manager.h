@@ -115,8 +115,6 @@ namespace xes {
 
         /*!
         \brief Constructor
-        \param time_roi_ Detector data reference
-        \param uri Output file:name (without period and .xes), or tcp:host:port
         */
         inline Manager()
             : logger(Logger::get("Tpx3App"))
@@ -412,17 +410,32 @@ namespace xes {
             stopWriter = false;
         }
 
+        /*!
+        \brief Shutdown operation
+
+        Terminate and join the writer thread
+        */
         void shutdown()
         {
             writer_shutdown.send();
             writerThread.join();
         }
 
+        /*!
+        \brief Start operating
+
+        Send the start signal to the writer thread
+        */
         void run_async()
         {
             start_writer.send();
         }
 
+        /*!
+        \brief Wait for end of operation
+
+        Mark intermediate histograms as the final ones and wait for the writer thread
+        */
         void await()
         {
             for (auto& mdata: module_data) {

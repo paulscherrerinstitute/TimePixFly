@@ -60,10 +60,8 @@ class Analysis final {
   public:
     /*!
     \brief Constructor
-    \param det Constant detector data
-    \param uri Output file:name (without period and .xes), or tcp:host:port
     */
-    inline explicit Analysis()
+    inline Analysis()
         : dataManager{},
           save_point(global::instance->layout.chip.size(), global::instance->save_interval),
           time_roi{global::instance->time_roi},
@@ -126,16 +124,31 @@ class Analysis final {
         pixel_map = gvars.pix_map.get();
     }
 
+    /*!
+    \brief Start a measurement analysis cycle
+
+    Prepare the writer thread
+    */
     void run_async()
     {
         dataManager.run_async();
     }
 
+    /*!
+    \brief Wait for the end of a measurement analysis cycle
+
+    Wait for the writer thread
+    */
     void await()
     {
         dataManager.await();
     }
 
+    /*!
+    \brief Shutdown any activity
+
+    Shutdown the writer thread
+    */
     void shutdown()
     {
         dataManager.shutdown();
