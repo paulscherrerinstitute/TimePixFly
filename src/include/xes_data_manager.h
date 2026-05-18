@@ -137,6 +137,8 @@ namespace xes {
                     }
                 }
 
+                logger << "writer start" << log_debug;
+
                 do {
                     if (start_writer.wait_reset())
                         break;
@@ -270,12 +272,9 @@ namespace xes {
         */
         inline ~Manager()
         {
-            for (auto& mdata: module_data) {
-                std::lock_guard lock{mdata.lock_ready};
-                mdata.final = true;
-                mdata.write.notify_all();
-            }
-            writerThread.join();
+            writer_shutdown.send();
+            if (writerThread.joinable())
+                writerThread.join();
         }
 
         /*!
@@ -426,6 +425,11 @@ namespace xes {
 
         void await()
         {
+            for (auto& mdata: module_data) {
+                std::lock_guard lock{mdata.lock_ready};
+                mdata.final = true;
+                mdata.write.notify_all();
+            }
             writer_finished.wait_reset();
         }
     };

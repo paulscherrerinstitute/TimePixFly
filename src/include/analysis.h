@@ -17,8 +17,8 @@ class Analysis final {
 
     std::vector<period_type> save_point;    //!< Next period for which a file is written, per chip
     const TimeRoi time_roi;                 //!< Time ROI data
-    const PixelMap& pix_map;                //!< Reference to pixel mapping
     const float TRoiStep_inv;               //!< 1. / TRoiStep
+    const PixelMap* pixel_map;              //!< Pixel map
 
     /*!
     \brief Add one event to histogram
@@ -30,6 +30,7 @@ class Analysis final {
     */
     inline void Register(Data& data, PixelIndex index, int TimePoint) const noexcept
     {
+            auto& pix_map = *pixel_map;
             auto map_range = pix_map[index];
             for (const auto& part : map_range) {
                 data.TDSpectra[TimePoint * pix_map.npoints + part.energy_point] += part.weight;
@@ -65,11 +66,9 @@ class Analysis final {
     inline explicit Analysis()
         : dataManager{},
           save_point(global::instance->layout.chip.size(), global::instance->save_interval),
-          time_roi{global::instance->time_roi}, pix_map{*global::instance->pix_map},
-          TRoiStep_inv{1.f/time_roi.TRoiStep}
-    {
-            dataManager.Reset();
-    }
+          time_roi{global::instance->time_roi},
+          TRoiStep_inv{1.f/time_roi.TRoiStep}, pixel_map{nullptr}
+    {}
 
     /*!
     \brief Purge period interval change from memory
@@ -124,6 +123,7 @@ class Analysis final {
             sp = gvars.save_interval;
         const_cast<TimeRoi&>(time_roi) = gvars.time_roi;
         const_cast<float&>(TRoiStep_inv) = 1.f/time_roi.TRoiStep;
+        pixel_map = gvars.pix_map.get();
     }
 
     void run_async()

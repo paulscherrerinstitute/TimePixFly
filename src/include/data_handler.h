@@ -239,6 +239,8 @@ class DataHandler final {
             }
         }
 
+        logger << "reader start" << log_debug;
+
         do {
             if (start_reader.wait_reset())
                 break;
@@ -315,6 +317,8 @@ class DataHandler final {
                     logger << threadId << ": set affinity - " << cpu_mask::error(rval) << log_error;
             }
         }
+
+        logger << threadId << ": analysis start" << log_debug;
 
         const unsigned chipIndex = threadId;
 
@@ -479,6 +483,20 @@ public:
         for (unsigned i=0; i<analyserThreads.size(); i++)
             analyserThreads[i] = std::thread([this, i]{this->analyseData(i);});
         readerThread = std::thread([this]{this->readData();});
+    }
+
+    /*!
+    \brief Destructor
+    */
+    inline ~DataHandler()
+    {
+        all_shutdown.send();
+        if (readerThread.joinable())
+            readerThread.join();
+        for (auto& thread : analyserThreads) {
+            if (thread.joinable())
+                thread.join();
+        }
     }
 
     /*!
