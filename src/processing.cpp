@@ -6,7 +6,6 @@ Event analysis code
 #include <fstream>
 
 #include "global.h"
-#include "logging.h"
 #include "config_file.h"
 #include "processing.h"
 

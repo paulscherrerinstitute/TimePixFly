@@ -36,7 +36,6 @@ TODO:
 
 #include "json_ops.h"
 #include "config_file.h"
-#include "analysis.h"
 #include "data_handler.h"
 #include "copy_handler.h"
 #include "rest_callbacks.h"
@@ -60,8 +59,6 @@ namespace {
     using Poco::URI;
     using Poco::LogicException;
     using Poco::InvalidArgumentException;
-
-    #include "version.h"
 
     //=========================
     // Lock file

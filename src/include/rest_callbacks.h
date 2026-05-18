@@ -8,7 +8,6 @@
 Provide REST functionality
 */
 
-#include <mutex>
 #include <fstream>
 
 #include <Poco/URI.h>

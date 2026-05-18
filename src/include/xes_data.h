@@ -10,7 +10,6 @@ Provide data container for XES data
 
 #include <string>
 #include <fstream>
-#include <functional>
 #include "global.h"
 #include "time_roi.h"
 

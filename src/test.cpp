@@ -3,16 +3,12 @@
 Unit tests
 */
 
-#include "energy_points.h"
-#include "pixel_map.h"
-#include "shared_types.h"
 #include <fcntl.h>
 #include <cstdio>
 #include <ostream>
 #include <set>
 #include <iostream>
 #include <regex>
-#include <sstream>
 
 #if defined(__AVX2__) && defined(AVX_DECODE)
     #define USE_AVX
@@ -23,7 +19,7 @@ Unit tests
 #include <Poco/Exception.h>
 
 #include "global.h"
-#include "io_buf.h"
+#include "cpu_mask.h"
 #include "subreservation.h"
 #include "event_type.h"
 

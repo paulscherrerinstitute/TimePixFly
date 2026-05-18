@@ -17,7 +17,6 @@ Global configuration and control data
 #include "Poco/JSON/Object.h"
 #include <Poco/Net/SocketAddress.h>
 
-#include "shared_types.h"
 #include "energy_points.h"
 #include "cpu_mask.h"
 #include "time_roi.h"
@@ -59,7 +58,7 @@ struct global final {
 
     /*!
     \brief Acquire configuration lock
-    
+
     In state `config`, this lock must be aquired to access
     the variables configurarable via REST calls.
     \return Lock guard object

@@ -10,7 +10,6 @@ Provide XES data writer implementations
 #include "Poco/Net/SocketStream.h"
 #include "Poco/JSON/PrintHandler.h"
 
-#include "global.h"
 #include "xes_data_writer.h"
 
 namespace {

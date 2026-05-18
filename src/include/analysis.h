@@ -3,7 +3,11 @@
 #ifndef ANALYSIS_H
 #define ANALYSIS_H
 
-#include <vector>
+/*!
+\file
+This file contains histogram buildup code for XES mode.
+*/
+
 #include "xes_data_manager.h"
 
 /*!
