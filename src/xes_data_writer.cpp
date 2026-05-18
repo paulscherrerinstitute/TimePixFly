@@ -9,6 +9,7 @@ Provide XES data writer implementations
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/SocketStream.h"
 #include "Poco/JSON/PrintHandler.h"
+#include "Poco/Redis/Client.h"
 
 #include "xes_data_writer.h"
 
@@ -198,6 +199,109 @@ namespace {
         }
     };
 
+    /*!
+    \brief Publish XES data to REDIS channel
+    */
+    class RedisWriter : public xes::Writer {
+
+        class RedisPublisher final {
+
+            Poco::Redis::Client redis_client;
+            std::string channel;
+            std::string scan;
+
+          public:
+            inline RedisPublisher(const std::string& address)
+                : redis_client(address)
+            {}
+
+            inline ~RedisPublisher()
+            {
+                redis_client.disconnect();
+            }
+
+            inline void write(const xes::Data& data) const
+            {}
+
+            inline void start(const TimeRoi& time_roi) const
+            {}
+
+            inline void stop(const std::string& error_message) const
+            {}
+
+            inline std::string dest() const
+            {
+                return redis_client.address().toString() + '/' + channel + "?scan-id=" + scan;
+            }
+
+            inline void setParam(const std::string& channel_key, const std::string& scan_id) noexcept
+            {
+                channel = channel_key;
+                scan = scan_id;
+            }
+        };
+
+        std::unique_ptr<RedisPublisher> dataPublisher;
+
+// #include "Poco/Redis/Client.h"
+// #include "Poco/Redis/Command.h"
+
+// int main() {
+//     std::string redisHost = "127.0.0.1";
+//     Poco::UInt16 redisPort = 6379;
+    
+//     std::string channelName = "my_redis_channel";
+//     std::string message = "Hello from manual POCO 1.11 command construction!";
+
+//     try {
+//         Poco::Net::SocketAddress address(redisHost, redisPort);
+//         Poco::Redis::Client redisClient(address);
+
+//         // MANUALLY CONSTRUCT THE PUBLISH COMMAND:
+//         // This mirrors exactly how you type it into the redis-cli: PUBLISH channel message
+//         Poco::Redis::Command publishCmd("PUBLISH");
+//         publishCmd << channelName << message;
+
+//         // Execute it against the server
+//         Poco::Int64 receiverCount = redisClient.execute<Poco::Int64>(publishCmd);
+
+//         std::cout << "Successfully published! Received by " << receiverCount << " subscribers." << std::endl;
+
+//     } catch (Poco::Exception& exc) {
+//         std::cerr << "POCO Exception: " << exc.displayText() << std::endl;
+//         return 1;
+//     }
+
+//     return 0;
+// }    
+      public:
+        inline RedisWriter(const std::string& address)
+        {
+            // Get REDIS host:port/key, and ?scan-id=xxxx from address
+            // check if RedisPublisher for host:port is there, or create it
+            // setParam with key and scan-id
+        }
+
+        inline void write(const xes::Data& data) override
+        {
+            dataPublisher->write(data);
+        }
+
+        inline void start(const TimeRoi& time_roi) override
+        {
+            dataPublisher->start(time_roi);
+        }
+
+        inline void stop(const std::string& error_message)  override
+        {
+            dataPublisher->stop(error_message);
+        }
+
+        inline std::string dest() override
+        {
+            return dataPublisher->dest();
+        }        
+    };
 }
 
 namespace xes {
@@ -216,7 +320,9 @@ namespace xes {
         Poco::URI destination{uri};
         const std::string& scheme{destination.getScheme()};
         const std::string dest{destination.getPathEtc()};
-        if (scheme == "file") {
+        if (scheme == "redis") {
+            return std::unique_ptr<Writer>{new RedisWriter{dest}};
+        } else if (scheme == "file") {
             return std::unique_ptr<Writer>{new FileWriter{dest}};
         } else if (scheme == "tcp") {
             return std::unique_ptr<Writer>{new TcpWriter{dest}};

@@ -3,7 +3,7 @@
 TARGET=${1:-tpx3app}
 
 : ${CXX:=g++}
-LDFLAGS+=" -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread "
+LDFLAGS+=" -lPocoRedis -lPocoJSON -lPocoUtil -lPocoNet -lPocoFoundation -lpthread "
 
 if [ -z "${NO_JEMALLOC}" ]; then
     LDFLAGS+="-ljemalloc "
