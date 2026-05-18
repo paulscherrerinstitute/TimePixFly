@@ -25,7 +25,6 @@ TODO:
 #include <functional>
 #include <unordered_map>
 #include <thread>
-#include <cmath>
 #include <condition_variable>
 
 #include <Poco/Net/HTTPServerResponse.h>
