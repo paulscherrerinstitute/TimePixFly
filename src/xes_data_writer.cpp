@@ -387,18 +387,24 @@ namespace {
         \brief Constructor
 
         Will only create the cached connection object if the connection parameters do not match
-        \param address REDIS connection uri `redis://host:port/key?scan-id=xxxx`
+        \param address REDIS connection uri `redis://user:pwd@host:port/key?scan-id=xxxx`
         */
         inline RedisWriter(const Poco::URI& address)
         {
-            const std::string authority{address.getAuthority()};         // host:port
+            const std::string user_info{address.getUserInfo()};         // user:pwd
+            const std::string host_port{                                // host:port
+                address.getHost() +
+                std::to_string(address.getPort())
+            };
             const std::string key{address.getPath().substr(1)};     // remove leading char in /key
             const std::string scan{address.getQuery().substr(8)};   // remove up to = in scan-id=xxxx
 
             if ((publisherCache == nullptr) ||
-                !publisherCache->hasAddress(authority))
+                !publisherCache->hasAddress(host_port))
             {
-                publisherCache.reset(new RedisPublisher{authority});
+                publisherCache.reset(new RedisPublisher{host_port});
+                // Authenticate
+                // If that fails: delete cached connection, throw appropriate exception
             }
 
             publisherCache->setParam(key, scan);
