@@ -258,7 +258,7 @@ namespace {
             when: for every save_interval after start
             \param data XES Data
             */
-            inline void write(const xes::Data& data) const
+            inline void write(const xes::Data& data)
             {
                 std::ostringstream oss;
                 {
@@ -278,6 +278,7 @@ namespace {
 
                 Poco::Redis::Command cmd("PUBLISH");
                 cmd << channel << oss.str();
+                redis_client.execute<void>(cmd);
             }
 
             /*!
@@ -297,7 +298,7 @@ namespace {
             Resets \ref last_period
             \param time_roi Time ROI
             */
-            inline void start(const TimeRoi& time_roi) const
+            inline void start(const TimeRoi& time_roi)
             {
                 std::ostringstream oss;
                 {
@@ -316,6 +317,7 @@ namespace {
 
                 Poco::Redis::Command cmd("PUBLISH");
                 cmd << channel << oss.str();
+                redis_client.execute<void>(cmd);
             }
 
             /*!
@@ -332,7 +334,7 @@ namespace {
             when: at end of measurement
             Resets \ref last_period
             */
-            inline void stop(const std::string& error_message, period_type last_period) const
+            inline void stop(const std::string& error_message, period_type last_period)
             {
                 std::ostringstream oss;
                 {
@@ -347,6 +349,8 @@ namespace {
 
                 Poco::Redis::Command cmd("PUBLISH");
                 cmd << channel << oss.str();
+                redis_client.execute<void>(cmd);
+                redis_client.flush();
             }
 
             /*!
@@ -393,20 +397,25 @@ namespace {
         {
             const std::string user_info{address.getUserInfo()};         // user:pwd
             const std::string host_port{                                // host:port
-                address.getHost() +
+                address.getHost() + ":" +
                 std::to_string(address.getPort())
             };
             const std::string key{address.getPath().substr(1)};     // remove leading char in /key
             const std::string scan{address.getQuery().substr(8)};   // remove up to = in scan-id=xxxx
 
+            Logger& logger = Logger::get(global::APP_NAME);
+            LogProxy log(logger);
+
             if ((publisherCache == nullptr) ||
                 !publisherCache->hasAddress(host_port))
             {
+                log << "redis writer: connecting to " << host_port << log_debug;
                 publisherCache.reset(new RedisPublisher{host_port});
                 // Authenticate
                 // If that fails: delete cached connection, throw appropriate exception
             }
 
+            log << "redis writer: publishing to channel " << key << " with scan id " << scan << log_debug;
             publisherCache->setParam(key, scan);
         }
 

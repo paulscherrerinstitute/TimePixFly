@@ -21,8 +21,8 @@ namespace processing {
                 auto& gvars = *global::instance;
                 auto& time_roi = gvars.time_roi;
 
-                if (gvars.save_interval <= 6000)
-                        throw Poco::RuntimeException("save_interval below 6000");
+                if (gvars.save_interval < gvars.min_save_interval)
+                        throw Poco::RuntimeException(std::string{"save_interval below "} + std::to_string(gvars.save_interval));
 
                 if (!gvars.server_mode) {
                         ConfigFile config{"Processing.ini"};

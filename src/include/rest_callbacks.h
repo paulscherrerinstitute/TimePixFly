@@ -546,8 +546,13 @@ namespace rest {
                 auto& gvars = *global::instance;
                 if (gvars.state != "config")
                     throw Poco::RuntimeException("not in config state");
+                auto save_interval = obj->getValue<decltype(gvars.save_interval)>("save_interval");
+                if (save_interval == 0)
+                    save_interval = std::numeric_limits<period_type>::max();
+                else if (save_interval < gvars.min_save_interval)
+                    throw Poco::RuntimeException(std::string{"save_interval is less than "} + std::to_string(gvars.min_save_interval));
                 gvars.output_uri = obj->getValue<decltype(gvars.output_uri)>("output_uri");
-                gvars.save_interval = obj->getValue<decltype(gvars.save_interval)>("save_interval");
+                gvars.save_interval = save_interval;
                 auto& time_roi = gvars.time_roi;
                 time_roi.SetTimeROI(
                     obj->getValue<decltype(time_roi.TRoiStart)>("TRoiStart"),

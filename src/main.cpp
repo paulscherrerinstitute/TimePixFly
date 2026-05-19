@@ -278,7 +278,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
 
             options.addOption(Option("use-syslog", "L")
-                .description(std::string{"use syslog for logging with\nSYSLOG_IDENTIFIER="} + NAME)
+                .description(std::string{"use syslog for logging with\nSYSLOG_IDENTIFIER="} + global::APP_NAME)
                 .required(false)
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
@@ -406,8 +406,8 @@ namespace {
                 period_type max = std::numeric_limits<period_type>::max();
                 if (num == 0)
                     num = max;
-                if ((period_type)num < 100)
-                    throw InvalidArgumentException{"save-interval should be at least 100"};
+                if ((period_type)num < global::min_save_interval)
+                    throw InvalidArgumentException{std::string{"save-interval should be at least "} + std::to_string(global::min_save_interval)};
                 global::instance->save_interval = num;
             } else {
                 throw LogicException{std::string{"unknown number argument name: "} + name};
@@ -1157,8 +1157,6 @@ namespace {
         }
 
         inline virtual ~Tpx3App() {}                //!< Destructor
-
-        constexpr static char NAME[] = "Tpx3App";   //!< Name (e.g. for syslog)
     };
 
     /*!
@@ -1232,7 +1230,7 @@ int main (int argc, char* argv[])
     int retval = Application::EXIT_USAGE;
 
     try {
-        Logger& logger = Logger::get(Tpx3App::NAME);
+        Logger& logger = Logger::get(global::APP_NAME);
         LogProxy log(logger);
 
         stopOrRestartCommand(argc, argv); // exits if applicable
