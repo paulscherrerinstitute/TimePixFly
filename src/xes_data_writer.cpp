@@ -222,6 +222,17 @@ namespace {
             std::string channel;                //!< REDIS channel for publishing
             std::string scan;                   //!< Scan ID to use in metadata
 
+            /*!
+            \brief Pubish message
+            \param message Message to publish
+            */
+            void publish(const std::string& message)
+            {
+                Poco::Redis::Command cmd("PUBLISH");
+                cmd << channel << message;
+                [[maybe_unused]] auto num_listeners = redis_client.execute<Poco::Int64>(cmd);
+            }
+
           public:
             /*!
             \brief Constructor
@@ -276,9 +287,7 @@ namespace {
                         << R"("})";
                 }
 
-                Poco::Redis::Command cmd("PUBLISH");
-                cmd << channel << oss.str();
-                redis_client.execute<void>(cmd);
+                publish(oss.str());
             }
 
             /*!
@@ -315,9 +324,7 @@ namespace {
                     json.endObject();
                 }
 
-                Poco::Redis::Command cmd("PUBLISH");
-                cmd << channel << oss.str();
-                redis_client.execute<void>(cmd);
+                publish(oss.str());
             }
 
             /*!
@@ -347,9 +354,7 @@ namespace {
                     json.endObject();
                 }
 
-                Poco::Redis::Command cmd("PUBLISH");
-                cmd << channel << oss.str();
-                redis_client.execute<void>(cmd);
+                publish(oss.str());
                 redis_client.flush();
             }
 
@@ -382,6 +387,31 @@ namespace {
             {
                 return host_port == this->host_port;
             }
+
+            /*!
+            \brief Check if connection is ok
+            \return True if connection is ok
+            */
+            inline bool checkConnection() noexcept
+            {
+                try {
+                    Poco::Redis::Command ping = Poco::Redis::Command::ping();
+                    std::string response = redis_client.execute<std::string>(ping);
+                    return response == "PONG";
+                }
+                catch (const Poco::Exception& ex)
+                {
+                    return false;
+                }
+            }
+
+            /*!
+            \brief Reconnect
+            */
+            inline void reconnect()
+            {
+                redis_client.connect(host_port);
+            }
         };
 
         inline static std::unique_ptr<RedisPublisher> publisherCache{nullptr};  //!< Caches REDIS connection object
@@ -413,6 +443,11 @@ namespace {
                 publisherCache.reset(new RedisPublisher{host_port});
                 // Authenticate
                 // If that fails: delete cached connection, throw appropriate exception
+            } else {
+                if (!publisherCache->checkConnection()) {
+                    log << "redis writer: reconnecting to " << host_port << log_debug;
+                    publisherCache->reconnect();
+                }
             }
 
             log << "redis writer: publishing to channel " << key << " with scan id " << scan << log_debug;
