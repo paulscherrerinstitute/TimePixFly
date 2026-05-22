@@ -170,8 +170,6 @@ namespace {
         std::unique_ptr<HTTPClientSession> clientSession;   //!< Client session with ASI server
         std::unique_ptr<ServerSocket> serverSocket;         //!< Socket for connecting to myself
 
-        Poco::JSON::Parser jsonParser;  //!< Poco JSON parser
-
         std::string bpcFilePath;        //!< Path to ASI bpc detector configuration file (optional)
         std::string dacsFilePath;       //!< Path to ASI dacs detector configuration file (optional)
         std::string streamFilePath;     //!< Path (and flag) to file to which the raw event stream should be copied (don't copy if empty)
@@ -605,7 +603,7 @@ namespace {
         \param requestString HTTP request string
         \return URI string
         */
-        std::string getUri(const std::string& requestString)
+        inline std::string getUri(const std::string& requestString) const
         {
             logger << "getUri(" << requestString << ')' << log_trace;
             // std::ostringstream oss;
@@ -620,7 +618,7 @@ namespace {
         \param in       Poco HTTP response input stream reference
         \throw RuntimeException with error response if the response status is not OK
         */
-        inline void checkResponse(const HTTPResponse& response, std::istream& in)
+        inline void checkResponse(const HTTPResponse& response, std::istream& in) const
         {
             if (response.getStatus() != HTTPResponse::HTTP_OK) {
                 std::ostringstream oss;
@@ -635,7 +633,7 @@ namespace {
         \param response         Poco HTTP response object reference
         \return Input stream reference for reading HTTP GET response content
         */
-        inline std::istream& serverGet(const std::string& requestString, HTTPResponse& response)
+        inline std::istream& serverGet(const std::string& requestString, HTTPResponse& response) const
         {
             logger << "serverGet(" << requestString << ')' << log_trace;
             try {
@@ -655,7 +653,7 @@ namespace {
         \param contentLength    HTTP content length
         \return Output stream object reference for content writing
         */
-        inline std::ostream& serverPut(const std::string& requestString, const std::string& contentType, std::streamsize contentLength)
+        inline std::ostream& serverPut(const std::string& requestString, const std::string& contentType, std::streamsize contentLength) const
         {
             logger << "serverPut(" << requestString << ", " << contentType << ", " << contentLength << ')' << log_trace;
             try {
@@ -695,7 +693,7 @@ namespace {
         inline Poco::JSON::Object::Ptr getJsonObject(const std::string& requestString)
         {
             logger << "getJsonObject(" << requestString << ")" << log_trace;
-            jsonParser.reset();
+            Poco::JSON::Parser jsonParser;
             HTTPResponse response;
             auto& in = serverGet(requestString, response);
             checkResponse(response, in);
@@ -711,7 +709,7 @@ namespace {
         \param response         Poco HTTP response object reference
         \return Input stream reference for reading response
         */
-        inline std::istream& putJsonString(const std::string& requestString, const std::string& jsonString, HTTPResponse& response)
+        inline std::istream& putJsonString(const std::string& requestString, const std::string& jsonString, HTTPResponse& response) const
         {
             logger << "putJsonString(" << requestString << ", " << jsonString << ")" << log_trace;
             auto& out = serverPut(requestString, "application/json", jsonString.size());
@@ -726,7 +724,7 @@ namespace {
         \param response         Poco HTTP response object reference
         \return Input stream reference for reading response
         */
-        inline std::istream& putJsonObject(const std::string& requestString, Poco::JSON::Object::Ptr objPtr, HTTPResponse& response)
+        inline std::istream& putJsonObject(const std::string& requestString, Poco::JSON::Object::Ptr objPtr, HTTPResponse& response) const
         {
             logger << "putJsonObject(" << requestString << ")" << log_trace;
             std::ostringstream oss;
@@ -795,26 +793,11 @@ namespace {
             return getJsonObject("/detector/layout");
         }
 
-        // void acquisitionInit(Poco::JSON::Object::Ptr configPtr, unsigned numTriggers, unsigned shutter_open_ms=490u, unsigned shutter_closed_ms=10u)
-        // {
-        //     logger << "acquisitionInit(" << numTriggers << ", " << shutter_open_ms << ", " << shutter_closed_ms << ")" << log_trace;
-        //     configPtr->set("nTriggers", numTriggers);
-        //     configPtr->set("TriggerMode", "AUTOTRIGSTART_TIMERSTOP");
-        //     configPtr->set("TriggerPeriod", (shutter_open_ms + shutter_closed_ms) / 1000.f);
-        //     configPtr->set("ExposureTime", shutter_open_ms / 1000.f);
-
-        //     HTTPResponse response;
-        //     auto& in = putJsonObject("/detector/config", configPtr, response);
-        //     checkResponse(response, in);
-        //     logger << "Response of loading binary pixel configuration file: " << in.rdbuf() << log_notice;
-        //     checkSession(in);
-        // }
-
         /*!
         \brief Send raw event stream destination IP and port information to ASI server
         \param address TCP address
         */
-        void serverRawDestination(const SocketAddress& address)
+        inline void serverRawDestination(const SocketAddress& address)
         {
             logger << "serverRawDestination(" << address.toString() << ")" << log_trace;
             HTTPResponse response;
@@ -828,7 +811,7 @@ namespace {
         /*!
         \brief Send aquisition start signal to ASI server
         */
-        void acquisitionStart()
+        inline void acquisitionStart()
         {
             logger << "acquisitionStart()" << log_trace;
             HTTPResponse response;
@@ -842,7 +825,7 @@ namespace {
         \brief Set program state with log message
         \param state New program state
         */
-        inline void set_state(const std::string_view& state)
+        inline void set_state(const std::string_view& state) const
         {
             logger << "new state: " << state << log_debug;
             StateHandler::set_state(state);
@@ -852,7 +835,7 @@ namespace {
         \brief Check parameter consistency
         \throw InvalidArgumentException on detected inconsistencies
         */
-        void checkParameterConsistency()
+        inline void checkParameterConsistency() const
         {
             auto& gvars = *global::instance;
             if (gvars.clientAddress == gvars.controlAddress)
@@ -887,6 +870,7 @@ namespace {
 
             iobuf::container_size = bufferSize;
             const bool server_mode = gvars.server_mode;
+            const bool copy_mode = !streamFilePath.empty();
 
             // ----------------------- get detector server data -----------------------
 
@@ -930,7 +914,7 @@ namespace {
                 infoPtr->get("NumberOfChips").convert(numChips);
             }
 
-            detector_layout& layout = global::instance->layout;
+            detector_layout& layout = gvars.layout;
             {
                 auto layoutPtr = detectorLayout();
                 {
@@ -952,48 +936,62 @@ namespace {
                     layout.chip.push_back(chip);
                 }
 
-                {
-                    LogProxy log(logger);
-                    log << "layout: " << layout.width << ',' << layout.height << ':';
-                    for (decltype(numChips) i=0; i<numChips; i++)
-                        log << ' ' << layout.chip[i].x << ',' << layout.chip[i].y;
-                    log << log_debug;
-                }
+                LogProxy log(logger);
+                log << layout << log_debug;
             }
+
+            // ----------------------- create data pipeline -----------------------
 
             rest::init_callbacks();
             auto restService = rest::start_service(logger, gvars.controlAddress);
 
-            std::unique_ptr<DataHandler<AsiRawStreamDecoder>> dataHandlerPtr; 
-            std::unique_ptr<Analysis> analysisPtr;
-            if (streamFilePath.empty()) {
+            std::unique_ptr<CopyHandler> copyPtr;                               // only used in copy_mode
+            std::unique_ptr<DataHandler<AsiRawStreamDecoder>> dataHandlerPtr;   // not used in copy_mode
+            std::unique_ptr<Analysis> analysisPtr;                              // not used in copy_mode
+            if (copy_mode) {
+                // create copy handler in advance
+                copyPtr.reset(new CopyHandler{streamFilePath, logger});
+                gvars.stop_handlers.emplace_back([&copyPtr]() {
+                    copyPtr->stopNow();
+                });
+            } else {
                 // if not copy mode, create the data handler in advance
                 analysisPtr.reset(new Analysis);
                 dataHandlerPtr.reset(new DataHandler<AsiRawStreamDecoder>{logger, *analysisPtr, numChips, reorderQueueSize});
+                gvars.stop_handlers.emplace_back([&dataHandlerPtr]() {
+                    dataHandlerPtr->stopNow();
+                });
             }
 
-            do {
-                if (! global::instance->last_error.empty())
-                    set_state(global::except);
+            // ----------------------- server loop -----------------------
 
-                if (global::instance->server_mode) { // wait for start signal
-                    using namespace std::chrono_literals;
-                    set_state(global::config);
-                    while (!global::instance->stop && !global::instance->start) {
-                        std::this_thread::sleep_for(1ms);
+            do {
+                if (! gvars.error_empty()) {
+                    if (gvars.stop_collect) {   // prevent racing effects on data collection stop
+                        gvars.set_error();
+                    } else {
+                        set_state(global::except);
                     }
-                    if (global::instance->stop) {
-                        global::instance->last_error.clear();
-                        break; // exit server mode loop
-                    }
-                    global::instance->start = false;
                 }
 
-                global::instance->stop_collect = false;
+                if (server_mode) {  // wait for start signal
+                    using namespace std::chrono_literals;
+                    set_state(global::config);
+                    while (!gvars.stop && !gvars.start) {
+                        std::this_thread::sleep_for(1ms);
+                    }
+                    if (gvars.stop) {
+                        gvars.set_error();
+                        break; // exit server mode loop
+                    }
+                    gvars.start = false;
+                }
+
+                gvars.stop_collect = false;
                 set_state(global::setup);
 
                 try {
-                    if (streamFilePath.empty()) {
+                    if (!copy_mode) {
                         processing::init();
                         analysisPtr->Reset();
                     }
@@ -1030,7 +1028,7 @@ namespace {
                             if (ret == -1) {
                                 throw Poco::RuntimeException(std::string{"poll failed - "} + std::strerror(errno));
                             } else if (ret == 0) {  // timeout
-                                if (global::instance->stop_collect)
+                                if (gvars.stop_collect)
                                     break;
                             } else if (fds[0].revents & POLLIN) {
                                 break;
@@ -1043,32 +1041,17 @@ namespace {
                     StreamSocket dataStream = serverSocket->acceptConnection(senderAddress);
                     //------------------------------------------------
                     set_state(global::collect);
-                    dataStream.setReceiveTimeout(global::instance->collect_timeout);
+                    dataStream.setReceiveTimeout(gvars.collect_timeout);
 
-                    if (! streamFilePath.empty()) {
+                    if (copy_mode) {
+                        auto& copyHandler = *copyPtr;
                         Timer timer;
 
-                        CopyHandler copyHandler(dataStream, streamFilePath, logger);
-                        global::instance->stop_handlers.emplace_back([&copyHandler]() {
-                            copyHandler.stopNow();
-                        });
-
+                        copyHandler.rawDataStream(dataStream);
                         copyHandler.run_async();
                         copyHandler.await();
 
-                        const double time = timer.elapsed();
-
-                        const auto items = copyHandler.writeTotalBytes / sizeof(u64);
-                        const auto ri = copyHandler.readTotalBytes / sizeof(u64);
-                        const auto wi = copyHandler.writeTotalBytes / sizeof(u64);
-                        const auto rt = copyHandler.readTime;
-                        const auto rot = copyHandler.readOpTime;
-                        const auto wt = copyHandler.writeTime;
-                        const auto wot = copyHandler.writeOpTime;
-
-                        logger << "total: " << items << " items in " << time << "s at " << (items / time) << " items/s\n"
-                               << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
-                               << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
+                        copyHandler.logOutput(timer.elapsed());
                     } else {
                         auto& analysis = *analysisPtr;
                         auto& dataHandler = *dataHandlerPtr;
@@ -1077,10 +1060,6 @@ namespace {
                         logger << "connection from " << senderAddress.toString() << log_info;
 
                         dataHandler.rawDataStream(dataStream);
-                        global::instance->stop_handlers.emplace_back([&dataHandler]() {
-                            dataHandler.stopNow();
-                        });
-
                         analysis.run_async();
                         dataHandler.run_async();
                         dataHandler.await();
@@ -1089,29 +1068,10 @@ namespace {
                         const double time = timer.elapsed();
 
                         dataStream.close();
-
-                        const uint64_t ntoa = dataHandler.toaCount;
-                        const uint64_t ntdc = dataHandler.tdcCount;
-                        const u64 readCount = (dataHandler.byteCount / sizeof(u64));
-                        const double avgAnalysisWorkTime = dataHandler.analyseWorkTime / numChips;
-                        const double avgAnalysisTime = (dataHandler.analyseWorkTime + dataHandler.analyseSpinTime) / numChips;
-                        logger << "time: " << time << "s tdcs: " << ntdc << " toas: " << ntoa << " at " << (ntoa / time)
-                                                   << " toas/s rate: " << ((ntoa+ntdc) / time) << " events/s\n"
-                            << "analysis spin: " << dataHandler.analyseSpinTime << "s work 1:" << dataHandler.analysePassOneTime
-                                                                                       << " 2:" << dataHandler.analysePassTwoTime
-                                                                                       << " 3:" << dataHandler.analysePassThreeTime
-                                                                                       << " self: " << dataHandler.analyseWorkTime
-                                                                                       << " avg: " << avgAnalysisWorkTime
-                            << "\n         self rate: " << (ntoa / avgAnalysisWorkTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
-                            << "\n         rate: " << (ntoa / avgAnalysisTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisTime) << " events/s"
-                            << "\nreading spin: " << dataHandler.readSpinTime << "s work: " << dataHandler.readTime
-                                                  << "s total: " << dataHandler.readTotalTime << "s items: " << readCount
-                                                  << " at " << (readCount / dataHandler.readTotalTime) << " items/s"
-                                                  << ", " << (ntoa / dataHandler.readTotalTime) << " toas/s"
-                                                  << ", " << ((ntoa+ntdc) / dataHandler.readTotalTime) << " events/s" << log_notice;
+                        dataHandler.logOutput(time);
                     }
                 } catch (Poco::Exception& ex) {
-                    global::instance->last_error = ex.displayText();
+                    gvars.set_error(ex.displayText());
                     set_state(global::except);
                     LogProxy log(logger);
                     log << ex.displayText() << '\n';
@@ -1121,24 +1081,28 @@ namespace {
                     }
                     log << log_critical;
                 } catch (std::exception& ex) {
-                    global::instance->last_error = ex.what();
+                    gvars.set_error(ex.what());
                     set_state(global::except);
                     logger << "Exception: " << ex.what() << log_critical;
                 }
-            } while (global::instance->server_mode && !global::instance->stop);
+            } while (server_mode && !gvars.stop);
 
-            if (! global::instance->last_error.empty()) {
-                set_state(global::except);
-                logger << "Exception: " << global::instance->last_error << log_error;
+            if (! gvars.error_empty()) {
+                auto error = gvars.get_error(global::no_error_reset);
+                logger << "Exception: " << error << log_error;
             }
+
+            // ----------------------- shutdown data pipeline -----------------------
 
             set_state(global::shutdown);
             StateHandler::stop();
             rest::stop_service(restService.get());
-            dataHandlerPtr->shutdown();
-            analysisPtr->shutdown();
+            if (! copy_mode) {
+                dataHandlerPtr->shutdown();
+                analysisPtr->shutdown();
+            }
 
-            if (global::instance->last_error.empty())
+            if (gvars.error_empty())
                 return Application::EXIT_OK;
             return Application::EXIT_USAGE;
         }
@@ -1164,7 +1128,7 @@ namespace {
     \param argc Number of comandline arguments
     \param argv Commandline arguments
     */
-    void stopOrRestartCommand(int argc, char* argv[])
+    inline void stopOrRestartCommand(int argc, char* argv[])
     {
         // Search for "stop" or "restart"
         int command = 0;
@@ -1253,9 +1217,10 @@ int main (int argc, char* argv[])
                 global::instance->stop.store(false);
                 global::instance->restart.store(false);
                 retval = app.run();
-                if (global::instance->restart.load())
-                    log << "restart, last error is \"" << global::instance->last_error << '"' << log_info;
-                else
+                if (global::instance->restart.load()) {
+                    auto error = global::get_error(global::reset_error);
+                    log << "restart, last error is \"" << error << '"' << log_info;
+                } else
                     break;
             } while (true);
 

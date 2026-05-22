@@ -19,7 +19,7 @@ namespace {
     \return Parsed object of type Tualified-id before ‘>’ token
     */
     template <typename T>
-    T parse(std::string_view& s, std::string_view::size_type pos)
+    inline T parse(std::string_view& s, std::string_view::size_type pos)
     {
             std::istringstream iss(s.substr(pos).data());
             T t;
@@ -50,7 +50,7 @@ namespace {
     \param pmap result mapping
     \param in JSON input stream
     */
-    void from_json(PixelIndexToEp& pmap, std::istream& in)
+    inline void from_json(PixelIndexToEp& pmap, std::istream& in)
     {
         const detector_layout& layout = global::instance->layout;
         const auto numPixels = chip_size * chip_size;
@@ -106,7 +106,7 @@ namespace {
     \param pmap Set this mapping to what was defined in XESPointsFile
     \param in file input stream
     */
-    void from_file(PixelIndexToEp& pmap, std::istream& in)
+    inline void from_file(PixelIndexToEp& pmap, std::istream& in)
     {
         const detector_layout& layout = global::instance->layout;
         const auto numPixels = chip_size * chip_size;
@@ -164,7 +164,7 @@ namespace {
         pmap.npoints += 1;
     }
 
-}
+} // namespace
 
 void PixelIndexToEp::from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
 {

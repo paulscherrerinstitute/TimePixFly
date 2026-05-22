@@ -50,7 +50,7 @@ namespace thread_signal {
         /*!
         \brief Notify one waiter after condition is fullfilled
         */
-        void notify_one()
+        inline void notify_one()
         {
             cond.notify_one();
         }
@@ -58,7 +58,7 @@ namespace thread_signal {
         /*!
         \brief Notify all waiters after condition is fullfilled
         */
-        void notify_all()
+        inline void notify_all()
         {
             cond.notify_all();
         }
@@ -77,7 +77,7 @@ namespace thread_signal {
         /*!
         \brief Construct single<no_shutdown> signal
         */
-        single() noexcept
+        inline single() noexcept
         {
             dep.push_back(this);
         }

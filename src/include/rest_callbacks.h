@@ -53,7 +53,7 @@ namespace {
         \brief Construct request handler
         \param logger_ Logger
         */
-        RestHandler(Logger& logger_) noexcept
+        inline RestHandler(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -62,7 +62,7 @@ namespace {
         \param request Rest request
         \param response Rest response
         */
-        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override {
+        inline void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override {
             std::string response_text;
             try {
                 URI uri{request.getURI()};
@@ -140,7 +140,7 @@ namespace {
         \brief Constructor
         \param _logger Logging proxy
         */
-        explicit StateHandler(Logger& _logger) noexcept
+        inline explicit StateHandler(Logger& _logger) noexcept
             : logger(_logger)
         {}
 
@@ -149,7 +149,7 @@ namespace {
         \param request Poco server request
         \param response Pocoe server response
         */
-        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
+        inline void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             try {
                 {
@@ -206,14 +206,16 @@ namespace {
         \brief Set program state
         \param state New program state
         */
-        static void set_state(const std::string_view& state)
+        inline static void set_state(const std::string_view& state)
         {
             if (global::instance->server_mode) {
                 std::lock_guard<std::mutex> lock(ws_mutex);
-                global::instance->state = state;
-                if (ws == nullptr)
-                    return;
-                ws->sendFrame(state.data(), state.size(), WebSocket::FRAME_TEXT);
+                if (global::instance->state != state) {
+                    global::instance->state = state;
+                    if (ws == nullptr)
+                        return;
+                    ws->sendFrame(state.data(), state.size(), WebSocket::FRAME_TEXT);
+                }
             } else {
                 global::instance->state = state;
             }
@@ -222,7 +224,7 @@ namespace {
         /*!
         \brief Stop websocket
         */
-        static void stop() noexcept
+        inline static void stop() noexcept
         {
             stop_sig = true;
         }
@@ -239,7 +241,7 @@ namespace {
         \brief Create factory
         \param logger_ Logger
         */
-        RestHandlerFactory(Logger& logger_) noexcept
+        inline RestHandlerFactory(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -248,7 +250,7 @@ namespace {
         \param request Rest request
         \return Handler for rest requests
         */
-        HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override {
+        inline HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override {
             if (request.getURI() == "/ws")
                 return new StateHandler(logger);
             return new RestHandler(logger);
@@ -268,14 +270,14 @@ namespace {
         \param logger Logger proxy
         \param listen_to Server address
         */
-        RestService(Logger& logger, const SocketAddress& listen_to)
+        inline RestService(Logger& logger, const SocketAddress& listen_to)
             : server(new RestHandlerFactory(logger), ServerSocket(listen_to), http_params)
         {}
 
         /*!
         \brief Start HTTP server
         */
-        void start()
+        inline void start()
         {
             server.start();
         }
@@ -283,7 +285,7 @@ namespace {
         /*!
         \brief Stop HTTP server
         */
-        void stop()
+        inline void stop()
         {
             server.stop();
         }
@@ -291,7 +293,7 @@ namespace {
         /*!
         \brief Stop HTTP server
         */
-        ~RestService()
+        inline ~RestService()
         {
             server.stop();
         }
@@ -383,8 +385,7 @@ namespace rest {
             std::ostringstream oss;
             {
                 Poco::JSON::PrintHandler json{oss};
-                std::string err;
-                std::swap(err, global::instance->last_error);
+                std::string err = global::get_error(global::reset_error);
                 json.startObject();
                 json.key("type"); json.value(std::string{"LastError"});
                 json.key("message"); json.value(err.empty() ? std::string{global::no_error} : err);

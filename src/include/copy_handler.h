@@ -27,7 +27,7 @@ namespace {
 */
 class CopyHandler final {
 
-    StreamSocket& dataStream;   //!< Raw event data stream receiving end
+    StreamSocket dataStream;    //!< Raw event data stream receiving end
     std::ofstream streamFile;   //!< Write raw event data into this file
     iobuf::collection_t queue;  //!< I/O buffer collection
     Logger& logger;             //!< Poco::Logger object for logging
@@ -43,7 +43,7 @@ class CopyHandler final {
     \param size Number of bytes to read
     \return Number of bytes effectively read
     */
-    int readBytes(void* buf, int size)
+    inline int readBytes(void* buf, int size)
     {
         logger << "readData(" << buf << ", " << size << ')' << log_trace;
         int numBytes = 0;
@@ -61,7 +61,7 @@ class CopyHandler final {
     /*!
     \brief Code for raw event data reader thread
     */
-    void readData()
+    inline void readData()
     {
         set_thread_name("tpx3app:cp-reader");
 
@@ -116,7 +116,7 @@ class CopyHandler final {
     /*!
     \brief Code for raw event data writer thread
     */
-    void writeData()
+    inline void writeData()
     {
         set_thread_name("tpx3app:cp-writer");
 
@@ -176,10 +176,10 @@ public:
     \param path     File path for writing the received raw event data
     \param log      Logging object
     */
-    CopyHandler(StreamSocket& socket, const std::string& path, Logger& log)
-        : dataStream{socket}, queue(1), logger{log}
+    inline CopyHandler(const std::string& path, Logger& log)
+        : queue(1), logger{log}
     {
-        logger << "CopyHandler(" << socket.address().toString() << ", " << path << ')' << log_trace;
+        logger << "CopyHandler(" << path << ')' << log_trace;
         if (! (readOnly = (path == "none")))
             streamFile = std::ofstream(path);
         else
@@ -187,9 +187,19 @@ public:
     }
 
     /*!
+    \brief Set raw data stream
+    \param socket   Raw event data stream receiving end
+    */
+    inline void rawDataStream(StreamSocket& socket) noexcept
+    {
+        logger << "DataHandler::rawDataStream(" << socket.address().toString() << ')' << log_trace;
+        dataStream = socket;
+    }
+
+    /*!
     \brief Request threads to stop
     */
-    void stopNow()
+    inline void stopNow()
     {
         queue.stop_now();
     }
@@ -197,7 +207,7 @@ public:
     /*!
     \brief Start worker threads for reading and writing of raw event data
     */
-    void run_async()
+    inline void run_async()
     {
         readerThread = std::thread([this]{this->readData();});
         if (! readOnly)
@@ -207,11 +217,29 @@ public:
     /*!
     \brief Wait for completion of threads for reading and writing raw event data
     */
-    void await()
+    inline void await()
     {
         readerThread.join();
         if (! readOnly)
             writerThread.join();
+    }
+
+    /*!
+    \brief Log output
+    \param time Total wall time
+    */
+    inline void logOutput(double time) {
+        const auto items = writeTotalBytes / sizeof(u64);
+        const auto ri = readTotalBytes / sizeof(u64);
+        const auto wi = writeTotalBytes / sizeof(u64);
+        const auto rt = readTime;
+        const auto rot = readOpTime;
+        const auto wt = writeTime;
+        const auto wot = writeOpTime;
+
+        logger << "total: " << items << " items in " << time << "s at " << (items / time) << " items/s\n"
+               << "read: " << ri << " items in " << rt << "s at " << (ri / rt) << " items/s, op: " << rot << "s at " << (ri / rot) << " items/s\n"
+               << "write: " << items << " items in " << wt << "s at " << (wi / wt) << " items/s, op: " << wot << "s at " << (wi / wot) << " items/s" << log_notice;
     }
 
     double readOpTime = .0;     //!< Time used for synchronous read operations

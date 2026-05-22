@@ -68,7 +68,7 @@ struct PixelMap final {
         \brief Start of range
         \return Iterator pointing to the start element
         */
-        inline MapDest* begin()
+        inline MapDest* begin() noexcept
         {
             return &pmap.mapping[start];
         }
@@ -77,7 +77,7 @@ struct PixelMap final {
         \brief One past end of range
         \return Iterator pointing to one past the last element
         */
-        inline MapDest* end()
+        inline MapDest* end() noexcept
         {
             return pmap.mapping.data() + sentinel;
         }
@@ -86,7 +86,7 @@ struct PixelMap final {
         \brief Start of range
         \return Iterator pointing to the start element
         */
-        inline const MapDest* begin() const
+        inline const MapDest* begin() const noexcept
         {
             return &pmap.mapping[start];
         }
@@ -95,7 +95,7 @@ struct PixelMap final {
         \brief One past end of range
         \return Iterator pointing to one past the last element
         */
-        inline const MapDest* end() const
+        inline const MapDest* end() const noexcept
         {
             return pmap.mapping.data() + sentinel;
         }
@@ -104,7 +104,7 @@ struct PixelMap final {
         \brief Is this an empty range?
         \return True if this is an empty range
         */
-        inline bool empty() const
+        inline bool empty() const noexcept
         {
             return start == sentinel;
         }
@@ -113,7 +113,7 @@ struct PixelMap final {
         \brief How many elements does this range have?
         \return Number of elements in this range
         */
-        inline unsigned size() const
+        inline unsigned size() const noexcept
         {
             return sentinel - start;
         }
@@ -124,7 +124,7 @@ struct PixelMap final {
     \param index Abstract pixel index
     \return Flat pixel to energy point mapping range
     */
-    inline const Range operator[](const PixelIndex& index) const
+    inline const Range operator[](const PixelIndex& index) const noexcept
     {
         auto base = index.chip * pixels_per_chip + index.flat_pixel;
         return {const_cast<PixelMap&>(*this), indices[base], indices[base + 1]};
@@ -135,10 +135,10 @@ struct PixelMap final {
     \param index Abstract pixel index
     \return Flat pixel to energy point mapping range
     */
-    inline const Range at(const PixelIndex& index)
+    inline const Range at(const PixelIndex& index) const
     {
             auto base = index.chip * pixels_per_chip + index.flat_pixel;
-            return {*this, indices.at(base), indices.at(base + 1)};
+            return {const_cast<PixelMap&>(*this), indices.at(base), indices.at(base + 1)};
     }
 };
 

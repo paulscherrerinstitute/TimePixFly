@@ -95,7 +95,7 @@ namespace {
         /*!
         \brief Default constructor
         */
-        signal() noexcept
+        inline signal() noexcept
             : val{false}
         {}
 
@@ -103,7 +103,7 @@ namespace {
         \brief Construct from bool
         \param value New signal value
         */
-        signal(bool value) noexcept
+        inline signal(bool value) noexcept
             : val{value}
         {}
 
@@ -111,7 +111,7 @@ namespace {
         \brief Convert to bool
         \return Signal value
         */
-        operator bool()
+        inline operator bool() noexcept
         {
             std::lock_guard lock{lck};
             return val;
@@ -122,7 +122,7 @@ namespace {
         \param value New value
         \return self
         */
-        signal& operator=(bool value)
+        inline signal& operator=(bool value) noexcept
         {
             std::lock_guard lock{lck};
             val = value;
@@ -133,7 +133,7 @@ namespace {
         \brief Wait for signal value
         \param value Value to wait for
         */
-        void await(bool value)
+        inline void await(bool value) noexcept
         {
             std::unique_lock lock{lck};
             while (val != value)
@@ -144,7 +144,7 @@ namespace {
         \brief Wait for signal value and reset it
         \param value Value to wait for
         */
-        void await_reset(bool value)
+        inline void await_reset(bool value) noexcept
         {
             std::unique_lock lock{lck};
             while (val != value)
@@ -156,7 +156,7 @@ namespace {
         \brief Set value and notify one waiter
         \param value New signal value
         */
-        void set_notify(bool value)
+        void set_notify(bool value) noexcept
         {
             std::lock_guard lock{lck};
             val = value;
@@ -168,7 +168,7 @@ namespace {
         \param value New signal value
         \return Signal value
         */
-        bool reset(bool value)
+        bool reset(bool value) noexcept
         {
             std::lock_guard lock{lck};
             bool rval = val;
@@ -187,7 +187,7 @@ namespace {
             \brief Constructor
             \param s Signal
             */
-            explicit lock(signal& s)
+            inline explicit lock(signal& s) noexcept
                 : sig{&s}, lck{s.lck}
             {}
 
@@ -197,19 +197,19 @@ namespace {
             /*!
             \brief Move constructor
             */
-            lock(lock&&) = default;
+            inline lock(lock&&) noexcept = default;
 
             /*!
             \brief Moving assignment
             \return this
             */
-            lock& operator=(lock&&) = default;
+            inline lock& operator=(lock&&) noexcept = default;
 
             /*!
             \brief Conversion to bool
             \return Underlying signal value
             */
-            operator bool()
+            inline operator bool() const noexcept
             {
                 return sig->val;
             }
@@ -219,7 +219,7 @@ namespace {
             \param value New underlying signal value
             \return this
             */
-            lock& operator=(bool value)
+            inline lock& operator=(bool value) noexcept
             {
                 sig->val = value;
                 return *this;
@@ -230,11 +230,11 @@ namespace {
         \brief Get locked proxy
         \return Proxy to locked signal
         */
-        lock sig()
+        inline lock sig() noexcept
         {
             return lock(*this);
         }
-    };
+    };  // struct signal
 
 
     signal stop_server;     //!< Stop server signal
@@ -253,7 +253,7 @@ namespace {
         \brief Constructor
         \param name File name
         */
-        file_desc(const std::string& name)
+        inline file_desc(const std::string& name)
         {
             fd = open(name.c_str(), O_RDONLY
                 #ifdef O_NOATIME
@@ -271,7 +271,7 @@ namespace {
         \brief Move constructor
         \param other Moved file descriptor wrapper
         */
-        file_desc(file_desc&& other) noexcept
+        inline file_desc(file_desc&& other) noexcept
         {
             std::swap(fd, other.fd);
         }
@@ -281,17 +281,17 @@ namespace {
         \param other Moved file descriptor wrapper
         \return this
         */
-        file_desc& operator=(file_desc&& other) noexcept
+        inline file_desc& operator=(file_desc&& other) noexcept
         {
             std::swap(fd, other.fd);
             return *this;
         }
 
-        ~file_desc() noexcept
+        inline ~file_desc() noexcept
         {
             close(fd);
         }
-    };
+    }; // struct file_desc
 
     /*!
     \brief Wrap mmapped file data
@@ -307,7 +307,7 @@ namespace {
         \brief Copy constructor
         \param fdesc File descriptor wrapper
         */
-        file_data(file_desc&& fdesc)
+        inline file_data(file_desc&& fdesc)
             : fd{std::move(fdesc)}
         {
             struct stat file_status{};
@@ -330,7 +330,7 @@ namespace {
         /*!
         \brief Destructor
         */
-        ~file_data() noexcept
+        inline ~file_data() noexcept
         {
             if (use_mmap)
                 munmap(data, len);
@@ -342,7 +342,7 @@ namespace {
         \param after After so many bytes
         \return Pointer to data
         */
-        const char* read_bytes(size_t& size, size_t after)
+        inline const char* read_bytes(size_t& size, size_t after) const
         {
             if (size > BUF_SIZE)
                 size = BUF_SIZE;
@@ -358,7 +358,7 @@ namespace {
         /*!
         \brief Rewind read position
         */
-        void rewind()
+        inline void rewind() const
         {
             if (! use_mmap) {
                 auto res = lseek(fd.fd, 0, SEEK_SET);
@@ -366,12 +366,12 @@ namespace {
                     throw Poco::SystemException("rewind failed", errno);
             }
         }
-    };
+    }; // struct file_data
 
     /*!
     \brief Code for send data thread
     */
-    void send_data()
+    inline void send_data()
     {
         constexpr static int header_size = 16;  // for premature stall
         try {
@@ -468,7 +468,7 @@ namespace {
     \throw DataFormatException if ptr is null
     */
     template<typename T>
-    T check_ptr(T&& ptr, const std::string& msg)
+    inline T check_ptr(T&& ptr, const std::string& msg)
     {
         if (ptr == nullptr)
             throw DataFormatException(msg);
@@ -480,7 +480,7 @@ namespace {
     \param response Poco HTTP response object
     \param msg      Error message
     */
-    void error_response(HTTPServerResponse& response, const std::string& msg)
+    inline void error_response(HTTPServerResponse& response, const std::string& msg)
     {
         response.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
         response.send() << msg << '\n';
@@ -495,7 +495,7 @@ namespace {
         \param request  Poco HTTP request object reference
         \param response Poco HTTP response object
         */
-        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
+        inline void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             std::string path = URI{request.getURI()}.getPath();
             std::cout << "GET: " << path << '\n';
@@ -516,7 +516,7 @@ namespace {
         \param request  Poco HTTP request object reference
         \param response Poco HTTP response object
         */
-        void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
+        inline void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             std::string path = URI{request.getURI()}.getPath();
             std::cout << "PUT: " << path << '\n';
@@ -541,7 +541,7 @@ namespace {
         \param request  Poco HTTP request object reference
         \param response Poco HTTP response object
         */
-        void handleRequest([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response) override
+        inline void handleRequest([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response) override
         {
             error_response(response, error);
         }
@@ -550,7 +550,7 @@ namespace {
         \brief Constructor
         \param err  Error string
         */
-        explicit ErrorRequestHandler(const std::string err)
+        inline explicit ErrorRequestHandler(const std::string err) noexcept
             : error(err)
         {}
 
@@ -568,7 +568,7 @@ namespace {
         \param request Poco HTPP request object reference
         \return Pointer to Poco request handler object
         */
-        HTTPRequestHandler* createRequestHandler(const HTTPServerRequest & request) override
+        inline HTTPRequestHandler* createRequestHandler(const HTTPServerRequest & request) override
         {
 
             if (request.getMethod() == "GET")
@@ -585,7 +585,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_dashboard([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_dashboard([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         response.setContentType("application/json");
         response.send() << R"({"Server":{"SoftwareVersion":"t1"}})" << '\n';
@@ -596,7 +596,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_config_load(HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_config_load(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         try {
             auto uri = URI{request.getURI()};
@@ -620,7 +620,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_measurement_start([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_measurement_start([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         start_collect = true;
         response.setContentType("text/plain");
@@ -628,11 +628,23 @@ namespace {
     }
 
     /*!
+    \brief GET /mesurement/stop response
+    \param request  Poco HTTP request object
+    \param response Poco HTTP response object
+    */
+    inline void get_measurement_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    {
+        stop_collect = true;
+        response.setContentType("text/plain");
+        response.send() << "measurement stopped\n";
+    }
+
+    /*!
     \brief GET/PUT /detector/config response
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void getput_detector_config(HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void getput_detector_config(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         if (request.getMethod() == "GET") {
             response.setContentType("application/json");
@@ -650,7 +662,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_detector_info([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_detector_info([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         response.setContentType("application/json");
         response.send() << R"({"NumberOfChips":)" << number_of_chips << "}\n";
@@ -661,7 +673,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_detector_layout([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         std::ostringstream oss;
 
@@ -706,7 +718,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void get_stop([[maybe_unused]] HTTPServerRequest& request, HTTPServerResponse& response)
     {
         stop_server.set_notify(true);
         response.setContentType("text/plain");
@@ -718,7 +730,7 @@ namespace {
     \param request Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_kill([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
+    inline void get_kill([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
     {
         std::cout << "kill server\n";
         std::exit(EXIT_SUCCESS);
@@ -729,7 +741,7 @@ namespace {
     \param request Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void get_break_stall([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
+    inline void get_break_stall([[maybe_unused]] HTTPServerRequest& request, [[maybe_unused]] HTTPServerResponse& response)
     {
         std::cout << "break stall\n";
         break_stall.set_notify(true);
@@ -742,7 +754,7 @@ namespace {
     \param request  Poco HTTP request object
     \param response Poco HTTP response object
     */
-    void put_server_destination(HTTPServerRequest& request, HTTPServerResponse& response)
+    inline void put_server_destination(HTTPServerRequest& request, HTTPServerResponse& response)
     {
         try {
             auto json_data = Parser{}.parse(request.stream());
@@ -769,11 +781,12 @@ namespace {
     /*!
     \brief Initialize HTTP handlers
     */
-    void init_handlers()
+    inline void init_handlers()
     {
         path_handler.emplace("/dashboard", get_dashboard);
         path_handler.emplace("/config/load", get_config_load);
         path_handler.emplace("/measurement/start", get_measurement_start);
+        path_handler.emplace("/measurement/stop", get_measurement_stop);
         path_handler.emplace("/detector/config", getput_detector_config);
         path_handler.emplace("/detector/info", get_detector_info);
         path_handler.emplace("/detector/layout", get_detector_layout);
@@ -878,7 +891,7 @@ namespace {
     \param argc Number of commandline arguments
     \param argv Commandline argument values
     */
-    void handle_args(int argc, char *argv[])
+    inline void handle_args(int argc, char *argv[])
     {
         args.addOption(Option{"input", "i"}
             .description("raw events input file")
@@ -931,7 +944,7 @@ namespace {
         }
         handler.checkRequired();
     }
-}
+} // namespace
 
 /*!
 \brief Main function

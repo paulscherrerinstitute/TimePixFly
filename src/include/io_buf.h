@@ -440,7 +440,7 @@ namespace iobuf {
         \brief Construct buffer resetter
         \param buffers Buffer collection to reset
         */
-        resetter(collection_t& buffers) noexcept
+        inline resetter(collection_t& buffers) noexcept
             : bufs{buffers}
         {}
 
@@ -452,7 +452,7 @@ namespace iobuf {
 
         This will reset the buffer collection.
         */
-        ~resetter() noexcept
+        inline ~resetter() noexcept
         {
             bufs.reset();
         }

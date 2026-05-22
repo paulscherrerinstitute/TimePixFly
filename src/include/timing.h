@@ -27,32 +27,32 @@ class Timer final {
     \brief Constructor
     \param start_ Start time
     */
-    explicit Timer(const time_point& start_=clock::now()) noexcept
+    inline explicit Timer(const time_point& start_=clock::now()) noexcept
         : start{start_}
     {}
 
-    Timer(const Timer&) = default;              //!< Copy constructor
-    Timer(Timer&&) = default;                   //!< Move constructor
+    inline Timer(const Timer&) = default;              //!< Copy constructor
+    inline Timer(Timer&&) = default;                   //!< Move constructor
 
     /*!
     \brief Assignment
     \return this
     */
-    Timer& operator=(const Timer&) = default;
+    inline Timer& operator=(const Timer&) noexcept = default;
 
     /*!
     \brief Move assignment
     \return this
     */
-    Timer& operator=(Timer&&) = default;
+    inline Timer& operator=(Timer&&) noexcept = default;
 
-    ~Timer() = default;                         //!< Destructor
+    inline ~Timer() = default;                         //!< Destructor
 
     /*!
     \brief Elapsed time since timer start
     \return Elapsed time
     */
-    double elapsed() const noexcept
+    inline double elapsed() const noexcept
     {
         return std::chrono::duration<double>{clock::now() - start}.count();
     }
@@ -61,7 +61,7 @@ class Timer final {
     \brief Set start time
     \param start_ New start time
     */
-    void set(const time_point& start_=clock::now()) noexcept
+    inline void set(const time_point& start_=clock::now()) noexcept
     {
         start = start_;
     }
@@ -70,7 +70,7 @@ class Timer final {
     \brief Elapsed time since start and reset start to now
     \return Elapsed time
     */
-    double elapsed_reset() noexcept
+    inline double elapsed_reset() noexcept
     {
         auto now = clock::now();
         double duration = std::chrono::duration<double>{now - start}.count();
@@ -93,7 +93,7 @@ class TimeAggregatorAgent final {
     \brief Constructor
     \param aggregator_ Create agent for this aggregator
     */
-    TimeAggregatorAgent(Agg& aggregator_) noexcept
+    inline TimeAggregatorAgent(Agg& aggregator_) noexcept
         : aggregator(&aggregator_)
     {}
 
@@ -103,7 +103,7 @@ class TimeAggregatorAgent final {
     \brief Move constructor
     \param other Value to be moved into this
     */
-    TimeAggregatorAgent(TimeAggregatorAgent&& other)
+    inline TimeAggregatorAgent(TimeAggregatorAgent&& other) noexcept
     {
         std::swap(*this, other);
     }
@@ -115,7 +115,7 @@ class TimeAggregatorAgent final {
     \param other Value to be moved into this
     \return this
     */
-    TimeAggregatorAgent& operator=(TimeAggregatorAgent&& other)
+    inline TimeAggregatorAgent& operator=(TimeAggregatorAgent&& other) noexcept
     {
         aggregator = nullptr;
         std::swap(*this, other);
@@ -125,7 +125,7 @@ class TimeAggregatorAgent final {
     \brief Destructor
     Pass locally aggregated value to aggregator.
     */
-    ~TimeAggregatorAgent()
+    inline ~TimeAggregatorAgent() noexcept
     {
         if (aggregator)
             aggregator->add(locally_aggregated);
@@ -134,7 +134,7 @@ class TimeAggregatorAgent final {
     /*!
     \brief Set timer start
     */
-    void set() noexcept
+    inline void set() noexcept
     {
         local_timer.set();
     }
@@ -142,7 +142,7 @@ class TimeAggregatorAgent final {
     /*!
     \brief Aggregate elapsed time
     */
-    void add() noexcept
+    inline void add() noexcept
     {
         locally_aggregated += local_timer.elapsed();
     }
@@ -150,7 +150,7 @@ class TimeAggregatorAgent final {
     /*!
     \brief Reset locally aggregated value
     */
-    void reset() noexcept
+    inline void reset() noexcept
     {
         locally_aggregated = 0.0;
     }
@@ -164,18 +164,18 @@ class TimeAggregator final {
     double aggregated=0.0;  //!< Aggregated value
 
     public:
-    TimeAggregator() = default;
+    inline TimeAggregator() noexcept = default;
     TimeAggregator(const TimeAggregator&) = delete;
     TimeAggregator(TimeAggregator&&) = delete;
     TimeAggregator& operator=(const TimeAggregator&) = delete;
     TimeAggregator& operator=(TimeAggregator&&) = delete;
-    ~TimeAggregator() = default;
+    inline ~TimeAggregator() = default;
 
     /*!
     \brief Aggregate value
     \param value Value to be aggregated
     */
-    void add(double value)
+    inline void add(double value)
     {
         std::lock_guard lock{add_lock};
         aggregated += value;
@@ -184,7 +184,7 @@ class TimeAggregator final {
     /*!
     \brief Reset aggregated value
     */
-    void reset()
+    inline void reset()
     {
         aggregated = 0.0;
     }
@@ -193,7 +193,7 @@ class TimeAggregator final {
     \brief Get per thread agent for this aggregator
     \return Agent for this aggregator
     */
-    TimeAggregatorAgent<TimeAggregator> agent()
+    inline TimeAggregatorAgent<TimeAggregator> agent() noexcept
     {
         return TimeAggregatorAgent{*this};
     }

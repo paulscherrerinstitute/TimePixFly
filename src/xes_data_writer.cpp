@@ -65,7 +65,7 @@ namespace {
         \brief Destination file uri
         \return `file:<file path>`
         */
-        inline std::string dest() override
+        inline std::string dest() const override
         {
             return std::string{"file:"} + basePath;
         }
@@ -202,7 +202,7 @@ namespace {
         \brief Destination TCP uri
         \return `tcp://<host>:<port>`
         */
-        inline std::string dest() override
+        inline std::string dest() const override
         {
             return std::string{"tcp://"} + dataReceiver.peerAddress().toString();
         }
@@ -226,7 +226,7 @@ namespace {
             \brief Pubish message
             \param message Message to publish
             */
-            void publish(const std::string& message)
+            inline void publish(const std::string& message)
             {
                 Poco::Redis::Command cmd("PUBLISH");
                 cmd << channel << message;
@@ -498,7 +498,7 @@ namespace {
         \see RedisPublisher::dest()
         \return Redis destination uri
         */
-        inline std::string dest() override
+        inline std::string dest() const override
         {
             assert(publisherCache != nullptr);
             return publisherCache->dest();

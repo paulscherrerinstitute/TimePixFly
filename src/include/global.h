@@ -80,12 +80,26 @@ struct global final {
     cpu_mask::cpu_mask_t cpu_affinity;                                     //!< CPU affinity for reader,writer, analysis threads
 
     // From code
+    static constexpr bool reset_error = true;                               //!< Reset last know error
+    static constexpr bool no_error_reset = false;                           //!< Don't reset last know error
     /*!
-    \brief Set error mutually exclusively
-    \param error Error message
+    \brief Set last known error
+    \param error Error message, default = no error
     */
-    static void set_error(const std::string& error);
-    std::string last_error;                                                //!< Last known error
+    static void set_error(const std::string& error = "") noexcept;
+
+    /*!
+    \brief Get and reset last known error
+    \param reset Reset last know error iff true
+    \return Last know error
+    */
+    static std::string get_error(bool reset) noexcept;
+
+    /*!
+    \brief Check for empty last know error
+    \return True if there is no last know error
+    */
+    static bool error_empty() noexcept;
 
     // program state: init -> config -> setup -> await_connection -> collect (-> config..) -> shutdown
     static constexpr std::string_view init{"init"};                         //!< initial state

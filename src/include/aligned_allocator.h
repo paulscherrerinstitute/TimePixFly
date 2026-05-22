@@ -18,7 +18,7 @@ Allocates memory aligned (to memory_alignment)
 \tparam T Type of allocated elements
 */
 template<typename T>
-struct aligned_allocator {
+struct aligned_allocator final {
     typedef T value_type;                   //!< Element type of memory
 
     inline aligned_allocator() = default;   //!< Default constructor
@@ -44,7 +44,7 @@ struct aligned_allocator {
     \brief Deallocate memory
     \param p Pointer to first element
     */
-    inline void deallocate(T* p, std::size_t) const {
+    inline void deallocate(T* p, std::size_t) const noexcept {
         std::free(p);
     }
 };

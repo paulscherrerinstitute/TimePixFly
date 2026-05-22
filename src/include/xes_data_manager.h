@@ -292,7 +292,7 @@ namespace xes {
                 return *cached.data;
 
             if (__builtin_expect(stopWriter, 0))
-                throw Poco::RuntimeException(global::instance->last_error);
+                throw Poco::RuntimeException(global::get_error(global::reset_error));
 
             Data* data = nullptr;
 
@@ -343,7 +343,7 @@ namespace xes {
         {
             assert(period != 0);
             if (__builtin_expect(stopWriter, false))
-                throw Poco::RuntimeException(global::instance->last_error);
+                throw Poco::RuntimeException(global::get_error(global::reset_error));
 
             auto& mdata = module_data[threadNo];
             Data* data{nullptr};
@@ -415,7 +415,7 @@ namespace xes {
 
         Terminate and join the writer thread
         */
-        void shutdown()
+        inline void shutdown()
         {
             writer_shutdown.send();
             writerThread.join();
@@ -426,7 +426,7 @@ namespace xes {
 
         Send the start signal to the writer thread
         */
-        void run_async()
+        inline void run_async()
         {
             start_writer.send();
         }
@@ -436,7 +436,7 @@ namespace xes {
 
         Mark intermediate histograms as the final ones and wait for the writer thread
         */
-        void await()
+        inline void await()
         {
             for (auto& mdata: module_data) {
                 std::lock_guard lock{mdata.lock_ready};

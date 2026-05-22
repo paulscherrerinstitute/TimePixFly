@@ -51,7 +51,7 @@ struct LogProxy final : private std::ostringstream {
     \brief Constructor
     \param l Poco::Logger object that is proxied
     */
-    inline LogProxy(Logger& l)
+    inline LogProxy(Logger& l) noexcept
         : logger(l)
     {}
 
@@ -59,7 +59,7 @@ struct LogProxy final : private std::ostringstream {
     \brief Move constructor
     \param other Will be moved into `this`
     */
-    inline LogProxy(LogProxy&& other)
+    inline LogProxy(LogProxy&& other) noexcept
         : logger(other.logger)
     {}
 
@@ -114,7 +114,7 @@ struct LogProxy final : private std::ostringstream {
     Is the log level of `logger` at least debug?
     \return True if debug priority log messages will be visible in the log stream
     */
-    bool debug() const {
+    bool debug() const noexcept {
         return logger.debug();
     }
 };

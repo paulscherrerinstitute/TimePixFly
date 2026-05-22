@@ -40,7 +40,7 @@ namespace xes {
         \brief Destination string
         \return Destination string
         */
-        virtual std::string dest() = 0;
+        virtual std::string dest() const = 0;
 
         /*!
         \brief Create writer from uri

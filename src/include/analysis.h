@@ -117,7 +117,7 @@ class Analysis final {
     /*!
     \brief Reset Analysis object to well defined state for start
     */
-    void Reset()
+    inline void Reset()
     {
         const auto& gvars = *global::instance;
         dataManager.Reset();
@@ -133,7 +133,7 @@ class Analysis final {
 
     Prepare the writer thread
     */
-    void run_async()
+    inline void run_async()
     {
         dataManager.run_async();
     }
@@ -143,7 +143,7 @@ class Analysis final {
 
     Wait for the writer thread
     */
-    void await()
+    inline void await()
     {
         dataManager.await();
     }
@@ -153,7 +153,7 @@ class Analysis final {
 
     Shutdown the writer thread
     */
-    void shutdown()
+    inline void shutdown()
     {
         dataManager.shutdown();
     }

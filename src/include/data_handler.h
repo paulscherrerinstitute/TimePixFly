@@ -548,6 +548,35 @@ public:
         analysis_finished.wait_reset();
     }
 
+    /*!
+    \brief Log output
+    \param time Total wall time
+    */
+    inline void logOutput(double time) const
+    {
+        const auto& gvars = *global::instance;
+        const uint64_t ntoa = toaCount;
+        const uint64_t ntdc = tdcCount;
+        const u64 readCount = (byteCount / sizeof(u64));
+        const auto numChips = gvars.layout.chip.size();
+        const double avgAnalysisWorkTime = analyseWorkTime / numChips;
+        const double avgAnalysisTime = (analyseWorkTime + analyseSpinTime) / numChips;
+        logger << "time: " << time << "s tdcs: " << ntdc << " toas: " << ntoa << " at " << (ntoa / time)
+                                   << " toas/s rate: " << ((ntoa+ntdc) / time) << " events/s\n"
+               << "analysis spin: " << analyseSpinTime << "s work 1:" << analysePassOneTime
+                                                                      << " 2:" << analysePassTwoTime
+                                                                      << " 3:" << analysePassThreeTime
+                                                                      << " self: " << analyseWorkTime
+                                                                      << " avg: " << avgAnalysisWorkTime
+               << "\n         self rate: " << (ntoa / avgAnalysisWorkTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisWorkTime) << " events/s"
+               << "\n         rate: " << (ntoa / avgAnalysisTime) << " toas/s " << ((ntoa+ntdc) / avgAnalysisTime) << " events/s"
+               << "\nreading spin: " << readSpinTime << "s work: " << readTime
+                                     << "s total: " << readTotalTime << "s items: " << readCount
+                                     << " at " << (readCount / readTotalTime) << " items/s"
+                                     << ", " << (ntoa / readTotalTime) << " toas/s"
+                                     << ", " << ((ntoa+ntdc) / readTotalTime) << " events/s" << log_notice;
+    }
+
     u64 toaCount = 0ul;                         //!< Number of TOA events encountered
     u64 tdcCount = 0ul;                         //!< Number of TDC events encountered
     u64 byteCount = 0ul;                        //!< Total bytes read
