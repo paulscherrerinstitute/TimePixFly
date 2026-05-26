@@ -21,7 +21,7 @@ template<typename T>
 struct aligned_allocator {
     typedef T value_type;                   //!< Element type of memory
 
-    inline aligned_allocator() = default;   //!< Default constructor
+    inline aligned_allocator() noexcept = default; //!< Default constructor
 
     /*!
     \brief Copy constructor
@@ -36,7 +36,7 @@ struct aligned_allocator {
     \param n Memory size in elements
     \return Pointer to first element
     */
-    inline T* allocate(std::size_t n) const {
+    inline T* allocate(std::size_t n) const noexcept {
         return static_cast<T*>(std::aligned_alloc(memory_alignment, n * sizeof(T)));
     }
 
