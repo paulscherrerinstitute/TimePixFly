@@ -10,6 +10,7 @@ Provide data container for XES data
 
 #include <string>
 #include <fstream>
+#include "aligned_allocator.h"
 #include "global.h"
 #include "time_roi.h"
 
@@ -18,7 +19,8 @@ namespace xes {
     \brief TDSpectra data aggregated over one data saving period
     */
     struct Data final {
-            using histo_type = std::vector<float>; //!< Histogram type
+            using element_type = float;     //!< Element type
+            using histo_type = std::vector<element_type, aligned_allocator<element_type>>; //!< Histogram type
             histo_type TDSpectra;           //!< Result spectra indexed by [time_point * NumEnergyPoints + energy_point]
 
             int BeforeRoi = 0;              //!< Number of events before roi
