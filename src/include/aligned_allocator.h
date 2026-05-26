@@ -18,7 +18,7 @@ Allocates memory aligned (to memory_alignment)
 \tparam T Type of allocated elements
 */
 template<typename T>
-struct aligned_allocator final {
+struct aligned_allocator {
     typedef T value_type;                   //!< Element type of memory
 
     inline aligned_allocator() = default;   //!< Default constructor
