@@ -90,10 +90,20 @@ namespace xes {
                 fill.clear();
                 cache = {none, nullptr};
                 final = false;
+
+                unsigned size = 0u;
                 for (auto& data : pool) {
                     data.Init();    // Pick up ROI changes from global config vars
                     data.Reset();
                     empty.push_back(&data);
+                    size++;
+                }
+
+                constexpr auto min_xes_data_pool_size = global::min_xes_data_pool_size;
+                while (size < min_xes_data_pool_size) {
+                    pool.emplace_front();
+                    empty.push_back(&pool.front());
+                    size++;
                 }
             }
         };

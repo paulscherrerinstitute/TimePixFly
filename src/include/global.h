@@ -28,10 +28,11 @@ using Poco::Net::SocketAddress;
 */
 struct global final {
     // Constants
-    constexpr static char APP_NAME[] = "Tpx3App";                           //!< Name (e.g. for syslog)
+    static constexpr char APP_NAME[] = "Tpx3App";                          //!< Name (e.g. for syslog)
     static constexpr std::string_view no_error{"none"};                //!< json error string for no error
     static constexpr unsigned collect_timeout{300000};                     //!< 300ms receive timeout for detector data
     static constexpr period_type min_save_interval{6000};                  //!< Minimal save_interval in detector frequency unit
+    static constexpr unsigned min_xes_data_pool_size{5};                   //!< Minimal XES data pool size per thread
 
     // Callbacks
     using key_type = std::string;                                          //!< key = path (for PUT and GET) or path?key (for GET with key)
