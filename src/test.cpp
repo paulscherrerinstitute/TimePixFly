@@ -14,6 +14,7 @@ Unit tests
     #define USE_AVX
     #include <immintrin.h>
     #include "avx2_decoder.h"
+    #include "avx2_adder.h"
 #endif
 
 #include <Poco/Exception.h>
@@ -675,6 +676,40 @@ namespace {
                 });
             }
         }
+
+        namespace adder {
+            /*!
+            \brief AVX2 adder
+            \param unit Test unit
+            */
+            void avx2(const test_unit& unit)
+            {
+                alignas(sizeof(__m256)) float src_float_array[] = {
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, // 8
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, // 16
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f            // 22
+                };
+
+                alignas(sizeof(__m256)) float dst_float_array[] = {
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, // 8
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, // 16
+                    1.f, 1.f, 1.f, 1.f, 1.f, 1.f            // 22
+                };
+
+                avx2::addReset((__m256*)src_float_array, (__m256*)dst_float_array, 22);
+
+                unsigned t=0;
+                check_eq(unit, t, src_float_array[0], .0f);
+                check_eq(unit, t, src_float_array[21], .0f);
+                check_eq(unit, t, dst_float_array[0], 2.f);
+                check_eq(unit, t, dst_float_array[21], 2.f);
+
+                avx2::reset((__m256*)dst_float_array, 22);
+
+                check_eq(unit, t, dst_float_array[0], .0f);
+                check_eq(unit, t, dst_float_array[21], .0f);
+            }
+        }
     #endif
 
     /*!
@@ -702,6 +737,12 @@ namespace {
                 "decode::avx2",
                 "avx2 raw event decoding",
                 decode::avx2
+            });
+
+            tests.insert({
+                "adder::avx2",
+                "avx2 float adder",
+                adder::avx2
             });
         #endif
     }

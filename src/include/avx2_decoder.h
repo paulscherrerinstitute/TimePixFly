@@ -8,6 +8,8 @@
 Provide code for decoding Timepix3 raw stream data using AVX2 instrinsics
 */
 
+// #pragma message("using avx2 decoder")
+
 #include <immintrin.h>
 #include <popcntintrin.h>
 

@@ -8,6 +8,14 @@
 Provide data container for XES data
 */
 
+#if defined(__AVX2__) && defined(AVX_ADDER)
+    #define USE_AVX2_ADDER
+#endif
+
+#if defined(USE_AVX2_ADDER)
+    #include "avx2_adder.h"
+#endif
+
 #include <string>
 #include <fstream>
 #include "aligned_allocator.h"
@@ -56,21 +64,21 @@ namespace xes {
             */
             inline Data& operator=(Data&&) = default;
 
-            /*!
-            \brief Aggregate another partial TDSpectra into this one
-            \param data other Data
-            \return *this
-            */
-            inline Data& operator+=(const Data& data) noexcept
-            {
-                assert(data.TDSpectra.size() == TDSpectra.size());
-                for (histo_type::size_type i=0; i<TDSpectra.size(); i++)
-                    TDSpectra[i] += data.TDSpectra[i];
-                BeforeRoi += data.BeforeRoi;
-                AfterRoi += data.AfterRoi;
-                Total += data.Total;
-                return *this;
-            }
+            // /*!
+            // \brief Aggregate another partial TDSpectra into this one
+            // \param data other Data
+            // \return *this
+            // */
+            // inline Data& operator+=(const Data& data) noexcept
+            // {
+            //     assert(data.TDSpectra.size() == TDSpectra.size());
+            //     for (histo_type::size_type i=0; i<TDSpectra.size(); i++)
+            //         TDSpectra[i] += data.TDSpectra[i];
+            //     BeforeRoi += data.BeforeRoi;
+            //     AfterRoi += data.AfterRoi;
+            //     Total += data.Total;
+            //     return *this;
+            // }
 
             /*!
             \brief Aggregate rhs partial TDSpectra into this one and reset rhs
@@ -79,10 +87,14 @@ namespace xes {
             inline void addResetRhs(Data& rhs) noexcept
             {
                 assert(rhs.TDSpectra.size() == TDSpectra.size());
-                for (histo_type::size_type i=0; i<TDSpectra.size(); i++) {
-                    TDSpectra[i] += rhs.TDSpectra[i];
-                    rhs.TDSpectra[i] = histo_type::value_type{};
-                }
+                #ifdef USE_AVX2_ADDER
+                    avx2::addReset((__m256*)rhs.TDSpectra.data(), (__m256*)TDSpectra.data(), TDSpectra.size());
+                #else
+                    for (histo_type::size_type i=0; i<TDSpectra.size(); i++) {
+                        TDSpectra[i] += rhs.TDSpectra[i];
+                        rhs.TDSpectra[i] = histo_type::value_type{};
+                    }
+                #endif
                 BeforeRoi += rhs.BeforeRoi;
                 AfterRoi += rhs.AfterRoi;
                 Total += rhs.Total;
@@ -107,7 +119,11 @@ namespace xes {
             */
             inline void Reset() noexcept
             {
-                std::fill(TDSpectra.begin(), TDSpectra.end(), histo_type::value_type{});
+                #ifdef USE_AVX2_ADDER
+                    avx2::reset((__m256*)TDSpectra.data(), TDSpectra.size());
+                #else
+                    std::fill(TDSpectra.begin(), TDSpectra.end(), histo_type::value_type{});
+                #endif
                 BeforeRoi = AfterRoi = Total = 0;
                 // Energy = .0;   // DEBUG ENERGY
                 period = 0;

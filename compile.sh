@@ -29,11 +29,11 @@ else
     TEST_FLAGS+=" -O0 -ggdb"
 fi
 
-if [ -z "${AVX_DECODE}" ]; then
+if [ -z "${USE_AVX}" ]; then
     AVX_FLAGS=""
     EXTRA_VERSION=""
 else
-    AVX_FLAGS="-DAVX_DECODE"
+    AVX_FLAGS="-DAVX_DECODE -DAVX_ADDER"
     EXTRA_VERSION=" avx"
 fi
 
@@ -142,7 +142,7 @@ case "$TARGET" in
         echo "    SPEED_FLAGS  extra optimization flags"
         echo "    WARN_FLAGS   extra warning flags"
         echo "    GENERIC      omit -march=native flag"
-        echo "    AVX_DECODE   use special avx2 decoder"
+        echo "    USE_AVX      use special avx2 code"
         echo "    STRIP        strip executable"
         echo "    DEBUG        debug friendly flags"
         echo "    NOOPT        no optimization (with DEBUG)"
