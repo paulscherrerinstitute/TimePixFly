@@ -34,7 +34,7 @@ class Analysis final {
     */
     inline void Register(Data& data, PixelIndex index, int TimePoint) const noexcept
     {
-            auto& pix_map = *pixel_map;
+            const auto& pix_map = *pixel_map;
             auto map_range = pix_map[index];
             for (const auto& part : map_range) {
                 data.TDSpectra[TimePoint * pix_map.npoints + part.energy_point] += part.weight;
