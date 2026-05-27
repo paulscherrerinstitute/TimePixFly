@@ -41,13 +41,13 @@ namespace xes {
             /*!
             \brief Create TDSpectra data container
             The size of the container will be be troi.TRoiN * pix_map->npoints
-            \param troi Time ROI
             */
-            inline explicit Data(const TimeRoi& troi)
-                : TDSpectra(troi.TRoiN * global::instance->pix_map->npoints)
+            inline explicit Data()
+                : TDSpectra(
+                    global::instance->time_roi.TRoiN * global::instance->pix_map->npoints
+                  )
             {}
 
-            inline Data() = default;                        //!< Default constructor
             inline Data(const Data&) = default;             //!< Copy constructor
             inline Data(Data&&) = default;                  //!< Move constructor
             inline ~Data() = default;                       //!< Destructor
@@ -63,22 +63,6 @@ namespace xes {
             \return this
             */
             inline Data& operator=(Data&&) = default;
-
-            // /*!
-            // \brief Aggregate another partial TDSpectra into this one
-            // \param data other Data
-            // \return *this
-            // */
-            // inline Data& operator+=(const Data& data) noexcept
-            // {
-            //     assert(data.TDSpectra.size() == TDSpectra.size());
-            //     for (histo_type::size_type i=0; i<TDSpectra.size(); i++)
-            //         TDSpectra[i] += data.TDSpectra[i];
-            //     BeforeRoi += data.BeforeRoi;
-            //     AfterRoi += data.AfterRoi;
-            //     Total += data.Total;
-            //     return *this;
-            // }
 
             /*!
             \brief Aggregate rhs partial TDSpectra into this one and reset rhs
@@ -107,11 +91,12 @@ namespace xes {
             /*!
             \brief Initialize TDSpectra
             The size of the container will be be troi.TRoiN * pix_map->npoints
-            \param troi Time ROI
             */
-            inline void Init(const TimeRoi& troi)
+            inline void Init()
             {
-                TDSpectra.resize(troi.TRoiN * global::instance->pix_map->npoints);
+                TDSpectra.resize(
+                    global::instance->time_roi.TRoiN * global::instance->pix_map->npoints
+                );
             }
 
             /*!

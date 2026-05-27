@@ -83,7 +83,6 @@ namespace xes {
             */
             inline void reset() noexcept
             {
-                const auto& troi = global::instance->time_roi;
                 // assume locks are unlocked
                 while (!ready.empty())
                     ready.pop();
@@ -92,7 +91,7 @@ namespace xes {
                 cache = {none, nullptr};
                 final = false;
                 for (auto& data : pool) {
-                    data.Init(troi);
+                    data.Init();    // Pick up ROI changes from global config vars
                     data.Reset();
                     empty.push_back(&data);
                 }
@@ -317,7 +316,7 @@ namespace xes {
 
             // create a new histogram
             // NOTE: this operation MUST NOT change memory location of other data
-            mdata.pool.emplace_front(time_roi);
+            mdata.pool.emplace_front();
             data = &mdata.pool.front();
 
         fill_cache_return:
@@ -374,7 +373,7 @@ namespace xes {
                 if (data == nullptr) {
                     // create a new histogram
                     // NOTE: this operation MUST NOT change memory location of other data
-                    mdata.pool.emplace_front(time_roi);
+                    mdata.pool.emplace_front();
                     data = &mdata.pool.front();
                 }
             }
