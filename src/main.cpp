@@ -1003,7 +1003,7 @@ namespace {
 
                     serverRawDestination(gvars.clientAddress);
 
-                    if (! global::instance->server_mode)
+                    if (! server_mode)
                         acquisitionStart();
 
                     SocketAddress senderAddress;
