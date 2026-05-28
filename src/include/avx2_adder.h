@@ -14,30 +14,61 @@ Provide code for adding XES data using AVX2 instrinsics
 
 namespace avx2 {
 
+    /*!
+    \brief Number of vector elements
+    \return Number of elements in a vector
+    \tparam T Vector element type
+    */
     template<typename T>
     inline constexpr unsigned num_elements() noexcept
     {
         return sizeof(__m256) / sizeof(T);
     }
 
+    /*!
+    \brief Vector elements mask
+    \return Mask for masking out bits that signify vector elements
+    \tparam T Vector element type
+    */
     template<typename T>
     inline constexpr unsigned mask() noexcept
     {
         return num_elements<T>() - 1u;
     }
 
+    /*!
+    \brief Number of leftover elements in last, non-filled vector
+
+    Assumes that the vectors are aligned
+    \param size Array size in elements
+    \return Number of leftover elements after last full vector
+    \tparam T Vector element type
+    */
     template<typename T>
     inline constexpr unsigned rest(unsigned size) noexcept
     {
         return size & mask<T>();
     }
 
+    /*!
+    \brief Number full vectors
+
+    Assumes that the vectors are aligned
+    \param size Array size in elements
+    \return Number of full vectors
+    \tparam T Vector element type
+    */
     template<typename T>
     inline constexpr unsigned num_vecs(unsigned size) noexcept
     {
         return size / num_elements<T>();
     }
 
+    /*!
+    \brief Set elements to zero
+    \param data Pointer to first element
+    \param size Number of elements
+    */
     inline void reset(__m256* data, unsigned size) noexcept
     {
         const auto nvecs = num_vecs<float>(size);
@@ -52,6 +83,12 @@ namespace avx2 {
             *fdata = .0f;
     }
 
+    /*!
+    \brief Add source to destination and reset source to zero
+    \param src Pointer to first source element
+    \param dst Pointer to first destination element
+    \param size Number of elements
+    */
     inline void addReset(__m256* src, __m256* dst, unsigned size) noexcept
     {
         const auto nvecs = num_vecs<float>(size);

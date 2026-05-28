@@ -172,7 +172,6 @@ class CopyHandler final {
 public:
     /*!
     \brief Constructor
-    \param socket   Raw event data receiving end
     \param path     File path for writing the received raw event data
     \param log      Logging object
     */

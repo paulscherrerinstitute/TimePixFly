@@ -34,6 +34,9 @@ namespace asi {
     using Poco::Net::HTTPRequest;
     using Poco::Net::HTTPResponse;
 
+    /*!
+    \brief ASI detector server connection and functions
+    */
     class server final {
 
         Logger& logger;                                     //!< Poco::Logger object
@@ -288,6 +291,9 @@ namespace asi {
             checkSession(in);
         }
 
+        /*!
+        \brief Log the serval dashboard with the serval version
+        */
         inline void log_dashboard()
         {
             auto dashboardPtr = dashboard();
@@ -298,6 +304,9 @@ namespace asi {
             log << log_notice;
         }
 
+        /*!
+        \brief Log the detector configuration
+        */
         inline void log_config()
         {
             auto configPtr = detectorConfig();
@@ -307,6 +316,9 @@ namespace asi {
             log << log_notice;
         }
 
+        /*!
+        \brief Read and log detector info
+        */
         inline void read_info()
         {
             auto infoPtr = detectorInfo();
@@ -320,6 +332,10 @@ namespace asi {
             infoPtr->get("NumberOfChips").convert(num_chips);
         }
 
+        /*!
+        \brief Read and log detector layout
+        \param layout Read layout into this variable
+        */
         inline void read_layout(detector_layout& layout)
         {
             auto layoutPtr = detectorLayout();
