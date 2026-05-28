@@ -8,17 +8,13 @@
 Provide communication code to the serval ASI detector server
 */
 
-#include <memory>
-
 #include <Poco/URI.h>
 #include "Poco/Net/MediaType.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
 #include "Poco/Net/HTTPResponse.h"
-#include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
 
-#include "logging.h"
 #include "global.h"
 #include "json_ops.h"
 
