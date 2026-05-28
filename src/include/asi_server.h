@@ -40,24 +40,9 @@ namespace asi {
         std::unique_ptr<HTTPClientSession> clientSession;   //!< Client session with ASI server
 
       public:
-        /*!
-        \brief Constructor
-        \param log Logger reference
-        */
-        server(Logger& log)
-            : logger(log)
-        {}
+        unsigned num_chips = 0u;    //!< Number of TPX3 chips on detector, set by read_info()
 
-        /*!
-        \brief Connect to ASI server
-        */
-        void connect()
-        {
-            const auto& gvars = *global::instance;
-            logger << "connecting to ASI server at " << gvars.serverAddress.toString() << log_notice;
-            clientSession.reset(new HTTPClientSession{gvars.serverAddress});
-        }
-
+      private:
         /*!
         \brief Map request string to Uri
         \param requestString HTTP request string
@@ -194,6 +179,16 @@ namespace asi {
         }
 
         /*!
+        \brief Get detector layout JSON object from ASI server
+        \return Poco pointer to detector layout JSON object
+        */
+        inline Poco::JSON::Object::Ptr detectorLayout()
+        {
+            logger << "detectorLayout()" << log_trace;
+            return getJsonObject("/detector/layout");
+        }
+
+        /*!
         \brief Get ASI dashboard
         \return Poco pointer to ASI dashboard JSON object
         */
@@ -201,6 +196,45 @@ namespace asi {
         {
             logger << "dashboard()" << log_trace;
             return getJsonObject("/dashboard");
+        }
+
+        /*!
+        \brief Get detector configuration JSON object from ASI server
+        \return Poco pointer to detector configuration JSON object
+        */
+        inline Poco::JSON::Object::Ptr detectorConfig()
+        {
+            logger << "detectorConfig()" << log_trace;
+            return getJsonObject("/detector/config");
+        }
+
+        /*!
+        \brief Get detector info JSON object from ASI server
+        \return Poco pointer to detector info JSON object
+        */
+        inline Poco::JSON::Object::Ptr detectorInfo()
+        {
+            logger << "detectorInfo()" << log_trace;
+            return getJsonObject("/detector/info");
+        }
+
+      public:
+        /*!
+        \brief Constructor
+        \param log Logger reference
+        */
+        server(Logger& log)
+            : logger(log)
+        {}
+
+        /*!
+        \brief Connect to ASI server
+        */
+        void connect()
+        {
+            const auto& gvars = *global::instance;
+            logger << "connecting to ASI server at " << gvars.serverAddress.toString() << log_notice;
+            clientSession.reset(new HTTPClientSession{gvars.serverAddress});
         }
 
         /*!
@@ -224,36 +258,6 @@ namespace asi {
                 logger << "Response of loading dacs file: " << in.rdbuf() << log_notice;
                 checkSession(in);
             }
-        }
-
-        /*!
-        \brief Get detector configuration JSON object from ASI server
-        \return Poco pointer to detector configuration JSON object
-        */
-        inline Poco::JSON::Object::Ptr detectorConfig()
-        {
-            logger << "detectorConfig()" << log_trace;
-            return getJsonObject("/detector/config");
-        }
-
-        /*!
-        \brief Get detector info JSON object from ASI server
-        \return Poco pointer to detector info JSON object
-        */
-        inline Poco::JSON::Object::Ptr detectorInfo()
-        {
-            logger << "detectorInfo()" << log_trace;
-            return getJsonObject("/detector/info");
-        }
-
-        /*!
-        \brief Get detector layout JSON object from ASI server
-        \return Poco pointer to detector layout JSON object
-        */
-        inline Poco::JSON::Object::Ptr detectorLayout()
-        {
-            logger << "detectorLayout()" << log_trace;
-            return getJsonObject("/detector/layout");
         }
 
         /*!
@@ -341,9 +345,6 @@ namespace asi {
             LogProxy log(logger);
             log << layout << log_debug;
         }
-
-        unsigned num_chips = 0u;    //!< Number of TPX3 chips on detector, set by read_info()
-
     };
 
 }

@@ -640,11 +640,12 @@ namespace {
             // ----------------------- get detector server data -----------------------
 
             auto serval = asi::server(logger);
-            serval.log_dashboard();
+            serval.connect();
 
             if (! server_mode)
                 serval.detector_init(bpcFilePath, dacsFilePath);
 
+            serval.log_dashboard();
             serval.log_config();
             serval.read_info();
 
