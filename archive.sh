@@ -44,6 +44,6 @@ if [ -n "$PREPEND_DATE" ]; then
     BACKUP_FILE="${DNAME}/${PREPEND_DATE}${FNAME}"
 fi
 
-CMD="tar czf $BACKUP_FILE src/*.cpp src/include/*.h compile.sh archive.sh LICENSE README.md generate_data/*.jl doc unit_files"
+CMD="tar czf $BACKUP_FILE src/*.cpp src/include/*.h compile.sh archive.sh LICENSE README.md generate_data/*.jl test_data/*.jl container/*.docker doc unit_files"
 echo "$CMD"
 eval "$CMD"
