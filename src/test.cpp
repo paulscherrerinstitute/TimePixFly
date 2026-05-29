@@ -91,16 +91,18 @@ namespace {
     std::vector<test_result> failed_tests;      //!< List of failed tests
     std::vector<test_result> successful_tests;  //!< List of successful tests
 
-    /*!
-    \brief Event output
-    \param out Output stream
-    \param ev Event
-    \return Output stream
-    */
-    inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
-    {
-        return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
-    }
+    #ifdef USE_AVX
+        /*!
+        \brief Event output
+        \param out Output stream
+        \param ev Event
+        \return Output stream
+        */
+        inline std::ostream& operator<<(std::ostream& out, const event_t& ev)
+        {
+            return out << (ev.is_tdc ? "tdc" : "toa") << "{.ts=" << ev.ts << ", .px=" << ev.px << '}';
+        }
+    #endif
 
     /*!
     \brief Output
