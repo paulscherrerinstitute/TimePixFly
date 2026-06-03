@@ -95,16 +95,6 @@ struct AsiRawStreamDecoder final {
 
     /*!
     \brief Extract bits from event
-
-    Python equivalent:
-
-    def get_bits(data, high, low):
-         num = (high - low) + 1
-         mask = (1 << num) - 1  # Trick: 2**N - 1 gives N consecutive ones
-         maskShifted = mask << low
-        
-         return (data & maskShifted) >> low
-    
     \param data 64bit value - event data
     \param high High High bit inclusive
     \param low Low bit inclusive
@@ -175,12 +165,6 @@ struct AsiRawStreamDecoder final {
 
     /*!
     \brief Compare high nibble with value
-
-    Python equivalent:
-
-    def matches_nibble(data, nibble):
-        return (data >> 60) == nibble
-
     \param data 64bit value - event data
     \param nibble Nibble value
     \return True iff there is a match
@@ -211,18 +195,7 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static u64 getTdcClock(TDC event) noexcept
     {
-        // const u64 tdcCoarse = (tdc >> 9) & 0x7ffffffffUL;
-        // //     tdcCoarse = (tdc >> 9) & 0x7ffffffff
-        // //     # fractional counts, values 1-12, 0.26 ns
-        // //     fract = (tdc >> 5) & 0xf
-        // const u64 fract = (tdc >> 5) & 0xfUL;
-        // //     # Bug: fract is sometimes 0 for older firmware but it should be 1 <= fract <= 12
-        // //     assert 1 <= fract <= 12, f"Incorrect fractional TDC part {fract}, corrupt data: {tdc}"
-        // assert((1 <= fract) && (fract <= 12));
-        // //     # tdc in 640 MHz units (1.5625)
-        // //     return (tdcCoarse << 1) | ((fract-1) // 6)
-        // return (tdcCoarse << 1) | ((fract - 1) / 6);
-        //return (event.ts << 1) | ((event.fine_ts - 1u) / 6u);
+        // Ignore TDC fine time stamp error state (set value to 0 in that case)
         return (event.ts << 1) | (event.fine_ts > 6 ? 1 : 0);
     }
 
@@ -234,36 +207,20 @@ struct AsiRawStreamDecoder final {
     [[gnu::const]]
     inline static u64 getToaClock(TOA event) noexcept
     {
-        //     # ftoa is on a 640 MHz clock
-        //     # toa is on a 40 MHz clock
-        //     ftoa = get_bits(data, 19, 16)
-        //     toa = get_bits(data, 43, 30)
-        //     coarse = get_bits(data, 15, 0)        
-        //     return (((coarse << 14) + toa) << 4) - ftoa
-        // const int64_t ftoa = getBits(data, 19, 16);
-        // const int64_t toa = getBits(data, 43, 30);
-        // const int64_t coarse = getBits(data, 15, 0);
-        // return (((coarse << 14) + toa) << 4) - ftoa;
+        // ftoa is on a 640 MHz clock
+        // toa is on a 40 MHz clock
         return ((event.spidr << 18) + (event.ToA << 4)) - event.FToA;
     }
 
     /*!
     \brief Extract TOT clock from TOA event
-
-    Python equivalent:
-
-    def get_TOT_clock(data):
-        return get_bits(data, 29, 20)
-
     \param data Raw TOA event
     \return Clock ticks counter
     */
     [[gnu::const]]
-    inline static u64 getTotClock(u64 data) noexcept
+    inline static u64 getTotClock(TOA event) noexcept
     {
-        // return getBits(data, 29, 20) << 4;
-        auto event = reinterpret_cast<const TOA*>(&data);
-        return event->ToT << 4;
+        return event.ToT << 4;
     }
 };  // AsiRawStreamDecoder
 
