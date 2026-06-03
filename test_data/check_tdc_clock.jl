@@ -9,7 +9,6 @@ function arg_parse()
     @add_arg_table settings begin
         "--file", "-f"
         metavar = "FNAME"
-        help = "input file"
         arg_type = String
         help = "input file name"
         required = true
@@ -44,7 +43,7 @@ end
 function tdc_clock(tdc::UInt64)::UInt64
     tdc_coarse = (tdc >> 9) & 0x7ffffffff
     fract = (tdc >> 5) & 0xf
-    return (tdc_coarse << 1) | div(fract - 1, 6)
+    return (tdc_coarse << 1) | UInt64(fract > 6)
 end
 
 function parse_tdcs(tdcs::Vector{Float64}, events::AbstractArray{UInt64})
