@@ -118,7 +118,14 @@ function check_tdc_clock(events::AbstractArray{UInt64}, N::Int, plot::Int64, ima
             tdcs = per_chip_tdcs[chip]
             indices = findall(tdc_diffs .> 2*s_median)
             for i in indices
-                println("   at $i: diff ", tdc_diffs[i], " between tdcs (", tdcs[i], ", ", tdcs[i+1], ")")
+                print("   at $i: diff ", tdc_diffs[i], " between tdcs (", tdcs[i], ", ", tdcs[i+1], ")")
+                if i-1 >= 1
+                    print(", before ", tdcs[i-1])
+                end
+                if i+2 <= length(tdcs)
+                    print(", after ", tdcs[i+2])
+                end
+                println()
             end
         end
     end
