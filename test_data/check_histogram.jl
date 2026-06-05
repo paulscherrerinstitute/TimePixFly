@@ -164,6 +164,12 @@ function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::
         end
     end
 
+    fig[0, 1:ncols] = Label(fig, "Per chip histograms",
+        fontsize = 24,
+        font = :bold,
+        padding = (0, 0, 10, 10) # (left, right, bottom, top)
+    )
+
     display(fig)
 
     if !isempty(image_file)
