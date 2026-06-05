@@ -31,21 +31,26 @@ function main()
     data = nothing
     N = length(events)
 
-    ntoa = UInt64(0);
-    ntdc = UInt64(0);
+    ntoa = UInt64(0)
+    ntdc = UInt64(0)
+    nerr = UInt64(0)
 
     for i in 1:N
-        t = events[i] >> 60
+        ev = events[i]
+        t = ev >> 60
         if t == 0xb
-            ntoa += 1;
+            ntoa += 1
         elseif t == 0x6
-            ntdc += 1;
+            ntdc += 1
+            if (ev >> 5) & 0xf == 0
+                nerr += 1
+            end
         end
     end
 
     nevents = ntoa + ntdc
 
-    println("length $N\ntoa $ntoa\ntdc $ntdc\nevents $nevents")
+    println("length $N\ntoa $ntoa\ntdc $ntdc ($nerr err)\nevents $nevents")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
