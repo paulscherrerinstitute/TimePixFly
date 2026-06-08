@@ -93,10 +93,11 @@ function parse_events(chevs::ChipEvents, events::AbstractArray{UInt64})
     end
 end
 
-function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64)::Vector{UInt64}
+function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64)::Tuple{UInt64, Vector{UInt64}}
     tdcs = chevs.tdcs
     toas = chevs.toas
     histo = zeros(UInt64, nbins)
+    outside = UInt64(0)
 
     i, j = 1, 1
     while j <= length(toas) && i < length(tdcs)
@@ -118,11 +119,15 @@ function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64)::
             bin = div((toa - tdc) - start, step) + 1
             if bin <= nbins
                 histo[bin] += 1
+            else
+                outside += 1
             end
+        else
+            outside += 1
         end
     end
 
-    return histo
+    return (outside, histo)
 end
 
 function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::Int64, nbins::Int64, image_file::String)
@@ -153,13 +158,13 @@ function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::
 
         begin
             println("chip $chip: histogramming ...")
-            histo = histogram(chevs, start, step, nbins)
+            outside, histo = histogram(chevs, start, step, nbins)
 
             row = Int64(div(chip, ncols) + 1)
             col = Int64(chip % ncols + 1)
 
-            println("chip $chip: plotting histogram at $row, $col ...")
-            ax = Axis(fig[row, col], title="chip $chip")
+            println("chip $chip: plotting histogram at $row, $col (outside: $outside) ...")
+            ax = Axis(fig[row, col]; title="chip $chip", xticklabelrotation=π/4)
             barplot!(ax, bin_centers, histo; width=step*.9)
         end
     end
