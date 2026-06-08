@@ -33,6 +33,18 @@ function arg_parse()
         help = "Number of histogram bins"
         default = 1000
 
+        "--period-begin", "-p"
+        metavar = "BEGIN"
+        arg_type = Int64
+        help = "Ignore periods below"
+        default = 1
+
+        "--nperiods", "-m"
+        metavar = "NPERIODS"
+        arg_type = Int64
+        help = "Number of periods"
+        default = typemax(Int64)
+
         "--save", "-s"
         metavar = "IMAGE"
         arg_type = String
@@ -93,19 +105,23 @@ function parse_events(chevs::ChipEvents, events::AbstractArray{UInt64})
     end
 end
 
-function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64)::Tuple{UInt64, Vector{UInt64}}
+function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64, pstart::Int64, nperiods::Int64)::Tuple{UInt64, Vector{UInt64}}
     tdcs = chevs.tdcs
     toas = chevs.toas
     histo = zeros(UInt64, nbins)
     outside = UInt64(0)
+    nperiods = min(typemax(UInt64) - pstart, nperiods)
 
-    i, j = 1, 1
+    i, j = max(pstart, 1), 1
     while j <= length(toas) && i < length(tdcs)
         toa = toas[j]
         tdc = tdcs[i]
 
         if toa >= tdcs[i+1]
             i += 1
+            if i >= pstart + nperiods
+                break
+            end
             continue
         end
 
@@ -130,7 +146,7 @@ function histogram(chevs::ChipEvents, start::Int64, step::Int64, nbins::Int64)::
     return (outside, histo)
 end
 
-function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::Int64, nbins::Int64, image_file::String)
+function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::Int64, nbins::Int64, pstart::Int64, nperiods::Int64, image_file::String)
     per_chip_events = Dict{UInt64, ChipEvents}()
 
     println("Collecting events ...")
@@ -158,7 +174,7 @@ function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::
 
         begin
             println("chip $chip: histogramming ...")
-            outside, histo = histogram(chevs, start, step, nbins)
+            outside, histo = histogram(chevs, start, step, nbins, pstart, nperiods)
 
             row = Int64(div(chip, ncols) + 1)
             col = Int64(chip % ncols + 1)
@@ -199,8 +215,10 @@ function main()
     start = args["begin"]
     step = args["step"]
     nbins = args["nbins"]
+    pstart = args["period-begin"]
+    nperiods = args["nperiods"]
 
-    check_histo(events, N, start, step, nbins, image_file)
+    check_histo(events, N, start, step, nbins, pstart, nperiods, image_file)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
