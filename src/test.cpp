@@ -361,7 +361,7 @@ namespace {
                 first = !first;
             }
             s = {"loop2", t};
-            for (auto& p : (*pm)[{0, 1}]) {
+            for (const auto& p : (*pm)[{0, 1}]) {
                 check_eq(unit, t, p, first ? MapDest{0, .2} : MapDest{1, .8}, s);
                 first = !first;
             }

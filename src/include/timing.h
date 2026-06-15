@@ -79,124 +79,125 @@ class Timer final {
     }
 };
 
-/*!
-\brief Per thread time aggregator agent
-*/
-template<class Agg>
-class TimeAggregatorAgent final {
-    Agg* aggregator = nullptr;      //!< Aggregator
-    Timer local_timer;              //!< Local timer
-    double locally_aggregated=0.0;  //!< Locally aggregated value
+// /*!
+// \brief Per thread time aggregator agent
+// */
+// template<class Agg>
+// class TimeAggregatorAgent final {
+//     Agg* aggregator = nullptr;      //!< Aggregator
+//     Timer local_timer;              //!< Local timer
+//     double locally_aggregated=0.0;  //!< Locally aggregated value
 
-    public:
-    /*!
-    \brief Constructor
-    \param aggregator_ Create agent for this aggregator
-    */
-    inline TimeAggregatorAgent(Agg& aggregator_) noexcept
-        : aggregator(&aggregator_)
-    {}
+//     public:
+//     /*!
+//     \brief Constructor
+//     \param aggregator_ Create agent for this aggregator
+//     */
+//     inline explicit TimeAggregatorAgent(Agg& aggregator_) noexcept
+//         : aggregator(&aggregator_)
+//     {}
 
-    TimeAggregatorAgent(const TimeAggregatorAgent&) = delete;
+//     TimeAggregatorAgent(const TimeAggregatorAgent&) = delete;
 
-    /*!
-    \brief Move constructor
-    \param other Value to be moved into this
-    */
-    inline TimeAggregatorAgent(TimeAggregatorAgent&& other) noexcept
-    {
-        std::swap(*this, other);
-    }
+//     /*!
+//     \brief Move constructor
+//     \param other Value to be moved into this
+//     */
+//     inline TimeAggregatorAgent(TimeAggregatorAgent&& other) noexcept
+//     {
+//         std::swap(*this, other);
+//     }
 
-    TimeAggregatorAgent& operator=(const TimeAggregatorAgent&) = delete;
+//     TimeAggregatorAgent& operator=(const TimeAggregatorAgent&) = delete;
 
-    /*!
-    \brief Move assignment
-    \param other Value to be moved into this
-    \return this
-    */
-    inline TimeAggregatorAgent& operator=(TimeAggregatorAgent&& other) noexcept
-    {
-        aggregator = nullptr;
-        std::swap(*this, other);
-    }
+//     /*!
+//     \brief Move assignment
+//     \param other Value to be moved into this
+//     \return this
+//     */
+//     inline TimeAggregatorAgent& operator=(TimeAggregatorAgent&& other) noexcept
+//     {
+//         aggregator = nullptr;
+//         std::swap(*this, other);
+//         return *this;
+//     }
 
-    /*!
-    \brief Destructor
-    Pass locally aggregated value to aggregator.
-    */
-    inline ~TimeAggregatorAgent() noexcept
-    {
-        if (aggregator)
-            aggregator->add(locally_aggregated);
-    }
+//     /*!
+//     \brief Destructor
+//     Pass locally aggregated value to aggregator.
+//     */
+//     inline ~TimeAggregatorAgent() noexcept
+//     {
+//         if (aggregator)
+//             aggregator->add(locally_aggregated);
+//     }
 
-    /*!
-    \brief Set timer start
-    */
-    inline void set() noexcept
-    {
-        local_timer.set();
-    }
+//     /*!
+//     \brief Set timer start
+//     */
+//     inline void set() noexcept
+//     {
+//         local_timer.set();
+//     }
 
-    /*!
-    \brief Aggregate elapsed time
-    */
-    inline void add() noexcept
-    {
-        locally_aggregated += local_timer.elapsed();
-    }
+//     /*!
+//     \brief Aggregate elapsed time
+//     */
+//     inline void add() noexcept
+//     {
+//         locally_aggregated += local_timer.elapsed();
+//     }
 
-    /*!
-    \brief Reset locally aggregated value
-    */
-    inline void reset() noexcept
-    {
-        locally_aggregated = 0.0;
-    }
-};
+//     /*!
+//     \brief Reset locally aggregated value
+//     */
+//     inline void reset() noexcept
+//     {
+//         locally_aggregated = 0.0;
+//     }
+// };
 
-/*!
-\brief Aggregator for elapsed time
-*/
-class TimeAggregator final {
-    std::mutex add_lock;    //!< Protect aggregated value
-    double aggregated=0.0;  //!< Aggregated value
+// /*!
+// \brief Aggregator for elapsed time
+// */
+// class TimeAggregator final {
+//     std::mutex add_lock;    //!< Protect aggregated value
+//     double aggregated=0.0;  //!< Aggregated value
 
-    public:
-    inline TimeAggregator() noexcept = default;
-    TimeAggregator(const TimeAggregator&) = delete;
-    TimeAggregator(TimeAggregator&&) = delete;
-    TimeAggregator& operator=(const TimeAggregator&) = delete;
-    TimeAggregator& operator=(TimeAggregator&&) = delete;
-    inline ~TimeAggregator() = default;
+//     public:
+//     inline TimeAggregator() noexcept = default;
+//     TimeAggregator(const TimeAggregator&) = delete;
+//     TimeAggregator(TimeAggregator&&) = delete;
+//     TimeAggregator& operator=(const TimeAggregator&) = delete;
+//     TimeAggregator& operator=(TimeAggregator&&) = delete;
+//     inline ~TimeAggregator() = default;
 
-    /*!
-    \brief Aggregate value
-    \param value Value to be aggregated
-    */
-    inline void add(double value)
-    {
-        std::lock_guard lock{add_lock};
-        aggregated += value;
-    }
+//     /*!
+//     \brief Aggregate value
+//     \param value Value to be aggregated
+//     */
+//     inline void add(double value)
+//     {
+//         std::lock_guard lock{add_lock};
+//         aggregated += value;
+//     }
 
-    /*!
-    \brief Reset aggregated value
-    */
-    inline void reset()
-    {
-        aggregated = 0.0;
-    }
+//     /*!
+//     \brief Reset aggregated value
+//     */
+//     inline void reset()
+//     {
+//         aggregated = 0.0;
+//     }
 
-    /*!
-    \brief Get per thread agent for this aggregator
-    \return Agent for this aggregator
-    */
-    inline TimeAggregatorAgent<TimeAggregator> agent() noexcept
-    {
-        return TimeAggregatorAgent{*this};
-    }
-};
+//     /*!
+//     \brief Get per thread agent for this aggregator
+//     \return Agent for this aggregator
+//     */
+//     inline TimeAggregatorAgent<TimeAggregator> agent() noexcept
+//     {
+//         return TimeAggregatorAgent{*this};
+//     }
+// };
 
 #endif

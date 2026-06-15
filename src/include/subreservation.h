@@ -277,16 +277,7 @@ namespace iobuf {
         */
         inline subreservation_t(subreservation_t&&) noexcept = default;
 
-        /*!
-        \brief Move assignment
-        \param other Temporary object
-        \return Subreservation
-        */
-        subreservation_t& operator=(subreservation_t&& other) noexcept
-        {
-            std::memcpy((void*)this, &other, sizeof(*this));
-            return *this;
-        }
+        subreservation_t& operator=(subreservation_t&& other) noexcept = delete;
 
         /*!
         \brief Update subreservation

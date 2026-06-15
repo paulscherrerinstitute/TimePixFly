@@ -53,7 +53,7 @@ namespace {
         \brief Construct request handler
         \param logger_ Logger
         */
-        inline RestHandler(Logger& logger_) noexcept
+        inline explicit RestHandler(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -241,7 +241,7 @@ namespace {
         \brief Create factory
         \param logger_ Logger
         */
-        inline RestHandlerFactory(Logger& logger_) noexcept
+        inline explicit RestHandlerFactory(Logger& logger_) noexcept
             : logger(logger_)
         {}
 
@@ -318,8 +318,8 @@ namespace rest {
         // - data OK
         // when: after init
         global::instance->get_callbacks["/?stop"] = [](const std::string& val) -> std::string {
-            auto& gvars = *global::instance;
             if (val == "true") {
+                auto& gvars = *global::instance;
                 gvars.stop.store(true);
                 for (const auto& handler : gvars.stop_handlers)
                     handler();
@@ -335,8 +335,8 @@ namespace rest {
         // - data OK
         // when: after init
         global::instance->get_callbacks["/?restart"] = [](const std::string& val) -> std::string {
-            auto& gvars = *global::instance;
             if (val == "true") {
+                auto& gvars = *global::instance;
                 gvars.restart.store(true);
                 gvars.stop.store(true);
                 for (const auto& handler : gvars.stop_handlers)
@@ -353,8 +353,8 @@ namespace rest {
         // - data OK
         // when: await_connection and collect
         global::instance->get_callbacks["/?stop_collect"] = [](const std::string& val) -> std::string {
-            auto& gvars = *global::instance;
             if (val == "true") {
+                auto& gvars = *global::instance;
                 gvars.stop_collect.store(true);
                 for (const auto& handler : gvars.stop_handlers)
                     handler();
@@ -368,10 +368,8 @@ namespace rest {
         // no return
         // when: after init
         global::instance->get_callbacks["/?kill"] = [](const std::string& val) -> std::string {
-            if (val == "true") {
+            if (val == "true")
                 std::exit(EXIT_FAILURE);
-                throw Poco::LogicException("should be unreachable");
-            }
             throw Poco::DataFormatException("only 'true' is accepted as 'kill' value");
         };
 

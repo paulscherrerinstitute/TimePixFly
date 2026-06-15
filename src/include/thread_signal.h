@@ -161,7 +161,7 @@ namespace thread_signal {
         {
             std::lock_guard lck{lock};
             signal = true;
-            notify_all();
+            base::notify_all();
         }
         
         /*!
@@ -305,7 +305,7 @@ namespace thread_signal {
         {
             std::lock_guard lck{lock};
             signalbits = (1ul << nthreads) - 1ul;
-            notify_all();
+            base::notify_all();
         }
 
         /*!

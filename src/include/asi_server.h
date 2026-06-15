@@ -162,20 +162,20 @@ namespace asi {
             return clientSession->receiveResponse(response);
         }
 
-        /*!
-        \brief HTTP PUT request with JSON object argument
-        \param requestString    HTTP request string
-        \param objPtr           Poco JSON object pointer
-        \param response         Poco HTTP response object reference
-        \return Input stream reference for reading response
-        */
-        inline std::istream& putJsonObject(const std::string& requestString, Poco::JSON::Object::Ptr objPtr, HTTPResponse& response) const
-        {
-            logger << "putJsonObject(" << requestString << ")" << log_trace;
-            std::ostringstream oss;
-            objPtr->stringify(oss);
-            return putJsonString(requestString, oss.str(), response);
-        }
+        // /*!
+        // \brief HTTP PUT request with JSON object argument
+        // \param requestString    HTTP request string
+        // \param objPtr           Poco JSON object pointer
+        // \param response         Poco HTTP response object reference
+        // \return Input stream reference for reading response
+        // */
+        // inline std::istream& putJsonObject(const std::string& requestString, Poco::JSON::Object::Ptr objPtr, HTTPResponse& response) const
+        // {
+        //     logger << "putJsonObject(" << requestString << ")" << log_trace;
+        //     std::ostringstream oss;
+        //     objPtr->stringify(oss);
+        //     return putJsonString(requestString, oss.str(), response);
+        // }
 
         /*!
         \brief Get detector layout JSON object from ASI server
@@ -222,14 +222,14 @@ namespace asi {
         \brief Constructor
         \param log Logger reference
         */
-        server(Logger& log)
+        inline explicit server(Logger& log)
             : logger(log)
         {}
 
         /*!
         \brief Connect to ASI server
         */
-        void connect()
+        inline void connect()
         {
             const auto& gvars = *global::instance;
             logger << "connecting to ASI server at " << gvars.serverAddress.toString() << log_notice;

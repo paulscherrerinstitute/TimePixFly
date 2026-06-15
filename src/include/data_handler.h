@@ -62,7 +62,7 @@ namespace {
             \param reservation Read reservation
             \param subreservation Read subreservation
             */
-            inline event_iterator(const iobuf::subreservation_t& subreservation) noexcept
+            inline explicit event_iterator(const iobuf::subreservation_t& subreservation) noexcept
             {
                 assert(subreservation.content);
                 data = (__m256i*)subreservation.content;
@@ -121,7 +121,7 @@ namespace {
             Set state and load current vector if cur is not zero
             \param subreservation Read subreservation
             */
-            inline event_iterator(const iobuf::subreservation_t& subreservation) noexcept
+            inline explicit event_iterator(const iobuf::subreservation_t& subreservation) noexcept
             {
                 assert(subreservation.content);
                 pos = subreservation.pos;
@@ -184,14 +184,14 @@ class DataHandler final {
     thread_signal::multi<thread_signal::send> analysis_finished;        //!< All analysis threads are ready signal
     thread_signal::multi<thread_signal::reset_with_shutdown> start_analysis; //!< Analysis start signal
 
-    /*!
-    \brief Check stop requested flag
-    \return True if stop was requested
-    */
-    inline bool stop() const noexcept
-    {
-        return stopOperation.load(std::memory_order_consume);
-    }
+    // /*!
+    // \brief Check stop requested flag
+    // \return True if stop was requested
+    // */
+    // inline bool stop() const noexcept
+    // {
+    //     return stopOperation.load(std::memory_order_consume);
+    // }
 
     /*!
     \brief Read from raw event data stream into buffer
@@ -249,7 +249,6 @@ class DataHandler final {
             u64 readBytes = 0ul;
 
             try {
-                int bytesRead;
                 Timer timer;
                 iobuf::reservation_t reservation = databuf.write_reservation(iobuf::initial_reservation);
 
@@ -260,7 +259,7 @@ class DataHandler final {
 
                     timer.set();
 
-                    bytesRead = readData(&data[reservation.start], amount);
+                    int bytesRead = readData(&data[reservation.start], amount);
                     // bytesRead will be 0 here if there's no more data or stop_collect is true
 
                     workTime += timer.elapsed_reset();
@@ -363,8 +362,8 @@ class DataHandler final {
                     // This stage is only active for the very first buffer(s)
                     while(heap_sz < reorderSize) {
                         if (! events.next(ev)) {
-                            goto no_more_events;
                             workPassOneTime += timer.elapsed_reset();
+                            goto no_more_events;
                         }
                         heap[heap_sz++] = ev;
                         std::push_heap(heap.data(), heap.data()+heap_sz);

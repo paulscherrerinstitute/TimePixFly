@@ -93,46 +93,46 @@ struct AsiRawStreamDecoder final {
     };
     static_assert(sizeof(Event) == sizeof(u64));
 
-    /*!
-    \brief Extract bits from event
-    \param data 64bit value - event data
-    \param high High High bit inclusive
-    \param low Low bit inclusive
-    \return Extracted bits, at most 32bits
-    */
-    [[gnu::const]]
-    inline static unsigned getBits(u64 data, unsigned high, unsigned low) noexcept
-    {
-        const unsigned nbits = (high - low) + 1;
-        const u64 mask = (1UL << nbits) - 1UL;
-        // u64 maskShifted = mask << low;
-        // return (data & maskShifted) >> low;
-        return (data >> low) & mask;
-    }
+    // /*!
+    // \brief Extract bits from event
+    // \param data 64bit value - event data
+    // \param high High High bit inclusive
+    // \param low Low bit inclusive
+    // \return Extracted bits, at most 32bits
+    // */
+    // [[gnu::const]]
+    // inline static unsigned getBits(u64 data, unsigned high, unsigned low) noexcept
+    // {
+    //     const unsigned nbits = (high - low) + 1;
+    //     const u64 mask = (1UL << nbits) - 1UL;
+    //     // u64 maskShifted = mask << low;
+    //     // return (data & maskShifted) >> low;
+    //     return (data >> low) & mask;
+    // }
 
-    /*!
-        \brief Extract position information from event
-        \param data 64bit value - event data
-        \return X, Y relative to module
-    */
-    [[gnu::const]]
-    inline static std::pair<u64, u64> calculateXY(u64 data) noexcept
-    {
-        //     # See Timepix manual
-        //     encoded = data >> 44
-        const u64 encoded = data >> 44;
-        //     # doublecolumn * 2
-        //     dcol = (encoded & 0x0FE00) >> 8
-        const u64 dcol = (encoded & 0x0FE00UL) >> 8;
-        //     # superpixel * 4
-        //     spix = (encoded & 0x001F8) >> 1 # (16+28+3-2)
-        const u64 spix = (encoded & 0x001F8UL) >> 1;
-        //     # pixel
-        //     pix = (encoded & 0x00007)
-        const u64 pix = encoded & 0x00007UL;
-        //     return (dcol + pix // 4), (spix + (pix & 0x3))
-        return std::make_pair(dcol + pix / 4UL, spix + (pix & 0x3UL));
-    }
+    // /*!
+    //     \brief Extract position information from event
+    //     \param data 64bit value - event data
+    //     \return X, Y relative to module
+    // */
+    // [[gnu::const]]
+    // inline static std::pair<u64, u64> calculateXY(u64 data) noexcept
+    // {
+    //     //     # See Timepix manual
+    //     //     encoded = data >> 44
+    //     const u64 encoded = data >> 44;
+    //     //     # doublecolumn * 2
+    //     //     dcol = (encoded & 0x0FE00) >> 8
+    //     const u64 dcol = (encoded & 0x0FE00UL) >> 8;
+    //     //     # superpixel * 4
+    //     //     spix = (encoded & 0x001F8) >> 1 # (16+28+3-2)
+    //     const u64 spix = (encoded & 0x001F8UL) >> 1;
+    //     //     # pixel
+    //     //     pix = (encoded & 0x00007)
+    //     const u64 pix = encoded & 0x00007UL;
+    //     //     return (dcol + pix // 4), (spix + (pix & 0x3))
+    //     return std::make_pair(dcol + pix / 4UL, spix + (pix & 0x3UL));
+    // }
 
     /*!
     \brief Flat pixel relative to module/chip
@@ -140,7 +140,7 @@ struct AsiRawStreamDecoder final {
     \return Flat pixel index relative to module/chip
     */
     [[gnu::const]]
-    inline static u16 flatPixel(TOA event) noexcept
+    inline static u16 flatPixel(const TOA event) noexcept
     {
         const u32 encoded = event.PixAddr;
         // const auto dcol = (encoded & 0xFE00) >> 8;
@@ -151,41 +151,41 @@ struct AsiRawStreamDecoder final {
         return dcol | ((encoded & 0x4) << 6) | spix | (encoded & 0x3);
     }
 
-    /*!
-    \brief Convert clock ticks counter value to seconds
-    \param count Clock counter value in units of clock ticks
-    \return Clock value in seconds
-    */
-    [[gnu::const]]
-    inline static float clockToFloat(int64_t count) noexcept
-    {
-        static constexpr double clock_to_sec = 640e-6;  // 1 clock tick = 1.5625ns
-        return count * clock_to_sec;
-    }
+    // /*!
+    // \brief Convert clock ticks counter value to seconds
+    // \param count Clock counter value in units of clock ticks
+    // \return Clock value in seconds
+    // */
+    // [[gnu::const]]
+    // inline static float clockToFloat(int64_t count) noexcept
+    // {
+    //     static constexpr double clock_to_sec = 640e-6;  // 1 clock tick = 1.5625ns
+    //     return count * clock_to_sec;
+    // }
 
-    /*!
-    \brief Compare high nibble with value
-    \param data 64bit value - event data
-    \param nibble Nibble value
-    \return True iff there is a match
-    */
-    [[gnu::const]]
-    inline static bool matchesNibble(u64 data, unsigned nibble) noexcept
-    {
-        return (data >> 60) == nibble;
-    }
+    // /*!
+    // \brief Compare high nibble with value
+    // \param data 64bit value - event data
+    // \param nibble Nibble value
+    // \return True iff there is a match
+    // */
+    // [[gnu::const]]
+    // inline static bool matchesNibble(u64 data, unsigned nibble) noexcept
+    // {
+    //     return (data >> 60) == nibble;
+    // }
 
-    /*!
-    \brief Compare high byte with value
-    \param data 64bit value - event data
-    \param byte Byte value
-    \return True iff there is a match
-    */
-    [[gnu::const]]
-    inline static bool matchesByte(u64 data, unsigned byte) noexcept
-    {
-        return (data >> 56) == byte;
-    }
+    // /*!
+    // \brief Compare high byte with value
+    // \param data 64bit value - event data
+    // \param byte Byte value
+    // \return True iff there is a match
+    // */
+    // [[gnu::const]]
+    // inline static bool matchesByte(u64 data, unsigned byte) noexcept
+    // {
+    //     return (data >> 56) == byte;
+    // }
     
     /*!
     \brief Extract TDC clock from TDC event
@@ -212,16 +212,16 @@ struct AsiRawStreamDecoder final {
         return ((event.spidr << 18) + (event.ToA << 4)) - event.FToA;
     }
 
-    /*!
-    \brief Extract TOT clock from TOA event
-    \param data Raw TOA event
-    \return Clock ticks counter
-    */
-    [[gnu::const]]
-    inline static u64 getTotClock(TOA event) noexcept
-    {
-        return event.ToT << 4;
-    }
+    // /*!
+    // \brief Extract TOT clock from TOA event
+    // \param data Raw TOA event
+    // \return Clock ticks counter
+    // */
+    // [[gnu::const]]
+    // inline static u64 getTotClock(TOA event) noexcept
+    // {
+    //     return event.ToT << 4;
+    // }
 };  // AsiRawStreamDecoder
 
 #endif // DECODER_H

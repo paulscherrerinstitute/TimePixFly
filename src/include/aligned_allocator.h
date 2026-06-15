@@ -28,7 +28,7 @@ struct aligned_allocator {
     \tparam U Element type of other constructor
     */
     template<typename U>
-    inline constexpr aligned_allocator(const aligned_allocator<U>&) noexcept {}
+    inline explicit constexpr aligned_allocator(const aligned_allocator<U>&) noexcept {}
 
     /*!
     \brief Allocation function

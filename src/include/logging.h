@@ -51,7 +51,7 @@ struct LogProxy final : private std::ostringstream {
     \brief Constructor
     \param l Poco::Logger object that is proxied
     */
-    inline LogProxy(Logger& l) noexcept
+    inline explicit LogProxy(Logger& l) noexcept
         : logger(l)
     {}
 

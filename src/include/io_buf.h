@@ -64,7 +64,9 @@ namespace iobuf {
         inline ~container_t() noexcept
 
         {
-            unpin();
+            try {
+                unpin();
+            } catch (...) {}
             munmap(data, container_size);
         }
 
@@ -260,15 +262,15 @@ namespace iobuf {
             stop_flag.store(true, std::memory_order_release);
         }
 
-        /*!
-        \brief Get initial jar
-        \return Initial jar
-        */
-        inline jar_t* first_jar()
-        {
-            assert(first);
-            return first;
-        }
+        // /*!
+        // \brief Get initial jar
+        // \return Initial jar
+        // */
+        // inline jar_t* first_jar()
+        // {
+        //     assert(first);
+        //     return first;
+        // }
 
         /*!
         \brief Get the next jar with respect to `prev`
@@ -440,7 +442,7 @@ namespace iobuf {
         \brief Construct buffer resetter
         \param buffers Buffer collection to reset
         */
-        inline resetter(collection_t& buffers) noexcept
+        inline explicit resetter(collection_t& buffers) noexcept
             : bufs{buffers}
         {}
 

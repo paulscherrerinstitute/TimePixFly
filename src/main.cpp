@@ -389,9 +389,8 @@ namespace {
                     throw InvalidArgumentException{"reorder queue size is too small"};
                 reorderQueueSize = num;
             } else if (name == "save-interval") {
-                period_type max = std::numeric_limits<period_type>::max();
                 if (num == 0)
-                    num = max;
+                    num = std::numeric_limits<period_type>::max();
                 if ((period_type)num < global::min_save_interval)
                     throw InvalidArgumentException{std::string{"save-interval should be at least "} + std::to_string(global::min_save_interval)};
                 global::instance->save_interval = num;

@@ -138,7 +138,7 @@ class CopyHandler final {
 
             while (reservation.end) {
                 assert(reservation.jar && reservation.jar->container.data && (reservation.start < reservation.end));
-                char* data = reservation.jar->container.data;
+                const char* data = reservation.jar->container.data;
                 auto amount = reservation.end - reservation.start;
 
                 timer.set();

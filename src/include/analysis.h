@@ -121,8 +121,7 @@ class Analysis final {
     {
         const auto& gvars = *global::instance;
         dataManager.Reset();
-        for (auto& sp : save_point)
-            sp = gvars.save_interval;
+        std::fill(save_point.begin(), save_point.end(), gvars.save_interval);
         const_cast<TimeRoi&>(time_roi) = gvars.time_roi;
         const_cast<float&>(TRoiStep_inv) = 1.f/time_roi.TRoiStep;
         pixel_map = gvars.pix_map.get();

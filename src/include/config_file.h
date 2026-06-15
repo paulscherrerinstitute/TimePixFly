@@ -18,7 +18,7 @@ struct ConfigFile final : public Poco::Util::IniFileConfiguration {
         \brief Constructor
         \param path INI style configuration file path
         */
-        inline ConfigFile(const std::string& path)
+        inline explicit ConfigFile(const std::string& path)
                 : IniFileConfiguration{path}
         {}
 

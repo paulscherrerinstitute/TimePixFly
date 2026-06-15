@@ -162,7 +162,8 @@ namespace xes {
 
                     try {
 
-                        writer->start(time_roi);
+                        if (writer)
+                            writer->start(time_roi);
 
                         while (true) {
                             Timer t1{};
@@ -215,12 +216,14 @@ namespace xes {
 
                             if (__builtin_expect(data == nullptr, false)) {
                                 t_write += t1.elapsed();
-                                writer->stop("");
+                                if (writer)
+                                    writer->stop("");
                                 goto regular_stop;
                             }
 
                             // logger << "writer: period " << data->period << log_debug;
-                            writer->write(*data);
+                            if (writer)
+                                writer->write(*data);
                             n_toa += data->Total;
                             n_before += data->BeforeRoi;
                             n_after += data->AfterRoi;
@@ -236,13 +239,15 @@ namespace xes {
                         } // while (true)
                     } catch (std::exception& ex) {
                         try {
-                            writer->stop(std::string("writer: ") + ex.what());
+                            if (writer)
+                                writer->stop(std::string("writer: ") + ex.what());
                         } catch (...) {}    // ignore exceptions
                         logger << "writer thread exception: " << ex.what() << log_fatal;
                         global::set_error(std::string("writer: ") + ex.what());
                     } catch (...) {
                         try {
-                            writer->stop("writer: unknown exception");
+                            if (writer)
+                                writer->stop("writer: unknown exception");
                         } catch (...) {}    // ignore exceptions
                         logger << "writer thread: unknown exception" << log_fatal;
                         global::set_error("writer: unknown exception");
@@ -255,7 +260,7 @@ namespace xes {
                     continue;
 
                 regular_stop:
-                    if (writer->data_counter == 0u)
+                    if (writer && (writer->data_counter == 0u))
                         global::set_error("no event data was collected");
                     writer.reset(nullptr);
                     writer_finished.send();
