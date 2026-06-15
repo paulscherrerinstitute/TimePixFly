@@ -27,7 +27,7 @@ namespace {
         \brief Constructor
         \param path Base file path (withouth -{period}.xes)
         */
-        inline FileWriter(const std::string& path)
+        inline explicit FileWriter(const std::string& path)
             : basePath{path}
         {}
 
@@ -83,7 +83,7 @@ namespace {
         Connects to TCP address
         \param address Hostname and port in the form {host}:{port}
         */
-        inline TcpWriter(const std::string& address)
+        inline explicit TcpWriter(const std::string& address)
         {
             try {
                 dataReceiver.connect(Poco::Net::SocketAddress{address});
@@ -240,7 +240,7 @@ namespace {
             Creates the connection
             \param address `host:port`
             */
-            inline RedisPublisher(const std::string& address)
+            inline explicit RedisPublisher(const std::string& address)
                 : redis_client(address), host_port{address}
             {}
 
@@ -423,9 +423,9 @@ namespace {
         Will only create the cached connection object if the connection parameters do not match
         \param address REDIS connection uri `redis://user:pwd@host:port/key?scan-id=xxxx`
         */
-        inline RedisWriter(const Poco::URI& address)
+        inline explicit RedisWriter(const Poco::URI& address)
         {
-            const std::string user_info{address.getUserInfo()};         // user:pwd
+            // const std::string user_info{address.getUserInfo()};         // user:pwd
             const std::string host_port{                                // host:port
                 address.getHost() + ":" +
                 std::to_string(address.getPort())

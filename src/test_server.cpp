@@ -103,7 +103,7 @@ namespace {
         \brief Construct from bool
         \param value New signal value
         */
-        inline signal(bool value) noexcept
+        inline explicit signal(bool value) noexcept
             : val{value}
         {}
 
@@ -226,14 +226,14 @@ namespace {
             }
         };
 
-        /*!
-        \brief Get locked proxy
-        \return Proxy to locked signal
-        */
-        inline lock sig() noexcept
-        {
-            return lock(*this);
-        }
+        // /*!sig
+        // \brief Get locked proxy
+        // \return Proxy to locked signal
+        // */
+        // inline lock sig() noexcept
+        // {
+        //     return lock(*this);
+        // }
     };  // struct signal
 
 
@@ -253,7 +253,7 @@ namespace {
         \brief Constructor
         \param name File name
         */
-        inline file_desc(const std::string& name)
+        inline explicit file_desc(const std::string& name)
         {
             fd = open(name.c_str(), O_RDONLY
                 #ifdef O_NOATIME
@@ -307,7 +307,7 @@ namespace {
         \brief Copy constructor
         \param fdesc File descriptor wrapper
         */
-        inline file_data(file_desc&& fdesc)
+        inline explicit file_data(file_desc&& fdesc)
             : fd{std::move(fdesc)}
         {
             struct stat file_status{};
@@ -550,7 +550,7 @@ namespace {
         \brief Constructor
         \param err  Error string
         */
-        inline explicit ErrorRequestHandler(const std::string err) noexcept
+        inline explicit ErrorRequestHandler(const std::string& err) noexcept
             : error(err)
         {}
 

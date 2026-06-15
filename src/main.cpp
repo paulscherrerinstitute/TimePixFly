@@ -376,7 +376,7 @@ namespace {
             unsigned long num = 0;
             try {
                 num = std::stoul(value);
-            } catch (std::exception& ex) {
+            } catch (const std::exception& ex) {
                 throw InvalidArgumentException{std::string{"invalid value for argument: "} + name};
             }
             if (name == "buf-size") {
@@ -602,7 +602,7 @@ namespace {
         */
         inline void checkParameterConsistency() const
         {
-            auto& gvars = *global::instance;
+            const auto& gvars = *global::instance;
             if (gvars.clientAddress == gvars.controlAddress)
                 throw InvalidArgumentException("--address and --control parameters must be different");
             if (gvars.clientAddress == gvars.serverAddress)

@@ -32,7 +32,6 @@ namespace processing {
                         int TRN = config.getInt("TRN");
                         std::string output_uri = config.getString("OutputURI");
 
-                        auto& gvars = *global::instance;
                         time_roi.SetTimeROI(TRStart, TRStep, TRN);
                         gvars.output_uri = output_uri;
 

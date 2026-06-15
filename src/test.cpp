@@ -239,14 +239,14 @@ namespace {
         unsigned t = 0;
         bool state = false;
         if (! successful_tests.empty()) {
-            auto& test = successful_tests.back();
+            const auto& test = successful_tests.back();
             if (test.unit == &unit) {
                 t = test.num;
                 state = true;
             }
         }
         if (! failed_tests.empty()) {
-            auto& test = failed_tests.back();
+            const auto& test = failed_tests.back();
             if (test.unit == &unit) {
                 if (! state)
                     return false;
@@ -278,27 +278,27 @@ namespace {
             test_succeeded(unit, s, t);
     }
 
-    /*!
-    \brief Inequality check
+    // /*!
+    // \brief Inequality check
 
-    This test fails iff a==b
-    The test position counter will be incremented by one.
+    // This test fails iff a==b
+    // The test position counter will be incremented by one.
 
-    \param unit Test unit reference
-    \param t    Test position counter reference
-    \param a    First value
-    \param b    Second value
-    \param s    Test section
-    */
-    template<typename T>
-    void check_neq(const test_unit& unit, unsigned& t, const T& a, const T& b, const section& s = no_section)
-    {
-        if (a == b) {
-            verbose << unit.name << ' ' << t << " failed: " << a << " == " << b << '\n';
-            test_failed(unit, s, t);
-        } else
-            test_succeeded(unit, s, t);
-    }
+    // \param unit Test unit reference
+    // \param t    Test position counter reference
+    // \param a    First value
+    // \param b    Second value
+    // \param s    Test section
+    // */
+    // template<typename T>
+    // void check_neq(const test_unit& unit, unsigned& t, const T& a, const T& b, const section& s = no_section)
+    // {
+    //     if (a == b) {
+    //         verbose << unit.name << ' ' << t << " failed: " << a << " == " << b << '\n';
+    //         test_failed(unit, s, t);
+    //     } else
+    //         test_succeeded(unit, s, t);
+    // }
 
     /*!
     \brief Equality check for double
@@ -356,7 +356,7 @@ namespace {
             section s = {"loop1", t};
             auto pm = pite.to_map();
             bool first = true;
-            for (auto& p : (*pm)[{0, 0}]) {
+            for (const auto& p : (*pm)[{0, 0}]) {
                 check_eq(unit, t, p, first ? MapDest{0, .8} : MapDest{1, .2}, s);
                 first = !first;
             }
