@@ -15,6 +15,12 @@ function arg_parse()
         help = "input file name"
         required = true
 
+        "--threshold", "-t"
+        metavar = "FACTOR"
+        arg_type = Float64
+        help = "outlier threshold as a factor"
+        default = 2.
+
         "--plot", "-p"
         metavar = "CHIP"
         arg_type = Int64
@@ -66,7 +72,7 @@ function parse_tdcs(tdcs::Vector{Float64}, events::AbstractArray{UInt64})
     end
 end
 
-function check_tdc_clock(events::AbstractArray{UInt64}, N::Int, plot::Int64, image_file::String)
+function check_tdc_clock(events::AbstractArray{UInt64}, N::Int, plot::Int64, image_file::String, threshold::Float64)
     per_chip_tdcs = Dict{UInt64, Vector{Float64}}()
 
     i = UInt64(1)
@@ -114,9 +120,9 @@ function check_tdc_clock(events::AbstractArray{UInt64}, N::Int, plot::Int64, ima
         s_stddev = std(tdc_diffs)
         println("chip $chip -> $s_len tdcs, clock difference statistics: mean=$s_mean, median=$s_median, stddev=$s_stddev, min=$s_min, max=$s_max")
 
-        if s_max > 2*s_median
+        if s_max > threshold*s_median
             tdcs = per_chip_tdcs[chip]
-            indices = findall(tdc_diffs .> 2*s_median)
+            indices = findall(tdc_diffs .> threshold*s_median)
             for i in indices
                 print("   at $i: diff ", tdc_diffs[i], " between tdcs (", tdcs[i], ", ", tdcs[i+1], ")")
                 if i-1 >= 1
@@ -148,9 +154,10 @@ function main()
     if plot >= 0
         WGLMakie.activate!()
     end
+    threshold = args["threshold"]
     image_file = args["save"]
 
-    check_tdc_clock(events, N, plot, image_file)
+    check_tdc_clock(events, N, plot, image_file, threshold)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
