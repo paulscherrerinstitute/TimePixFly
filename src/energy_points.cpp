@@ -118,19 +118,19 @@ namespace {
         }
 
         constexpr size_t bufSize = 1024;
-        char buf[bufSize] = {0};
-        std::string_view::size_type posN[bufSize] = {0};
+        std::array<char, bufSize> buf{0};
+        std::array<std::string_view::size_type, bufSize> posN{0};
         if (! in)
             throw std::ios_base::failure{"bad XESPoints file input stream"};
 
         for (unsigned line=1;;line++) {
             // i, j, XESEnergyIndex[i,j,k]..., XESWeight [i,j,k]...
-            if (! in.getline(buf, bufSize).good()) {
+            if (! in.getline(buf.data(), bufSize).good()) {
                 if (! in.eof())
                     throw std::ios_base::failure(std::string{"failed to parse XESPoints file at line "} + std::to_string(line));
                 break;
             }
-            std::string_view s(buf);
+            std::string_view s(buf.data());
             std::string_view::size_type pos = 0;
             unsigned count = 0;
             posN[count] = pos;
@@ -190,15 +190,15 @@ std::unique_ptr<PixelMap> PixelIndexToEp::to_map() const
     unsigned idx = 0; // index
     unsigned pix = 0; // pixel
     pmap->indices.resize(pix_per_chip * chip.size() + 1);
-    for (std::size_t c=0; c<chip.size(); c++) {
-        const auto& fpix = chip[c].flat_pixel;
-        for (std::size_t p=0; p<fpix.size(); p++) {
+    for (const auto& c : chip) {
+        const auto& fpix = c.flat_pixel;
+        for (const auto& p : fpix) {
             pmap->indices[pix] = idx;
-            const auto& p2ep = fpix[p].part;
+            const auto& p2ep = p.part;
 
-            for (std::size_t e=0; e<p2ep.size(); e++) {
-                if (p2ep[e].weight != .0f) {
-                    pmap->mapping.push_back(MapDest{p2ep[e].energy_point, p2ep[e].weight});
+            for (const auto& e : p2ep) {
+                if (e.weight != .0f) {
+                    pmap->mapping.push_back(MapDest{e.energy_point, e.weight});
                     idx++;
                 }
             }

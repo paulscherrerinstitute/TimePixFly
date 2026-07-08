@@ -146,11 +146,11 @@ namespace cpu_mask {
             return 0;
         };
 
-        enum { ID=0, COLON=1, NUM=2, END=3 } next_state = ID;
+        enum struct Expect: int { ID=0, COLON=1, NUM=2, END=3 } next_state = Expect::ID;
         do {
             char ch = token();
             switch (next_state) {
-                case ID: {
+                case Expect::ID: {
                     switch (ch) {
                         case 'a': {
                             if (!mask.analysis_cpus.empty())
@@ -160,7 +160,7 @@ namespace cpu_mask {
                         case 'r':
                         case 'w': {
                             id = ch;
-                            next_state = COLON;
+                            next_state = Expect::COLON;
                             break;
                         }
                         default:
@@ -168,13 +168,13 @@ namespace cpu_mask {
                     }
                     break;
                 }
-                case COLON: {
+                case Expect::COLON: {
                     if (ch != ':')
                         return fn(next, "colon expected");
-                    next_state = NUM;
+                    next_state = Expect::NUM;
                     break;
                 }
-                case NUM: {
+                case Expect::NUM: {
                     switch (ch) {
                         case 0:
                         case ';': {
@@ -183,9 +183,9 @@ namespace cpu_mask {
                             if (!mask_set())
                                 return fn(next, "affinity can only be set once");
                             if (ch == 0)
-                                next_state = END;
+                                next_state = Expect::END;
                             else
-                                next_state = ID;
+                                next_state = Expect::ID;
                             break;
                         }
                         case '-': {
@@ -218,12 +218,12 @@ namespace cpu_mask {
                         }
                     }
                 }
-                case END:
+                case Expect::END:
                     break;
                 default:
                     return fn(next, "internal error (undefined state)");
             }
-        } while (next_state != END);
+        } while (next_state != Expect::END);
     }
 
 } // namespace cpu_mask

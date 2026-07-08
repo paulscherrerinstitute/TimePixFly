@@ -264,7 +264,7 @@ namespace {
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
 
             options.addOption(Option("use-syslog", "L")
-                .description(std::string{"use syslog for logging with\nSYSLOG_IDENTIFIER="} + global::APP_NAME)
+                .description(std::string{"use syslog for logging with\nSYSLOG_IDENTIFIER="}.append(global::APP_NAME))
                 .required(false)
                 .repeatable(false)
                 .callback(OptionCallback<Tpx3App>(this, &Tpx3App::handleBool)));
@@ -907,7 +907,7 @@ int main (int argc, char* argv[])
     int retval = Application::EXIT_USAGE;
 
     try {
-        Logger& logger = Logger::get(global::APP_NAME);
+        Logger& logger = Logger::get(global::APP_NAME.data());
         LogProxy log(logger);
 
         stopOrRestartCommand(argc, argv); // exits if applicable

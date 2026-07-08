@@ -433,7 +433,7 @@ namespace {
             const std::string key{address.getPath().substr(1)};     // remove leading char in /key
             const std::string scan{address.getQuery().substr(8)};   // remove up to = in scan-id=xxxx
 
-            Logger& logger = Logger::get(global::APP_NAME);
+            Logger& logger = Logger::get(global::APP_NAME.data());
             LogProxy log(logger);
 
             if ((publisherCache == nullptr) ||

@@ -113,7 +113,7 @@ struct PixelMap final {
         \brief How many elements does this range have?
         \return Number of elements in this range
         */
-        inline unsigned size() const noexcept
+        [[nodiscard]] inline unsigned size() const noexcept
         {
             return sentinel - start;
         }
