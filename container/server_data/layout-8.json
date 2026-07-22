@@ -1,0 +1,93 @@
+{
+  "DetectorOrientation" : "UP",
+  "Original" : {
+    "Chips" : [ {
+      "Chip" : 0,
+      "X" : 256,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 1,
+      "X" : 256,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 2,
+      "X" : 0,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 3,
+      "X" : 0,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 4,
+      "X" : 512,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 5,
+      "X" : 512,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 6,
+      "X" : 768,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 7,
+      "X" : 768,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    } ],
+    "Width" : 1024,
+    "Height" : 512
+  },
+  "Rotated" : {
+    "Chips" : [ {
+      "Chip" : 0,
+      "X" : 256,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 1,
+      "X" : 256,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 2,
+      "X" : 0,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 3,
+      "X" : 0,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 4,
+      "X" : 512,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    }, {
+      "Chip" : 5,
+      "X" : 512,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 6,
+      "X" : 768,
+      "Y" : 0,
+      "Orientation" : "LtRBtT"
+    }, {
+      "Chip" : 7,
+      "X" : 768,
+      "Y" : 256,
+      "Orientation" : "RtLTtB"
+    } ],
+    "Width" : 1024,
+    "Height" : 512
+  }
+}
