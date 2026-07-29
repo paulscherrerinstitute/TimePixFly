@@ -513,7 +513,7 @@ namespace rest {
             // - data
             // {
             //  "type": "OtherConfig",
-            //  "output_uri": "redis://localhost:6379/tpx3data?scan-id=3", "tcp:localhost:3015", or "file:./dump"
+            //  "output_uri": "redis://localhost:6379/tpx3data?scan-id=3", "tcp://localhost:3015", or "file:./dump"
             //  "save_interval": 131000,
             //  "TRoiStart": 0,
             //  "TRoiStep: 1,

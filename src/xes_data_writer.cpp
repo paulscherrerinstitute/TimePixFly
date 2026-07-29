@@ -81,14 +81,19 @@ namespace {
         /*!
         \brief Constructor
         Connects to TCP address
-        \param address Hostname and port in the form {host}:{port}
+        \param address TCP connection URI tcp://{host}:{port}
         */
-        inline explicit TcpWriter(const std::string& address)
+        inline explicit TcpWriter(const Poco::URI& address)
         {
             try {
-                dataReceiver.connect(Poco::Net::SocketAddress{address});
+                const std::string host_port{    // host:port
+                    address.getHost() + ":" +
+                    std::to_string(address.getPort())
+                };
+
+                dataReceiver.connect(Poco::Net::SocketAddress{host_port});
             } catch (Poco::Exception& ex) {
-                throw Poco::RuntimeException(std::string{"Connection to output address <"} + address + "> failed: " + ex.displayText());
+                throw Poco::RuntimeException(std::string{"Connection to output address <"} + address.toString() + "> failed: " + ex.displayText());
             }
         }
 
@@ -526,9 +531,9 @@ namespace xes {
         } else if (scheme == "file") {
             return std::make_unique<FileWriter>(destination.getPathEtc());
         } else if (scheme == "tcp") {
-            return std::make_unique<TcpWriter>(destination.getPathEtc()); // TODO: change to getAuthority
+            return std::make_unique<TcpWriter>(destination);
         } else
-            throw Poco::UnknownURISchemeException{std::string{"bad output uri - <"} + scheme + "> is an unsupported uri scheme, use file:filename or tcp:host:port"};
+            throw Poco::UnknownURISchemeException{std::string{"bad output uri - <"} + scheme + "> is an unsupported uri scheme, use file:filename, tcp://host:port, or redis://host:port/key/scan-id=xxxx"};
         return nullptr;
     }
 
