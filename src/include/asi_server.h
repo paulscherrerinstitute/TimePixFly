@@ -233,7 +233,7 @@ namespace asi {
         {
             const auto& gvars = *global::instance;
             logger << "connecting to ASI server at " << gvars.serverAddress.toString() << log_notice;
-            clientSession.reset(new HTTPClientSession{gvars.serverAddress});
+            clientSession = std::make_unique<HTTPClientSession>(gvars.serverAddress);
         }
 
         /*!

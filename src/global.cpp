@@ -13,7 +13,7 @@ namespace {
     std::mutex config_lock; //!< protect configuration
 }
 
-std::unique_ptr<global> global::instance{new global};
+std::unique_ptr<global> global::instance = std::make_unique<global>();
 
 void global::set_error(const std::string& error) noexcept
 {

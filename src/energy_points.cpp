@@ -181,12 +181,12 @@ void PixelIndexToEp::from(PixelIndexToEp& pmap, std::istream& in, unsigned type)
 std::unique_ptr<PixelMap> PixelIndexToEp::to_map() const
 {
     unsigned pix_per_chip = static_cast<unsigned>(chip.at(0).flat_pixel.size());
-    std::unique_ptr<PixelMap> pmap{new PixelMap{
+    auto pmap = std::make_unique<PixelMap>(PixelMap{
         .pixels_per_chip=pix_per_chip,
         .npoints=npoints,
         .mapping={},
         .indices={}
-    }};
+    });
     unsigned idx = 0; // index
     unsigned pix = 0; // pixel
     pmap->indices.resize(pix_per_chip * chip.size() + 1);

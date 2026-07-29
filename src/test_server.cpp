@@ -963,7 +963,7 @@ int main(int argc, char *argv[])
                 ~Params() override
                 {}
             };
-            std::unique_ptr<Params> server_params(new Params{});
+            auto server_params = std::make_unique<Params>();
             server_params->setMaxThreads(1);
             HTTPServer server{new TestServerRequestHandlerFactory{}, bind_to, server_params.release()};
             std::cout << "starting server on " << bind_to.address().toString() << " ...\n";

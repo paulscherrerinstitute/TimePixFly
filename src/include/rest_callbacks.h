@@ -154,7 +154,7 @@ namespace {
             try {
                 {
                     std::lock_guard lock(ws_mutex);
-                    ws.reset(new WebSocket(request, response));
+                    ws = std::make_unique<WebSocket>(request, response);
                     logger << "websocket: created" << log_debug;
                     std::string_view state{global::instance->state};
                     ws->setReceiveTimeout(Poco::Timespan(1,0));

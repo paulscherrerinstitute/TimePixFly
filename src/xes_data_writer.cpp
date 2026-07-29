@@ -440,7 +440,7 @@ namespace {
                 !publisherCache->hasAddress(host_port))
             {
                 log << "redis writer: connecting to " << host_port << log_debug;
-                publisherCache.reset(new RedisPublisher{host_port});
+                publisherCache = std::make_unique<RedisPublisher>(host_port);
                 // Authenticate
                 // If that fails: delete cached connection, throw appropriate exception
             } else {
@@ -522,11 +522,11 @@ namespace xes {
         Poco::URI destination{uri};
         const std::string& scheme{destination.getScheme()};
         if (scheme == "redis") {
-            return std::unique_ptr<Writer>{new RedisWriter{destination}};
+            return std::make_unique<RedisWriter>(destination);
         } else if (scheme == "file") {
-            return std::unique_ptr<Writer>{new FileWriter{destination.getPathEtc()}};
+            return std::make_unique<FileWriter>(destination.getPathEtc());
         } else if (scheme == "tcp") {
-            return std::unique_ptr<Writer>{new TcpWriter{destination.getPathEtc()}}; // TODO: change to getAuthority
+            return std::make_unique<TcpWriter>(destination.getPathEtc()); // TODO: change to getAuthority
         } else
             throw Poco::UnknownURISchemeException{std::string{"bad output uri - <"} + scheme + "> is an unsupported uri scheme, use file:filename or tcp:host:port"};
         return nullptr;

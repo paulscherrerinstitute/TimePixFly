@@ -39,7 +39,7 @@ namespace processing {
                                << ", Output=" << output_uri << log_info;
 
                         auto in = std::ifstream("XESPoints.inp");
-                        std::unique_ptr<PixelIndexToEp> pmap{new PixelIndexToEp};
+                        std::unique_ptr<PixelIndexToEp> pmap = std::make_unique<PixelIndexToEp>();
                         PixelIndexToEp::from(*pmap, in);
                         gvars.pix_map = pmap->to_map();
                 } else {

@@ -39,6 +39,7 @@ TODO:
 namespace {
     using namespace std::string_view_literals;
     using namespace std::chrono_literals;
+    using std::make_unique;
     using Poco::Util::OptionCallback;
     using Poco::Util::OptionSet;
     using Poco::Util::Option;
@@ -661,16 +662,16 @@ namespace {
             std::unique_ptr<Analysis> analysisPtr;                              // not used in copy_mode
             if (copy_mode) {
                 // create copy handler in advance
-                copyPtr.reset(new CopyHandler{streamFilePath, logger});
+                copyPtr = make_unique<CopyHandler>(streamFilePath, logger);
                 gvars.stop_handlers.emplace_back([&copyPtr]() {
                     copyPtr->stopNow();
                 });
             } else {
                 // if not copy mode, create the data handler in advance
-                analysisPtr.reset(new Analysis);
-                dataHandlerPtr.reset(new DataHandler<AsiRawStreamDecoder>{
+                analysisPtr = make_unique<Analysis>();
+                dataHandlerPtr = make_unique<DataHandler<AsiRawStreamDecoder>>(
                     logger, *analysisPtr, serval.num_chips, reorderQueueSize
-                });
+                );
                 gvars.stop_handlers.emplace_back([&dataHandlerPtr]() {
                     dataHandlerPtr->stopNow();
                 });
@@ -710,7 +711,7 @@ namespace {
                     }
 
                     logger << "listening at " << gvars.clientAddress.toString() << log_notice;
-                    serverSocket.reset(new ServerSocket{gvars.clientAddress});
+                    serverSocket = make_unique<ServerSocket>(gvars.clientAddress);
                     serverSocket->setReuseAddress(true);
                     serverSocket->setReusePort(true);
 
