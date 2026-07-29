@@ -22,6 +22,8 @@ namespace avx2 {
     template<typename T>
     inline constexpr unsigned num_elements() noexcept
     {
+        static_assert(sizeof(__m256) % sizeof(T) == 0,
+                      "Type T size must divide __m256 size evenly");
         return sizeof(__m256) / sizeof(T);
     }
 

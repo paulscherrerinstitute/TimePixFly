@@ -70,6 +70,8 @@ namespace thread_signal {
     */
     template<bool kind=no_shutdown>
     class single final : base {
+        static_assert(kind == no_shutdown || kind == with_shutdown,
+                      "kind must be no_shutdown or with_shutdown");
         std::vector<base*> dep;             //!< Dependent signals
         std::atomic_bool signal = false;    //!< Signal flag
 

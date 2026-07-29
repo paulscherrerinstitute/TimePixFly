@@ -9,6 +9,7 @@ Provide aligned memory allocation
 */
 
 #include <cstdlib>
+#include <type_traits>
 
 inline static constexpr size_t memory_alignment = 256u/8u;  //!< Memory alignment for AVX2
 
@@ -20,6 +21,8 @@ Allocates memory aligned (to memory_alignment)
 template<typename T>
 struct aligned_allocator {
     typedef T value_type;                   //!< Element type of memory
+    static_assert(std::is_default_constructible_v<T>,
+                  "T must be default constructible");
 
     inline aligned_allocator() noexcept = default; //!< Default constructor
 
