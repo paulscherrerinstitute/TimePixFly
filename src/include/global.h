@@ -41,8 +41,8 @@ struct global final {
         std::function<std::string(std::istream&)>                          //!< (istream) -> string
     >;
     using get_callback = std::function<std::string(const std::string&)>;   //!< GET(path?key) value -> string
-    std::map<key_type, put_callback> put_callbacks;                        //!< PUT callbacks
-    std::map<key_type, get_callback> get_callbacks;                        //!< GET callbacks
+    std::unordered_map<key_type, put_callback> put_callbacks;              //!< PUT callbacks
+    std::unordered_map<key_type, get_callback> get_callbacks;              //!< GET callbacks
     using stop_handler = std::function<void()>;                            //!< Stop somethinig gracefully
     std::vector<stop_handler> stop_handlers;                               //!< Called by REST /?stop
 

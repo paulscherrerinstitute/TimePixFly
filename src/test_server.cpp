@@ -71,7 +71,11 @@ using Poco::Util::UnknownOptionException;
 namespace {
     using namespace std::chrono_literals;
 
-    std::map<std::string, std::function<void(HTTPServerRequest&, HTTPServerResponse&)>> path_handler; //!< Map HTTP from path to handler
+    std::unordered_map<
+        std::string,
+        std::function<
+            void(HTTPServerRequest&, HTTPServerResponse&)
+        >> path_handler;                        //!< Map HTTP from path to handler
     ServerSocket bind_to{SocketAddress{"localhost:8080"}}; //!< Server binding address
     SocketAddress destination;                  //!< Destination address
     OptionSet args;                             //!< Commandline arguments OptionSet
