@@ -5,12 +5,6 @@ Code for tpx3app analysis program
 Author: hans-christian.stadler@psi.ch
 */
 
-/*
-TODO:
-- test mode für rest
-- server mode with aquisition start removed
-*/
-
 #include <cstdlib>
 #include <csignal>
 #include <cerrno>
@@ -401,7 +395,7 @@ namespace {
         }
 
         // Currently unused
-        // /* TODO !
+        // /*
         // \brief Real valued option handler
         // \param name     Option name
         // \param value    Option value

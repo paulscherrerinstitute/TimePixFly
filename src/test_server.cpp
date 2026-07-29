@@ -1,10 +1,6 @@
 /*!
 \file
 Test server code for replaying an ASI raw event stream
-
-TODO:
-- don't end server loop after start
-- make stop stop data sending
 */
 
 #include <Poco/Exception.h>
