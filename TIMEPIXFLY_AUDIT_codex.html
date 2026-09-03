@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>TimePixFly Independent Production Audit — Codex</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #586174;
+      --line: #d9dee8;
+      --panel: #f6f8fb;
+      --accent: #174f82;
+      --high: #a82d2d;
+      --medium: #9a5b00;
+      --low: #3a647d;
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 16px; }
+    body {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 3rem 4rem 5rem;
+      color: var(--ink);
+      background: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.58;
+    }
+    h1, h2, h3, h4 { color: #102a43; line-height: 1.2; page-break-after: avoid; }
+    h1 { margin: 0 0 1.6rem; padding-bottom: 1rem; border-bottom: 4px solid var(--accent); font-size: 2.25rem; }
+    h2 { margin-top: 2.7rem; padding-bottom: .4rem; border-bottom: 1px solid var(--line); font-size: 1.6rem; }
+    h3 { margin-top: 2.1rem; font-size: 1.3rem; }
+    h4 { margin-top: 1.5rem; font-size: 1.05rem; }
+    p, li { max-width: 88ch; }
+    a { color: var(--accent); }
+    blockquote { margin: 1.4rem 0; padding: .75rem 1.1rem; border-left: 4px solid var(--accent); background: var(--panel); color: #34445a; }
+    code { padding: .12rem .32rem; border-radius: 4px; background: #eef2f7; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+    pre { overflow-x: auto; padding: 1rem; border: 1px solid var(--line); border-radius: 6px; background: #f7f9fc; }
+    pre code { padding: 0; background: transparent; }
+    table { width: 100%; margin: 1.3rem 0 2rem; border-collapse: collapse; font-size: .91rem; page-break-inside: avoid; }
+    th { color: white; background: #234d70; text-align: left; }
+    th, td { padding: .62rem .7rem; border: 1px solid #cdd5df; vertical-align: top; }
+    tbody tr:nth-child(even) { background: #f7f9fc; }
+    hr { margin: 2.4rem 0; border: 0; border-top: 1px solid var(--line); }
+    #TOC { margin: 2rem 0; padding: 1.2rem 1.5rem; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+    #TOC::before { content: "Contents"; display: block; margin-bottom: .6rem; color: #102a43; font-size: 1.2rem; font-weight: 700; }
+    #TOC ul { margin: .25rem 0; padding-left: 1.25rem; }
+    #TOC a { text-decoration: none; }
+    @media (max-width: 760px) { body { padding: 1.5rem 1rem 3rem; } table { display: block; overflow-x: auto; } }
+    @media print {
+      body { max-width: none; padding: 0; font-size: 10.5pt; }
+      h1 { font-size: 22pt; }
+      h2 { font-size: 16pt; }
+      h3 { font-size: 13pt; }
+      a { color: inherit; text-decoration: none; }
+      #TOC { page-break-after: always; }
+      pre, blockquote, table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">TimePixFly Independent Production Audit — Codex</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#timepixfly-independent-production-audit--codex"
+id="toc-timepixfly-independent-production-audit--codex">TimePixFly
+Independent Production Audit — Codex</a>
+<ul>
+<li><a href="#executive-summary" id="toc-executive-summary">Executive
+summary</a></li>
+<li><a href="#overall-assessment" id="toc-overall-assessment">Overall
+assessment</a></li>
+<li><a href="#finding-summary" id="toc-finding-summary">Finding
+summary</a></li>
+<li><a href="#detailed-findings" id="toc-detailed-findings">Detailed
+findings</a>
+<ul>
+<li><a
+href="#tpf-cx-001--unauthenticated-http-control-plane-is-externally-bindable"
+id="toc-tpf-cx-001--unauthenticated-http-control-plane-is-externally-bindable">TPF-CX-001
+— Unauthenticated HTTP control plane is externally bindable</a></li>
+<li><a
+href="#tpf-cx-002--roi-validation-accepts-invalid-values-and-feeds-unsafe-arithmeticindexing"
+id="toc-tpf-cx-002--roi-validation-accepts-invalid-values-and-feeds-unsafe-arithmeticindexing">TPF-CX-002
+— ROI validation accepts invalid values and feeds unsafe
+arithmetic/indexing</a></li>
+<li><a
+href="#tpf-cx-003--configuration-can-trigger-unbounded-memory-consumption"
+id="toc-tpf-cx-003--configuration-can-trigger-unbounded-memory-consumption">TPF-CX-003
+— Configuration can trigger unbounded memory consumption</a></li>
+<li><a
+href="#tpf-cx-004--global-state-and-configuration-transitions-contain-c-data-races"
+id="toc-tpf-cx-004--global-state-and-configuration-transitions-contain-c-data-races">TPF-CX-004
+— Global state and configuration transitions contain C++ data
+races</a></li>
+<li><a
+href="#tpf-cx-005--rest-service-starts-before-stop-handlers-are-registered"
+id="toc-tpf-cx-005--rest-service-starts-before-stop-handlers-are-registered">TPF-CX-005
+— REST service starts before stop handlers are registered</a></li>
+<li><a
+href="#tpf-cx-006--websocket-singleton-has-unsafe-concurrent-ownership-and-access"
+id="toc-tpf-cx-006--websocket-singleton-has-unsafe-concurrent-ownership-and-access">TPF-CX-006
+— WebSocket singleton has unsafe concurrent ownership and
+access</a></li>
+<li><a
+href="#tpf-cx-007--synchronous-tcp-and-redis-output-can-block-acquisition-and-shutdown"
+id="toc-tpf-cx-007--synchronous-tcp-and-redis-output-can-block-acquisition-and-shutdown">TPF-CX-007
+— Synchronous TCP and Redis output can block acquisition and
+shutdown</a></li>
+<li><a
+href="#tpf-cx-008--redis-credential-syntax-is-ignored-scan-ids-bypass-json-encoding"
+id="toc-tpf-cx-008--redis-credential-syntax-is-ignored-scan-ids-bypass-json-encoding">TPF-CX-008
+— Redis credential syntax is ignored; scan IDs bypass JSON
+encoding</a></li>
+<li><a
+href="#tpf-cx-009--copy-mode-can-ignore-stop-requests-and-report-io-failures-as-success"
+id="toc-tpf-cx-009--copy-mode-can-ignore-stop-requests-and-report-io-failures-as-success">TPF-CX-009
+— Copy mode can ignore stop requests and report I/O failures as
+success</a></li>
+<li><a
+href="#tpf-cx-010--supplied-systemd-unit-invokes-unsupported-options"
+id="toc-tpf-cx-010--supplied-systemd-unit-invokes-unsupported-options">TPF-CX-010
+— Supplied systemd unit invokes unsupported options</a></li>
+<li><a
+href="#tpf-cx-011--container-builds-are-not-reproducible-and-default-to-roothost-networking"
+id="toc-tpf-cx-011--container-builds-are-not-reproducible-and-default-to-roothost-networking">TPF-CX-011
+— Container builds are not reproducible and default to root/host
+networking</a></li>
+<li><a
+href="#tpf-cx-012--low-level-helpers-rely-on-undefined-behavior-and-release-disabled-assertions"
+id="toc-tpf-cx-012--low-level-helpers-rely-on-undefined-behavior-and-release-disabled-assertions">TPF-CX-012
+— Low-level helpers rely on undefined behavior and release-disabled
+assertions</a></li>
+<li><a
+href="#tpf-cx-013--automated-verification-and-build-metadata-are-insufficient"
+id="toc-tpf-cx-013--automated-verification-and-build-metadata-are-insufficient">TPF-CX-013
+— Automated verification and build metadata are insufficient</a></li>
+</ul></li>
+<li><a href="#cross-cutting-remediation-roadmap"
+id="toc-cross-cutting-remediation-roadmap">Cross-cutting remediation
+roadmap</a>
+<ul>
+<li><a href="#immediate-containment--before-further-production-exposure"
+id="toc-immediate-containment--before-further-production-exposure">Immediate
+containment — before further production exposure</a></li>
+<li><a href="#first-corrective-release"
+id="toc-first-corrective-release">First corrective release</a></li>
+<li><a href="#hardening-release" id="toc-hardening-release">Hardening
+release</a></li>
+<li><a href="#engineering-assurance"
+id="toc-engineering-assurance">Engineering assurance</a></li>
+</ul></li>
+<li><a href="#positive-observations"
+id="toc-positive-observations">Positive observations</a></li>
+<li><a href="#methodology" id="toc-methodology">Methodology</a></li>
+<li><a href="#validation-performed-and-limitations"
+id="toc-validation-performed-and-limitations">Validation performed and
+limitations</a>
+<ul>
+<li><a href="#completed" id="toc-completed">Completed</a></li>
+<li><a href="#not-completed" id="toc-not-completed">Not
+completed</a></li>
+</ul></li>
+<li><a href="#independent-comparison-note"
+id="toc-independent-comparison-note">Independent-comparison
+note</a></li>
+<li><a href="#recommended-acceptance-criteria"
+id="toc-recommended-acceptance-criteria">Recommended acceptance
+criteria</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="timepixfly-independent-production-audit--codex">TimePixFly
+Independent Production Audit — Codex</h1>
+<p><strong>Repository:</strong> TimePixFly<br />
+<strong>Reviewed branch:</strong> <code>dev</code><br />
+<strong>Reviewed commit:</strong>
+<code>ee7ee054b553bf2ea81feb1d108e356e54a03a57</code><br />
+<strong>Review date:</strong> 2026-09-02<br />
+<strong>Reviewer:</strong> Codex<br />
+<strong>Review type:</strong> Independent source, architecture,
+deployment, and production-readiness assessment</p>
+<blockquote>
+<p>This assessment was performed independently. The existing
+Claude/Fable audit report was not read or used as a source. The
+checked-out <code>audit</code> branch was verified to contain exactly
+the reviewed <code>dev</code> commit plus the two Claude report files;
+the analysis itself used an isolated <code>dev</code> snapshot in which
+those report files were absent.</p>
+</blockquote>
+<h2 id="executive-summary">Executive summary</h2>
+<p>TimePixFly has a clear high-throughput architecture: one reader,
+per-chip analysis workers, and a single aggregation/output writer. The
+code also makes good use of RAII, smart pointers, atomics for several
+lifecycle flags, explicit state names, and validation for several
+detector-map invariants.</p>
+<p>The current <code>dev</code> revision is nevertheless not ready to be
+treated as a hardened production baseline without remediation. Four
+high-severity findings affect operational control, memory
+safety/resource use, and cross-thread correctness:</p>
+<ol type="1">
+<li>The HTTP control plane has no authentication or authorization, yet
+the supplied production service binds it to the host's PSI network name
+and exposes stop, restart, kill, configuration, file-selection, and
+output-selection operations.</li>
+<li><code>TimeRoi::SetTimeROI</code> uses <code>&amp;&amp;</code> where
+<code>||</code> is required. It accepts a zero or negative step/count
+whenever the other field is positive, then converts signed inputs to
+unsigned values.</li>
+<li>REST-supplied ROI and pixel-map values can drive effectively
+unbounded histogram allocations. A configuration typo is sufficient to
+exhaust memory; no hostile intent is required.</li>
+<li>Program state, configuration transitions, the last-error value, and
+startup callback registration are not synchronized consistently. The
+code contains C++ data races and a window in which an HTTP request can
+observe or mutate partially initialized control state.</li>
+</ol>
+<p>The most urgent action is to restrict the control interface at
+deployment level immediately, then correct and bound all configuration
+validation before addressing the concurrency design. The remaining
+findings concern WebSocket ownership, blocking output transports, Redis
+URI handling, copy-mode error propagation, deployment artifacts,
+reproducible builds, and undefined behavior in low-level helpers.</p>
+<h2 id="overall-assessment">Overall assessment</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Assessment</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Control-plane exposure</td>
+<td><strong>High risk</strong></td>
+<td>Powerful HTTP operations have no caller verification; shipped
+service binds beyond loopback.</td>
+</tr>
+<tr>
+<td>Configuration validation</td>
+<td><strong>High risk</strong></td>
+<td>Invalid ROI values are accepted and allocation-driving values have
+no upper bounds.</td>
+</tr>
+<tr>
+<td>Concurrency</td>
+<td><strong>High risk</strong></td>
+<td>Shared non-atomic state is read and written from HTTP and
+main/worker threads without one locking protocol.</td>
+</tr>
+<tr>
+<td>Data pipeline</td>
+<td><strong>Moderate risk</strong></td>
+<td>Architecture is understandable, but shutdown/error and release-only
+invariant handling need strengthening.</td>
+</tr>
+<tr>
+<td>Output transports</td>
+<td><strong>Moderate risk</strong></td>
+<td>Synchronous TCP/Redis writes lack explicit time bounds and Redis
+authentication is not implemented.</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td><strong>Moderate risk</strong></td>
+<td>The service unit contains unsupported flags; container builds are
+floating and run as root by default.</td>
+</tr>
+<tr>
+<td>Verification</td>
+<td><strong>Limited assurance</strong></td>
+<td>A test program exists, but there is no repository CI/build manifest
+and the local dependency set was incomplete.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="finding-summary">Finding summary</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th style="text-align: right;">Severity</th>
+<th style="text-align: right;">Confidence</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TPF-CX-001</td>
+<td style="text-align: right;">High</td>
+<td style="text-align: right;">High</td>
+<td>Unauthenticated HTTP control plane is externally bindable in the
+supplied service</td>
+</tr>
+<tr>
+<td>TPF-CX-002</td>
+<td style="text-align: right;">High</td>
+<td style="text-align: right;">High</td>
+<td>ROI validation accepts invalid values and feeds unsafe
+arithmetic/indexing</td>
+</tr>
+<tr>
+<td>TPF-CX-003</td>
+<td style="text-align: right;">High</td>
+<td style="text-align: right;">High</td>
+<td>Configuration can trigger unbounded histogram and parser memory
+consumption</td>
+</tr>
+<tr>
+<td>TPF-CX-004</td>
+<td style="text-align: right;">High</td>
+<td style="text-align: right;">High</td>
+<td>Global state and configuration transitions contain C++ data
+races</td>
+</tr>
+<tr>
+<td>TPF-CX-005</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>REST service starts before stop handlers are registered</td>
+</tr>
+<tr>
+<td>TPF-CX-006</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>WebSocket singleton has unsafe concurrent ownership and access</td>
+</tr>
+<tr>
+<td>TPF-CX-007</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">Medium</td>
+<td>Synchronous TCP and Redis output can block acquisition and shutdown
+indefinitely</td>
+</tr>
+<tr>
+<td>TPF-CX-008</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>Redis credential syntax is documented but ignored; scan IDs bypass
+JSON encoding</td>
+</tr>
+<tr>
+<td>TPF-CX-009</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>Copy mode can ignore stop requests and reports I/O failures as
+successful runs</td>
+</tr>
+<tr>
+<td>TPF-CX-010</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>Supplied systemd unit invokes unsupported command-line options</td>
+</tr>
+<tr>
+<td>TPF-CX-011</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">High</td>
+<td>Container builds are not reproducible and default to a root,
+host-network runtime</td>
+</tr>
+<tr>
+<td>TPF-CX-012</td>
+<td style="text-align: right;">Medium</td>
+<td style="text-align: right;">Medium</td>
+<td>Low-level helpers rely on undefined behavior and release-disabled
+assertions</td>
+</tr>
+<tr>
+<td>TPF-CX-013</td>
+<td style="text-align: right;">Low</td>
+<td style="text-align: right;">High</td>
+<td>Automated verification and dependency/build metadata are
+insufficient for a production branch</td>
+</tr>
+</tbody>
+</table>
+<h2 id="detailed-findings">Detailed findings</h2>
+<h3
+id="tpf-cx-001--unauthenticated-http-control-plane-is-externally-bindable">TPF-CX-001
+— Unauthenticated HTTP control plane is externally bindable</h3>
+<p><strong>Severity:</strong> High<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> REST service, systemd deployment,
+configuration callbacks</p>
+<h4 id="evidence">Evidence</h4>
+<ul>
+<li><code>src/include/rest_callbacks.h:65-109</code> dispatches requests
+solely by method, path, and query parameter. There is no authentication,
+authorization, client identity, origin restriction, or per-operation
+policy check.</li>
+<li><code>src/include/rest_callbacks.h:273-275</code> creates a plain
+HTTP server directly on the configured <code>SocketAddress</code>.</li>
+<li><code>src/include/rest_callbacks.h:320-373</code> exposes stop,
+restart, stop-collection, and immediate process-exit operations.</li>
+<li><code>src/include/rest_callbacks.h:475-506</code> accepts pixel maps
+directly or reads a caller-selected file.</li>
+<li><code>src/include/rest_callbacks.h:543-560</code> lets a caller
+select the output URI, save interval, and histogram ROI.</li>
+<li><code>src/xes_data_writer.cpp:41-46</code> creates output files from
+the configured base path.</li>
+<li><code>unit_files/tpx3app.service:11</code> binds the control
+endpoint to <code>%H.psi.ch:8452</code>, rather than the application's
+safer loopback default.</li>
+</ul>
+<h4 id="impact">Impact</h4>
+<p>Any host that can reach the configured control port can stop or
+repeatedly restart the service, force an immediate process exit, replace
+measurement configuration, select files for parsing, and redirect output
+to a file, TCP endpoint, or Redis endpoint accessible to the
+<code>asi</code> account. This can interrupt experiments, corrupt
+measurement provenance, exhaust resources, or create/overwrite
+period-suffixed files within the service account's filesystem
+permissions.</p>
+<p>The default address in <code>src/include/global.h:75</code> is
+loopback, which is a useful safe default, but the supplied service
+overrides it with a network-visible hostname. Network segmentation may
+reduce reachability, but no such boundary is defined or enforced by the
+repository.</p>
+<h4 id="recommendation">Recommendation</h4>
+<ol type="1">
+<li>Immediately bind production deployments to loopback or a dedicated
+management interface with a host firewall allowlist.</li>
+<li>Put the service behind an authenticated, encrypted reverse proxy or
+implement authenticated requests with distinct read/control/configure
+privileges.</li>
+<li>Remove <code>kill</code> from the remotely reachable API. Make
+destructive operations non-GET and require explicit authorization plus
+request auditing.</li>
+<li>Restrict file inputs and file outputs to configured base directories
+using canonicalized paths; do not accept arbitrary filesystem
+paths.</li>
+<li>Add deployment tests that fail when a control endpoint is externally
+bound without the required protection.</li>
+</ol>
+<hr />
+<h3
+id="tpf-cx-002--roi-validation-accepts-invalid-values-and-feeds-unsafe-arithmeticindexing">TPF-CX-002
+— ROI validation accepts invalid values and feeds unsafe
+arithmetic/indexing</h3>
+<p><strong>Severity:</strong> High<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> <code>TimeRoi</code>, analysis
+indexing, histogram allocation, REST configuration</p>
+<h4 id="evidence-1">Evidence</h4>
+<ul>
+<li><p><code>src/include/time_roi.h:37-38</code> rejects input only when
+<strong>both</strong> <code>tRoiStep &lt;= 0</code> and
+<code>tRoiN &lt;= 0</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">((</span>tRoiStep <span class="op">&lt;=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="op">(</span>tRoiN <span class="op">&lt;=</span> <span class="dv">0</span><span class="op">))</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument<span class="op">(</span><span class="st">&quot;TRoiStep and TRoiN must be positive&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>The condition must use <code>||</code> to enforce that each value is
+positive.</p></li>
+<li><p><code>src/include/time_roi.h:40-44</code> assigns signed
+<code>int</code> inputs to unsigned 64-bit fields and computes
+<code>TRoiStart + TRoiStep * TRoiN</code> without overflow
+checks.</p></li>
+<li><p><code>src/include/analysis.h:72</code> and
+<code>src/include/analysis.h:126</code> compute
+<code>1.f / TRoiStep</code>.</p></li>
+<li><p><code>src/include/analysis.h:59-60</code> converts the resulting
+floating-point expression to an <code>int</code> and uses it as part of
+the histogram index at <code>src/include/analysis.h:40</code>.</p></li>
+<li><p><code>src/include/xes_data.h:46-48</code> uses <code>TRoiN</code>
+in the histogram allocation size.</p></li>
+<li><p><code>src/include/rest_callbacks.h:556-560</code> passes
+caller-supplied JSON values directly to this method.</p></li>
+</ul>
+<h4 id="impact-1">Impact</h4>
+<p>Examples accepted by the current condition include
+<code>(TRoiStep=0, TRoiN=5000)</code>,
+<code>(TRoiStep=1, TRoiN=0)</code>, and negative values when the other
+field is positive. Consequences include:</p>
+<ul>
+<li>division by zero and non-finite <code>TRoiStep_inv</code>;</li>
+<li>signed-to-unsigned conversion to very large values;</li>
+<li>overflow in <code>TRoiEnd</code> and histogram-size
+calculations;</li>
+<li>zero-length histograms followed by <code>TDSpectra[0]</code> in
+TCP/Redis writers;</li>
+<li>out-of-range writes in <code>Analysis::Register</code>.</li>
+</ul>
+<p>This is reachable through ordinary configuration and therefore can
+occur through a typo as well as through an untrusted caller.</p>
+<h4 id="recommendation-1">Recommendation</h4>
+<ul>
+<li>Change the predicate to reject each non-positive field
+independently.</li>
+<li>Define valid minimum and maximum values for start, step, count, and
+the computed end.</li>
+<li>Perform checked unsigned conversion and checked
+multiplication/addition before committing state.</li>
+<li>Compute and validate the complete proposed configuration in local
+temporaries, then assign it atomically only after every check
+succeeds.</li>
+<li>Add boundary tests for zero, negative, maximum, overflow, and
+one-invalid-field cases.</li>
+</ul>
+<hr />
+<h3
+id="tpf-cx-003--configuration-can-trigger-unbounded-memory-consumption">TPF-CX-003
+— Configuration can trigger unbounded memory consumption</h3>
+<p><strong>Severity:</strong> High<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> REST request parsing, pixel-map
+parsing, histogram pool allocation</p>
+<h4 id="evidence-2">Evidence</h4>
+<ul>
+<li><code>src/include/rest_callbacks.h:78-81</code> parses an HTTP
+request stream into a full JSON object without an application-level
+request-size limit.</li>
+<li><code>src/energy_points.cpp:87-96</code> accepts arbitrary unsigned
+energy-point identifiers and derives <code>npoints</code> from the
+largest value plus one; no maximum is enforced.</li>
+<li><code>src/include/xes_data.h:46-48</code> allocates
+<code>TRoiN * npoints</code> floating-point elements per histogram.</li>
+<li><code>src/include/xes_data_manager.h:94-107</code> maintains at
+least five histograms per chip and may create additional histograms when
+the writer falls behind.</li>
+<li><code>src/include/rest_callbacks.h:475-505</code> accepts a full
+pixel map or reads one from an arbitrary selected file;
+<code>src/include/rest_callbacks.h:543-560</code> accepts the ROI and
+save interval.</li>
+</ul>
+<h4 id="impact-2">Impact</h4>
+<p>A single excessive <code>TRoiN</code> or energy-point index can
+request gigabytes or more per histogram, then multiply that cost across
+chips and pool entries. Even valid-but-large requests can consume CPU
+during JSON parsing before allocation. A writer slowdown can grow the
+pool further. The likely result is process termination, host memory
+pressure, or disruption of other beamline services.</p>
+<h4 id="recommendation-2">Recommendation</h4>
+<ul>
+<li>Establish a documented memory budget and derive hard maxima for
+chips, mapped pixels, parts per pixel, energy points, ROI bins, JSON
+body size, and total histogram bytes.</li>
+<li>Reject a proposed configuration if checked multiplication exceeds
+the per-run memory budget.</li>
+<li>Limit HTTP content length before parsing and cap nesting/collection
+sizes.</li>
+<li>Validate weights as finite and within the domain expected by the
+analysis.</li>
+<li>Consider preallocating a bounded pool and applying explicit
+backpressure rather than expanding it without a cap.</li>
+</ul>
+<hr />
+<h3
+id="tpf-cx-004--global-state-and-configuration-transitions-contain-c-data-races">TPF-CX-004
+— Global state and configuration transitions contain C++ data races</h3>
+<p><strong>Severity:</strong> High<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> global error state, program state,
+REST configuration, measurement startup</p>
+<h4 id="evidence-3">Evidence</h4>
+<ul>
+<li><code>src/global.cpp:18-34</code> locks <code>error_lock</code> in
+<code>set_error</code> and <code>get_error</code>, but
+<code>src/global.cpp:37-40</code> reads the same
+<code>std::string last_error</code> without that lock.</li>
+<li><code>src/include/global.h:114</code> declares <code>state</code> as
+a non-atomic <code>std::string_view</code> and explicitly notes that
+protection may be required.</li>
+<li><code>src/include/rest_callbacks.h:209-221</code> writes
+<code>state</code> while holding <code>ws_mutex</code> only in server
+mode. Other readers, including
+<code>src/include/rest_callbacks.h:401-404</code> and
+<code>src/include/rest_callbacks.h:426-432</code>, do not take that
+mutex.</li>
+<li>Configuration PUT handlers take <code>global::configLock()</code>
+and check <code>state</code>, for example
+<code>src/include/rest_callbacks.h:543-560</code>.</li>
+<li>The main thread changes state and reads/copies configuration without
+<code>configLock()</code>, for example <code>src/main.cpp:698-705</code>
+and the calls through
+<code>processing::init()</code>/<code>Analysis::Reset()</code>.</li>
+</ul>
+<h4 id="impact-3">Impact</h4>
+<p>Concurrent access to <code>last_error</code> and <code>state</code>
+is undefined behavior under the C++ memory model. More importantly, the
+configuration lock does not make the <code>config -&gt; setup</code>
+transition atomic: a PUT can observe <code>config</code>, pause, and
+then modify ROI/output/map state after the main thread has begun setup.
+This can leave the writer, <code>Analysis</code>, and global
+configuration using different dimensions or pointers, resulting in wrong
+data, invalid JSON/file output, out-of-range access, or a crash.</p>
+<h4 id="recommendation-3">Recommendation</h4>
+<ul>
+<li>Define one ownership and synchronization model for global lifecycle
+and configuration state.</li>
+<li>Protect <code>last_error</code> in every accessor, including
+<code>error_empty</code>.</li>
+<li>Do not use a WebSocket mutex as the state mutex. Introduce a
+dedicated state/configuration mutex or a small state-machine
+object.</li>
+<li>Under the same lock, transition <code>config -&gt; setup</code>,
+snapshot an immutable validated configuration, and make subsequent
+processing depend only on that snapshot.</li>
+<li>Have REST PUT operations construct and validate a new configuration
+before replacing the active one under the lock.</li>
+<li>Add ThreadSanitizer integration tests covering concurrent
+<code>/state</code>, <code>/other-config</code>, start, stop, and error
+reporting.</li>
+</ul>
+<hr />
+<h3
+id="tpf-cx-005--rest-service-starts-before-stop-handlers-are-registered">TPF-CX-005
+— REST service starts before stop handlers are registered</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> startup ordering, stop/restart
+callbacks</p>
+<h4 id="evidence-4">Evidence</h4>
+<ul>
+<li><code>src/main.cpp:651-652</code> initializes callbacks and starts
+the HTTP service.</li>
+<li>Only afterward, <code>src/main.cpp:654-671</code> creates
+<code>CopyHandler</code> or <code>DataHandler</code> and appends a
+lambda to <code>global::stop_handlers</code>.</li>
+<li>HTTP callbacks iterate that vector at
+<code>src/include/rest_callbacks.h:324-325</code>,
+<code>src/include/rest_callbacks.h:342-343</code>, and
+<code>src/include/rest_callbacks.h:359-360</code>.</li>
+</ul>
+<h4 id="impact-4">Impact</h4>
+<p>An early stop/restart request can race with
+<code>std::vector::emplace_back</code>. Concurrent vector mutation and
+iteration is undefined behavior. A request arriving slightly earlier
+simply sees an empty list and fails to stop the data pipeline
+cleanly.</p>
+<h4 id="recommendation-4">Recommendation</h4>
+<p>Construct the selected data/copy handler and register immutable
+callbacks before calling <code>start_service</code>. Prefer a single
+lifecycle coordinator over a mutable public vector. If runtime
+registration remains necessary, protect the collection and invoke a
+stable copied callback list outside the lock.</p>
+<hr />
+<h3
+id="tpf-cx-006--websocket-singleton-has-unsafe-concurrent-ownership-and-access">TPF-CX-006
+— WebSocket singleton has unsafe concurrent ownership and access</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> <code>/ws</code> state
+notifications</p>
+<h4 id="evidence-5">Evidence</h4>
+<ul>
+<li><code>src/include/rest_callbacks.h:134-136</code> stores one static
+<code>std::unique_ptr&lt;WebSocket&gt;</code> shared by all request
+handlers.</li>
+<li><code>src/include/rest_callbacks.h:156-162</code> replaces it when a
+new <code>/ws</code> request arrives.</li>
+<li><code>src/include/rest_callbacks.h:168-186</code> repeatedly reads
+and dereferences the shared pointer without holding
+<code>ws_mutex</code>.</li>
+<li><code>src/include/rest_callbacks.h:194-199</code> can shut down and
+reset the same pointer from another handler, while
+<code>set_state</code> also sends through it under the mutex at lines
+209-218.</li>
+</ul>
+<h4 id="impact-5">Impact</h4>
+<p>Two concurrent WebSocket clients can cause one handler to operate on
+another client's socket or to race with pointer replacement/reset.
+Outcomes include incorrect delivery, connection loss, use after free, or
+process instability.</p>
+<h4 id="recommendation-5">Recommendation</h4>
+<p>Give each handler exclusive ownership of its own socket. Maintain a
+mutex-protected subscriber collection containing stable shared/weak
+handles, copy the active handles before broadcasting, and remove a
+client on disconnect. Add a two-client concurrency test and repeated
+connect/disconnect test under ThreadSanitizer.</p>
+<hr />
+<h3
+id="tpf-cx-007--synchronous-tcp-and-redis-output-can-block-acquisition-and-shutdown">TPF-CX-007
+— Synchronous TCP and Redis output can block acquisition and
+shutdown</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> Medium<br />
+<strong>Affected components:</strong> <code>TcpWriter</code>,
+<code>RedisWriter</code>, aggregation writer thread</p>
+<h4 id="evidence-6">Evidence</h4>
+<ul>
+<li><code>src/xes_data_writer.cpp:86-97</code> performs a blocking TCP
+connect with no explicit connect timeout.</li>
+<li><code>src/xes_data_writer.cpp:125-138</code>, <code>160-175</code>,
+and <code>191-202</code> write and flush through
+<code>SocketStream</code> without an explicit send timeout.</li>
+<li><code>src/xes_data_writer.cpp:234-239</code>, <code>349-364</code>,
+and <code>400-418</code> issue synchronous Redis commands with no
+application deadline visible in the implementation.</li>
+<li><code>src/include/xes_data_manager.h:224-226</code> performs output
+on the only aggregation/writer thread; histograms are returned to the
+pool only after the write.</li>
+</ul>
+<h4 id="impact-6">Impact</h4>
+<p>A connected but non-reading TCP peer, a stalled Redis server, or a
+network failure can pin the sole writer. Analysis workers then retain or
+allocate additional histograms, stop/shutdown may wait for the writer,
+and memory use can grow. Actual OS/library defaults require runtime
+confirmation, hence the medium confidence rating for indefinite
+duration; the code itself establishes no deadline.</p>
+<h4 id="recommendation-6">Recommendation</h4>
+<p>Set and document finite connect, send, receive, and command timeouts.
+Make cancellation/shutdown close the transport so blocking operations
+are interrupted. Define a bounded output queue and a policy for
+backpressure, dropped output, retry, and measurement failure. Test a
+peer that connects but never reads and a Redis endpoint that stalls
+mid-run.</p>
+<hr />
+<h3
+id="tpf-cx-008--redis-credential-syntax-is-ignored-scan-ids-bypass-json-encoding">TPF-CX-008
+— Redis credential syntax is ignored; scan IDs bypass JSON encoding</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> Redis output writer and protocol
+documentation</p>
+<h4 id="evidence-7">Evidence</h4>
+<ul>
+<li><code>src/xes_data_writer.cpp:429</code> documents
+<code>redis://user:pwd@host:port/key?...</code>.</li>
+<li><code>src/xes_data_writer.cpp:433</code> leaves
+<code>getUserInfo()</code> commented out, and lines 449-450 contain only
+comments where authentication should occur.</li>
+<li><code>src/xes_data_writer.cpp:438-439</code> derives the channel and
+scan ID with raw substrings and does not validate the query key or
+decode policy.</li>
+<li><code>src/xes_data_writer.cpp:284-292</code> inserts
+<code>scan</code> into JSON by string concatenation, unlike the
+<code>Poco::JSON::PrintHandler</code> used for start/end frames.</li>
+</ul>
+<h4 id="impact-7">Impact</h4>
+<p>Deployments may believe credentials in the documented URI are used
+when the client actually makes an unauthenticated connection. A scan ID
+containing quotes, backslashes, or control characters can produce
+invalid or structurally altered JSON data messages, breaking downstream
+consumers and measurement association.</p>
+<h4 id="recommendation-7">Recommendation</h4>
+<p>Either implement Redis authentication securely or reject URIs with
+user information and correct the documentation. Parse query parameters
+by name, require exactly the supported keys, validate channel and scan
+identifiers, and construct every frame through the JSON encoder. Avoid
+logging or returning credentials in destination strings.</p>
+<hr />
+<h3
+id="tpf-cx-009--copy-mode-can-ignore-stop-requests-and-report-io-failures-as-success">TPF-CX-009
+— Copy mode can ignore stop requests and report I/O failures as
+success</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> <code>CopyHandler</code>,
+read-only stream mode, application exit status</p>
+<h4 id="evidence-8">Evidence</h4>
+<ul>
+<li><code>src/include/copy_handler.h:182-185</code> treats path
+<code>none</code> as read-only copy mode.</li>
+<li><code>src/include/copy_handler.h:97-100</code> checks the queue stop
+flag indirectly only when <strong>not</strong> in read-only mode;
+read-only mode reuses the same reservation and continues at lines
+83-103.</li>
+<li><code>src/include/copy_handler.h:201-204</code> implements
+<code>stopNow</code> solely by setting the queue stop flag. With a
+continuously producing source, read-only mode does not consult it.</li>
+<li><code>src/include/copy_handler.h:105-110</code> and
+<code>161-166</code> catch read/write failures and log them but do not
+call <code>global::set_error</code> or rethrow.</li>
+<li><code>src/include/copy_handler.h:178-184</code> does not validate
+that the output file opened successfully at construction time.</li>
+<li><code>src/main.cpp:813-815</code> returns success when the global
+error remains empty.</li>
+</ul>
+<h4 id="impact-8">Impact</h4>
+<p><code>stop_collect</code> can fail to stop a continuous read-only
+stream. File-open, read, and write failures can end the copy threads
+while the application reports a successful run. For raw detector capture
+this creates a material risk of incomplete data being mistaken for a
+valid acquisition.</p>
+<h4 id="recommendation-8">Recommendation</h4>
+<p>Use one explicit cancellation token checked in every read loop, and
+close/shutdown the socket on cancellation. Validate the output stream
+immediately. Propagate every copy-thread failure to the global run
+result and include bytes expected/written plus a clean end-of-stream
+marker in success criteria. Add tests for disk-full, permission denied,
+peer timeout, and continuous-stream stop.</p>
+<hr />
+<h3
+id="tpf-cx-010--supplied-systemd-unit-invokes-unsupported-options">TPF-CX-010
+— Supplied systemd unit invokes unsupported options</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong>
+<code>unit_files/tpx3app.service</code></p>
+<h4 id="evidence-9">Evidence</h4>
+<ul>
+<li><code>unit_files/tpx3app.service:11</code> passes
+<code>--initial-period=7633</code> and
+<code>--max-period-queues=6</code>.</li>
+<li><code>src/main.cpp:171-298</code> defines the current option set and
+contains neither option.</li>
+<li>A repository-wide search found those names only in the unit
+file.</li>
+</ul>
+<h4 id="impact-9">Impact</h4>
+<p>The shipped service definition does not match the current executable
+interface and should fail with unknown-option handling. With
+<code>Restart=always</code>, this can create a restart loop. If
+production works, it implies that the deployed unit differs from the
+repository, which is itself a configuration and traceability gap.</p>
+<h4 id="recommendation-9">Recommendation</h4>
+<p>Update or remove obsolete options, add <code>After=</code>/dependency
+ordering appropriate to the actual services, and validate the exact unit
+in CI using the built executable's option parser. Store the production
+unit and configuration in version control and record the deployed
+commit.</p>
+<hr />
+<h3
+id="tpf-cx-011--container-builds-are-not-reproducible-and-default-to-roothost-networking">TPF-CX-011
+— Container builds are not reproducible and default to root/host
+networking</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> both container Dockerfiles and
+container runbook</p>
+<h4 id="evidence-10">Evidence</h4>
+<ul>
+<li><code>container/tpx3app-container.docker:8-19</code> and
+<code>container/server-container.docker:8-19</code> clone a mutable
+branch during the build rather than building the checked-out source or a
+required commit.</li>
+<li>Base images and apt packages are not digest/version pinned.</li>
+<li>Both runtime stages install development packages at lines
+27-30.</li>
+<li>Neither runtime stage declares a non-root <code>USER</code>.</li>
+<li><code>container/README.md:15-21</code> and <code>44-47</code>
+recommend host networking.</li>
+</ul>
+<h4 id="impact-10">Impact</h4>
+<p>The same build command can produce different binaries over time and
+cannot be tied reliably to the reviewed commit. Network access during
+build expands the supply-chain boundary. Running as root with host
+networking increases the consequence of a process-level defect and makes
+the control services directly share the host network namespace.</p>
+<h4 id="recommendation-10">Recommendation</h4>
+<p>Build from the supplied context at a required commit, pin base-image
+digests and dependency versions, install only runtime libraries in the
+final stage, run as an unprivileged dedicated user, and use a dedicated
+container network with explicit published ports. Generate an SBOM and
+record image digest, source commit, compiler, and dependency versions
+with each deployment.</p>
+<hr />
+<h3
+id="tpf-cx-012--low-level-helpers-rely-on-undefined-behavior-and-release-disabled-assertions">TPF-CX-012
+— Low-level helpers rely on undefined behavior and release-disabled
+assertions</h3>
+<p><strong>Severity:</strong> Medium<br />
+<strong>Confidence:</strong> Medium<br />
+<strong>Affected components:</strong> event representation, pixel-map
+ranges, queue/parser invariants, build flags</p>
+<h4 id="evidence-11">Evidence</h4>
+<ul>
+<li><code>src/include/event_type.h:30</code> and
+<code>src/include/event_type.h:58</code> inspect <code>event_t</code> by
+casting its address to <code>u64*</code>, which violates strict-aliasing
+rules.</li>
+<li><code>src/include/pixel_map.h:71-82</code> forms
+<code>begin()</code> with <code>&amp;mapping[start]</code>. For an empty
+range at <code>start == mapping.size()</code>, this evaluates
+<code>operator[]</code> one past the vector before taking the address;
+<code>data() + start</code> is the valid representation.</li>
+<li>Critical invariants throughout <code>io_buf.h</code>,
+<code>subreservation.h</code>, <code>data_handler.h</code>, and
+<code>xes_data_manager.h</code> are enforced only with
+<code>assert</code>.</li>
+<li><code>src/include/xes_data_manager.h:356-360</code> asserts that
+returned periods are nonzero, but
+<code>src/include/data_handler.h:434</code> can perform a final purge
+with the initial period value when no valid TDC establishes a
+period.</li>
+<li><code>compile.sh:20-22</code> builds production with
+<code>-O3</code>, <code>-ffast-math</code>, and <code>-DNDEBUG</code>,
+removing those assertions and increasing sensitivity to undefined
+behavior.</li>
+</ul>
+<h4 id="impact-11">Impact</h4>
+<p>The current compiler and architecture may produce the intended
+result, but the C++ standard does not guarantee it. Release builds
+silently discard queue and parser checks that debug/tests rely on. A
+malformed or incomplete stream can therefore generate period-zero output
+or continue through an invalid state instead of producing a controlled
+measurement failure.</p>
+<h4 id="recommendation-11">Recommendation</h4>
+<p>Replace type punning with <code>std::memcpy</code> in C++17 (or
+<code>std::bit_cast</code> after moving to C++20), return
+<code>mapping.data() + start</code>, and convert externally
+influenced/integrity-critical assertions into runtime checks with
+explicit error propagation. Keep assertions for internal diagnostics in
+addition to—not instead of—production validation. Evaluate
+<code>-ffast-math</code> against scientific accuracy requirements and
+test both optimized generic and AVX builds under ASan/UBSan.</p>
+<hr />
+<h3
+id="tpf-cx-013--automated-verification-and-build-metadata-are-insufficient">TPF-CX-013
+— Automated verification and build metadata are insufficient</h3>
+<p><strong>Severity:</strong> Low<br />
+<strong>Confidence:</strong> High<br />
+<strong>Affected components:</strong> repository-level engineering
+controls</p>
+<h4 id="evidence-12">Evidence</h4>
+<ul>
+<li>No CI workflow, CMake/Meson project, dependency lock, or package
+manifest is present in the reviewed revision.</li>
+<li><code>compile.sh</code> discovers dependencies from the host and
+records only branch, short commit, and date in the generated version
+string.</li>
+<li><code>src/test.cpp</code> provides a useful custom test executable,
+but the repository does not define an automated matrix for
+release/generic/AVX/sanitizer configurations.</li>
+<li><code>README.md:5-8</code> explicitly records missing logging and
+exception-handling requirements.</li>
+</ul>
+<h4 id="impact-12">Impact</h4>
+<p>Regressions in configuration boundaries, concurrency, optimized
+builds, and deployment artifacts can reach <code>dev</code> without a
+repeatable gate. Reviewers cannot reproduce a production binary from the
+repository alone.</p>
+<h4 id="recommendation-12">Recommendation</h4>
+<p>Introduce a repeatable build definition and CI that covers
+compilation with warnings-as-errors, unit tests, REST integration tests,
+representative raw-stream tests, ASan/UBSan, ThreadSanitizer, generic
+and AVX builds, container builds, and service-file smoke tests. Pin or
+record dependency versions and publish test evidence for every
+production commit.</p>
+<h2 id="cross-cutting-remediation-roadmap">Cross-cutting remediation
+roadmap</h2>
+<h3
+id="immediate-containment--before-further-production-exposure">Immediate
+containment — before further production exposure</h3>
+<ol type="1">
+<li>Bind the control API to loopback or a management-only interface and
+firewall it to named clients.</li>
+<li>Remove or block the remote <code>kill</code> endpoint.</li>
+<li>Fix <code>TimeRoi</code> validation and apply conservative hard
+limits to ROI and map dimensions.</li>
+<li>Correct the systemd unit and confirm exactly which
+unit/configuration is deployed.</li>
+</ol>
+<h3 id="first-corrective-release">First corrective release</h3>
+<ol type="1">
+<li>Implement an immutable validated measurement-configuration
+snapshot.</li>
+<li>Serialize the <code>config -&gt; setup</code> transition with REST
+configuration updates.</li>
+<li>Lock all last-error access and replace the current state
+synchronization with one dedicated state-machine lock/ownership
+model.</li>
+<li>Start the HTTP service only after all handlers and stop callbacks
+are fully constructed.</li>
+<li>Propagate copy-mode failures and make cancellation close active
+sockets.</li>
+<li>Add targeted regression tests for these defects.</li>
+</ol>
+<h3 id="hardening-release">Hardening release</h3>
+<ol type="1">
+<li>Add authenticated, authorized, audited control operations or place
+the API behind an equivalent managed control gateway.</li>
+<li>Bound transport operations and queues; define
+retry/backpressure/failure behavior.</li>
+<li>Redesign WebSocket subscriber ownership.</li>
+<li>Correct Redis authentication/URI/query/JSON handling.</li>
+<li>Replace release-critical assertions and remove undefined
+behavior.</li>
+</ol>
+<h3 id="engineering-assurance">Engineering assurance</h3>
+<ol type="1">
+<li>Add reproducible builds, CI, sanitizers, dependency recording, and
+deployment smoke tests.</li>
+<li>Build containers from pinned source and run them unprivileged on a
+dedicated network.</li>
+<li>Define logging, exception, measurement-integrity, and recovery
+requirements and test them.</li>
+</ol>
+<h2 id="positive-observations">Positive observations</h2>
+<ul>
+<li>Control and raw-data endpoints default to loopback in
+<code>src/include/global.h:73-75</code>.</li>
+<li>The main processing architecture has identifiable reader, per-chip
+analyzer, and writer ownership.</li>
+<li>Several lifecycle signals are atomic, and the error value already
+has a mutex in two of its three accessors.</li>
+<li>Pixel-map parsing verifies detector chip count, pixel indices, and
+point/fraction list lengths.</li>
+<li>Output writer selection uses an explicit scheme allowlist.</li>
+<li>The application generally uses RAII, <code>std::unique_ptr</code>,
+scoped locks, and exception boundaries.</li>
+<li>The supplied systemd unit runs the native service as the
+unprivileged <code>asi</code> user.</li>
+<li>The test and analysis scripts show attention to event order,
+histograms, TDC clocks, and readout behavior; these are good foundations
+for automated regression tests.</li>
+</ul>
+<h2 id="methodology">Methodology</h2>
+<p>The review used the following independent steps:</p>
+<ol type="1">
+<li>Verified branch ancestry and file differences. <code>audit</code> is
+<code>dev</code> commit
+<code>ee7ee054b553bf2ea81feb1d108e356e54a03a57</code> plus the Claude
+HTML/Markdown files only.</li>
+<li>Exported <code>dev</code> into an isolated temporary snapshot
+containing no prior audit report.</li>
+<li>Built a structural/semantic repository graph: 56 supported files,
+863 final nodes, 1,335 final undirected edges, and 42 functional
+communities.</li>
+<li>Traced control-plane, configuration/allocation, data pipeline,
+output, shutdown, build, service, and container paths manually against
+source line numbers.</li>
+<li>Searched for synchronization primitives, exception boundaries,
+assertions, raw memory access, network operations, process exits, and
+configuration/file handling.</li>
+<li>Inspected recent <code>dev</code> history and deployment
+artifacts.</li>
+<li>Attempted a local test build using the source-defined
+libraries.</li>
+</ol>
+<p>Every reported finding was manually verified in the source. Graph
+extraction reported 359 dangling endpoint edges and edge collapse caused
+by unresolved external/library symbols and the undirected projection;
+therefore the graph was used only as a navigation aid, not as evidence
+by itself.</p>
+<h2 id="validation-performed-and-limitations">Validation performed and
+limitations</h2>
+<h3 id="completed">Completed</h3>
+<ul>
+<li>Confirmed reviewed commit and exact relationship between
+<code>dev</code> and <code>audit</code>.</li>
+<li>Confirmed that prior audit content was absent from the review
+snapshot.</li>
+<li>Verified every cited path and line against commit
+<code>ee7ee05</code>.</li>
+<li>Performed repository-wide structural searches and architecture
+tracing.</li>
+<li>Checked current option definitions against the supplied systemd
+unit.</li>
+<li>Checked deployment/container configuration against runtime
+defaults.</li>
+</ul>
+<h3 id="not-completed">Not completed</h3>
+<ul>
+<li>The test binary could not be compiled locally because Poco
+headers/libraries were not installed in the available environment
+(<code>Poco/Exception.h</code> and related headers were missing).</li>
+<li>No detector/Serval service or Redis instance was started.</li>
+<li>No dynamic ASan, UBSan, ThreadSanitizer, fuzzing, load, or
+network-behavior test was run.</li>
+<li>Dependency CVE/version analysis was not possible because the build
+does not pin the effective Poco, jemalloc, compiler, base-image, or
+OS-package versions.</li>
+<li>The actual production firewall, reverse proxy, service override, and
+deployed binary/configuration were not available; exposure findings are
+based on repository artifacts.</li>
+</ul>
+<h2 id="independent-comparison-note">Independent-comparison note</h2>
+<p>Finding IDs in this document are Codex-specific. Because prior audit
+content was deliberately not read, this report does not label findings
+as fixed, regressed, or previously known. Compare by the affected code
+and recommended action rather than by finding number or wording.</p>
+<h2 id="recommended-acceptance-criteria">Recommended acceptance
+criteria</h2>
+<p>The next production candidate should not be accepted until:</p>
+<ul>
+<li>the control endpoint is demonstrably restricted and
+caller-authorized;</li>
+<li>invalid and excessive ROI/map configurations are rejected before any
+global state changes;</li>
+<li>concurrency tests show no races for state, error, configuration,
+startup, WebSocket, or shutdown;</li>
+<li>copy/output failures produce a failed measurement and bounded
+shutdown;</li>
+<li>the checked-in systemd/container artifacts run the exact reviewed
+commit;</li>
+<li>the unit/integration suite passes in optimized generic and AVX
+builds with sanitizer evidence.</li>
+</ul>
+</body>
+</html>
