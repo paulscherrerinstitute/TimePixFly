@@ -209,10 +209,10 @@ function plot_histo(data::AbstractArray{Float32}, start::Int64, step::Int64, nbi
     bin_centers = start .+ (0:nbins-1) * step .+ (step * .5)
     fig = Figure()
 
-    for chip in 1:nchips
-        histo = data[chip:nchips:end][start+1:start+nbins]
-        row = Int64(div(chip-1, ncols) + 1)
-        col = Int64((chip-1) % ncols + 1)
+    for chip in 0:nchips-1
+        histo = data[chip+1:nchips:end][start+1:start+nbins]
+        row = Int64(div(chip, ncols) + 1)
+        col = Int64((chip) % ncols + 1)
 
         ax = Axis(fig[row, col]; title="chip $chip", xticklabelrotation=π/4)
         barplot!(ax, bin_centers, histo; width=step*.9)
