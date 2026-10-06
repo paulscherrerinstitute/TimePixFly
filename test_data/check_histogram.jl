@@ -198,18 +198,42 @@ function check_histo(events::AbstractArray{UInt64}, N::Int, start::Int64, step::
     end
 end
 
-function main()
-    args = arg_parse()
+function plot_histo(data::AbstractArray{Float32}, start::Int64, step::Int64, nbins::Int64, image_file::String)
+    nchips = 8
+    ncols = 4
 
-    fname = args["file"]
-    data = read(fname);
-    if (mod(length(data), 8) != 0)
-        throw(ArgumentError("file length not a multiple of 8 bytes"))
+    if (mod(length(data), nchips) != 0)
+        throw(ArgumentError("XES length not a multiple of $(nchips) chips, this assumes there's one energy point per chip."))
     end
 
-    events = reinterpret(UInt64, data)
-    data = nothing
-    N = length(events)
+    bin_centers = start .+ (0:nbins-1) * step .+ (step * .5)
+    fig = Figure()
+
+    for chip in 1:nchips
+        histo = data[chip:nchips:end][start+1:start+nbins]
+        row = Int64(div(chip-1, ncols) + 1)
+        col = Int64((chip-1) % ncols + 1)
+
+        ax = Axis(fig[row, col]; title="chip $chip", xticklabelrotation=π/4)
+        barplot!(ax, bin_centers, histo; width=step*.9)
+    end
+
+    fig[0, 1:ncols] = Label(
+        fig, "Per chip histograms",
+        fontsize = 24,
+        font = :bold,
+        padding = (0, 0, 10, 10) # (left, right, bottom, top)
+    )
+
+    display(fig)
+
+    if !isempty(image_file)
+        save(image_file, fig)
+    end
+end
+
+function main()
+    args = arg_parse()
 
     image_file = args["save"]
     start = args["begin"]
@@ -217,8 +241,23 @@ function main()
     nbins = args["nbins"]
     pstart = args["period-begin"]
     nperiods = args["nperiods"]
+    fname = args["file"]
 
-    check_histo(events, N, start, step, nbins, pstart, nperiods, image_file)
+    if endswith(fname, ".xes")
+        data = parse.(Float32, split(read(fname, String)))
+        plot_histo(data, start, step, nbins, image_file)
+    else
+        data = read(fname);
+        if (mod(length(data), 8) != 0)
+            throw(ArgumentError("file length not a multiple of 8 bytes"))
+        end
+
+        events = reinterpret(UInt64, data)
+        data = nothing
+        N = length(events)
+
+        check_histo(events, N, start, step, nbins, pstart, nperiods, image_file)
+    end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
